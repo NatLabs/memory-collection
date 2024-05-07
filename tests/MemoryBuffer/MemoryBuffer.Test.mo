@@ -289,6 +289,13 @@ suite(
                     MemoryBuffer.addFirst(mbuffer, Blobify.BigEndian.Nat, i);
                     assert MemoryBuffer.peekFirst(mbuffer, Blobify.BigEndian.Nat) == ?i;
                     assert MemoryBuffer.first(mbuffer, Blobify.BigEndian.Nat) == i;
+                    assert MemoryBuffer.size(mbuffer) == (i + 1);
+                };
+
+                for (i in Iter.range(0, limit - 1)) {
+                    let j = limit - i - 1;
+                    let n = MemoryBuffer.get(mbuffer, Blobify.BigEndian.Nat, j);
+                    assert n == i;
                 };
             },
         );
@@ -297,12 +304,25 @@ suite(
             "removeLast()",
             func() {
                 for (i in Iter.range(0, limit - 1)) {
+                    Debug.print("i = " # debug_show i);
                     let expected = i;
+
+                    assert MemoryBuffer.last(mbuffer, Blobify.BigEndian.Nat) == i;
+                    assert MemoryBuffer.peekLast(mbuffer, Blobify.BigEndian.Nat) == ?i;
+                    assert MemoryBuffer.first(mbuffer, Blobify.BigEndian.Nat) == (limit - 1);
+                    
                     let received = MemoryBuffer.removeLast(mbuffer, Blobify.BigEndian.Nat);
+                    Debug.print("(expected, received) -> " # debug_show (expected, received));
+
                     assert ?expected == received;
+                    assert MemoryBuffer.size(mbuffer) == (limit - i - 1);
+
                 };
             },
         );
+
+        
+        
 
         test(
             "addLast()",

@@ -1,72 +1,95 @@
 ## Memory-Collection
+
 A collection of persistent data structures in motoko that store their data in stable memory. These data structures address the heap storage limitations by allowing developers to leverage the 400GB capacity available in stable memory.
+The use cases for this library include:
+
 
 ### Data Structures
-- `MemoryBuffer`: A persistent buffer.
-- `MemoryBTree`: A persistent B-Tree.
-- `MemoryDeque`: A persistent double ended queue with O(1) random access like a buffer.
+- [MemoryBuffer](./src/MemoryBuffer/readme.md): A persistent buffer with `O(1)` random access and `O(1)` insertion and deletion at both ends.
+- [MemoryBTree](./src/MemoryBTree/readme.md): A persistent B-Tree with `O(log n)` search, insertion, and deletion.
 
+### Motivation
+The heap memory in the Internet Computer is limited to 4GB, which can be a bottleneck for applications that require large amounts of data. Stable memory, on the other hand, has a capacity of 400GB, but it requires developers to manage the allocation and deallocation of memory blocks and also to serialize and deserialize data. The `Memory-Collection` library aims to bridge this gap by providing all the necessary tools to manage data in stable memory exposed through a simple and easy-to-use set of data structures. These data structures can be used to store large amounts of data that need to persist across canister upgrades. 
 
-## MemoryBuffer
+### Notes and Limitations
+- Interacting with stable memory continuously requires significantly more instructions and heap allocations than using heap memory. Therefore, it is recommended to use these data structures only when the data size exceeds the heap memory limit.
+- Each value stored in the data structure is immutable. To update a value, the data will be removed and the new value will be serialized and stored in a new memory block.
+- Currently, stable memory is not garbage collected. Which means that we can't shrink the total memory used once we have allocated it. So even after one of our data structures is no longer in use and has been garbage collected from the heap, the memory it used in stable memory will still be reserved.
 
-### How It Works
-The buffer is built using two [Region](https://internetcomputer.org/docs/current/motoko/main/base/Region/) modules:
-
-- **Blob Region**: Stores all your elements as blobs in stable memory, re-allocating memory as needed. 
-    > Memory allocation in the **Blob Region** is not contiguous, as elements at a specific index may be removed and the memory block reused for an element at a different index in size or may be removed from the buffer.
-- **Pointer Region**: Keeps track of the address and size of the elements in the Blob Region. 
-    > This region is contiguous and all its pointers have the same number of bytes in memory.
-
-#### Pros and Cons
-- **Pros**
-  - Allows for random access to elements with different byte sizes.
-  - Prevents internal fragmentation, a common issue in designs where each element is allocated a memory block equivalent to the maximum element's size.
-- **Cons**
-  - 12 bytes of overhead per element
-    - 8 bytes for the address where the blob of the element is stored
-    - 4 bytes for the size of the element
-  - Each element's size when converted to a `Blob` must be between 1 and 4 GiB.
-  - Additional instructions and heap allocations required for storing and retrieving free memory blocks.
-  - Could potentially cause external fragmentation during memory block reallocations, resulting in a number small blocks that sum up to the needed size but can't be re-allocated because they are not contiguous.
 
 ## Getting Started
-#### Installation
+### Installation
 - Install [mops](https://docs.mops.one/quick-start)
-- Run `mops add memory-buffer` in your project directory
-  
-#### Import modules
-
+- Run `mops add memory-collection` in your project directory
+- Import the modules in your project
 ```motoko
-  import { MemoryBufferClass; Blobify; VersionedMemoryBuffer; MemoryBuffer; } "mo:memory-buffer";
-```
-- **Blobify**: A module that provides functions for serializing and deserializing elements.
-- **MemoryBuffer**: The base module for the buffer.
-- **VersionedMemoryBuffer**: A module over the `MemoryBuffer` that stores the version and makes it easy to upgrade to a new version.
-- **MemoryBufferClass**: A module over the `VersionedMemoryBuffer` that provides a class-like interface.
+    import Blobify "mo:memory-collection/Blobify";
 
-The `MemoryBufferClass` is recommended for general use.
-
-#### Usage Examples
-```motoko
-  stable var mem_store = MemoryBufferClass.newStableStore<Nat>();
-
-  let buffer = MemoryBufferClass.MemoryBufferClass<Nat>(mem_store, Blobify.Nat);
-  buffer.add(1);
-  buffer.add(3);
-  buffer.insert(1, 2);
-  assert buffer.toArray() == [1, 2, 3];
-
-  for (i in Iter.range(0, buffer.size(mem_buffer) - 1)) {
-    let n = buffer.get(i);
-    buffer.put(i, n ** 2);
-  };
-
-  assert buffer.toArray() == [1, 4, 9];
-  assert buffer.remove(1) == ?4;
-  assert buffer.removeLast() == ?9;
+    import MemoryBuffer "mo:memory-collection/MemoryBuffer";
+    import MemoryBTree "mo:memory-collection/MemoryBTree";
 ```
 
-#### Upgrading to a new version
+- Depending on the implementation you want to use, each data structure provides 3 modules:
+    - `Base`: The base module for the buffer.
+    - `Versioned`: A module over the `Base` that stores the version and makes it easy to upgrade to a new version.
+    - `Class`: A module over the `Versioned` that provides a class-like interface.
+
+> The `Class` module is the default module and is recommended for general use.
+
+```motoko
+    import BaseMemoryBuffer "mo:memory-collection/MemoryBuffer/Base";
+    import VersionedMemoryBuffer "mo:memory-collection/MemoryBuffer/Versioned";
+    import MemoryBuffer "mo:memory-collection/MemoryBuffer";
+```
+
+### Usage Examples
+- MemoryBuffer
+```motoko
+    import MemoryBuffer "mo:memory-collection/MemoryBuffer";
+    import Blobify "mo:memory-collection/Blobify";
+    
+    let sstore = MemoryBuffer.newStableStore<Nat>();
+    let mbuffer = MemoryBuffer.MemoryBuffer<Nat>(sstore, Blobify.Nat);
+    mbuffer.add(1);
+    mbuffer.add(3);
+    mbuffer.insert(1, 2);
+    assert mbuffer.toArray() == [1, 2, 3];
+
+    for (i in Iter.range(0, mbuffer.size() - 1)) {
+        let n = mbuffer.get(i);
+        mbuffer.put(i, n ** 2);
+    };
+
+    assert mbuffer.toArray() == [1, 4, 9];
+    assert mbuffer.remove(1) == ?4;
+    assert mbuffer.removeLast() == ?9;
+```
+
+- MemoryBTree
+```motoko
+    import MemoryBTree "mo:memory-collection/MemoryBTree";
+    import BTreeUtils "mo:memory-collection/BTreeUtils";
+
+    let sstore = MemoryBTree.newStableStore(?256);
+
+    let btree_utils = BTreeUtils.createUtils(BTreeUtils.BigEndian.Nat, BTreeUtils.BigEndian.Nat);
+    let mbtree = MemoryBTree.new(sstore, btree_utils);
+
+    mbtree.insert(1, 10);
+    mbtree.insert(2, 20);
+    mbtree.insert(3, 30);
+
+    assert mbtree.get(2) == ?20;
+    assert mbtree.getMin() == ?(1, 10);
+    assert mbtree.getMax() == ?(3, 30);
+
+    assert mbtree.remove(2) == ?20;
+    assert mbtree.get(2) == null;
+
+    assert mbtree.toArray() == [(1, 10), (3, 30)];
+```
+
+### Upgrade
 The MemoryRegion that stores deallocated memory for future use is under development and may have breaking changes in the future. 
 To account for this, the `MemoryBuffer` has a versioning system that allows you to upgrade without losing your data.
 
@@ -76,57 +99,26 @@ Steps to upgrade:
 - Replace the old memory store with the upgraded one.
 
 ```motoko
-  stable var mem_store = MemoryBufferClass.newStableStore<Nat>();
-  mem_store := MemoryBufferClass.upgrade(mem_store);
+  stable var mem_store = MemoryBuffer.newStableStore<Nat>();
+  mem_store := MemoryBuffer.upgrade(mem_store);
 ```
 
-## Benchmarks
-### Buffer vs MemoryBuffer
-Benchmarking the performance with 10k `Nat` entries
+### Utilities (Serialization and Comparison)
+- [Blobify](./src/Blobify/readme.md): A module that provides functions for serializing and deserializing primitive motoko types.
+  - The type is simple, it's a record that contains two functions, `to_blob` and `from_blob`.
+  - The `to_blob` function takes an element of your defined generic type and returns a `Blob`.
+  - The `from_blob` function takes a `Blob` and returns the defined type.
+  - You can define your own Blobify function for your compound types.
+  ```motoko
+  type Blobify<A> = { 
+    to_blob : (A) -> Blob; 
+    from_blob : (Blob) -> A 
+  };
+  ```
+- [MemoryCmp](./src/MemoryCmp/readme.md): A module that provides functions for comparing elements. There are two different types of comparison functions available:
+  - `#GenCmp`: A comparison function that converts the keys to the original generic type defined by the user and then compares them.
+  - `#BlobCmp`: A comparison function that compares the keys directly as blobs. The `#BlobCmp` avoids the overhead of deserializing the keys but requires that the keys be comparable in their serialized format.
+- [BTreeUtils](./src/BTreeUtils/readme.md): A module that provides utilities for selecting and utilizing serialization and comparison functions with the Memory B+Tree.
 
-- **put()** (new == prev) - updating elements in the buffer where number of bytes of the new element is equal to the number of bytes of the previous element
-- **put() (new > prev)** - updating elements in the buffer where number of bytes of the new element is greater than the number of bytes of the previous element
-- **sortUnstable()** - quicksort on the buffer - an unstable sort algorithm
-- **blobSortUnstable()** - sorting without serializing the elements. Requires that the elements can be ordered in their serialized form.
-
-#### Instructions
-
-| Methods             |        Buffer | MemoryBuffer (with Blobify) | MemoryBuffer (encode to candid) |
-| :-----------------  | ------------: | --------------------------: | ------------------------------: |
-| add()               |     4_631_833 |                  55_658_661 |                      44_562_899 |
-| get()               |     2_502_548 |                  31_701_506 |                      26_405_254 |
-| put() (new == prev) |     3_893_438 |                  40_179_267 |                      29_082_693 |
-| put() (new > prev)  |     4_557_396 |                 488_531_847 |                     213_209_278 |
-| put() (new < prev)  |     4_235_067 |                 160_451_767 |                     157_396_508 |
-| add() reallocation  |     8_868_304 |                 290_079_559 |                     159_519_128 |
-| removeLast()        |     4_687_991 |                 130_619_001 |                     123_008_684 |
-| reverse()           |     3_120_905 |                  10_433_404 |                      10_428_189 |
-| remove()            | 3_692_128_841 |                 542_861_160 |                     537_722_525 |
-| insert()            | 3_283_583_528 |                 769_441_766 |                     495_334_102 |
-| sortUnstable()      |   101_307_554 |               7_918_240_085 |                   6_744_921_414 |
-| blobSortUnstable()  |         6_850 |                 903_626_714 |                   1_083_497_533 |
-
-#### Heap
-
-| Methods             |    Buffer | MemoryBuffer (with Blobify) | MemoryBuffer (encode to candid) |
-| :------------------ | --------: | --------------------------: | ------------------------------: |
-| add()               |     9_008 |                     752_584 |                         610_008 |
-| get()               |     9_008 |                   1_144_752 |                         369_040 |
-| put() (new == prev) |     9_008 |                     752_572 |                         609_980 |
-| put() (new > prev)  |     9_012 |                  14_117_144 |                       3_267_348 |
-| put() (new < prev)  |     9_012 |                   2_161_364 |                       2_093_712 |
-| add() reallocation  |   158_984 |                   5_701_172 |                       3_002_856 |
-| removeLast()        |     8_960 |                   2_135_000 |                       1_340_248 |
-| reverse()           |     8_952 |                     249_008 |                         249_008 |
-| remove()            |    57_720 |                   3_169_784 |                       2_437_324 |
-| insert()            |   154_900 |                  16_765_672 |                       5_884_108 |
-| sortUnstable()      | 2_523_784 |                  29_739_268 |                      19_556_996 |
-| blobSortUnstable()  |     8_992 |                  18_777_960 |                      25_562_276 |
-
-
-> Generate benchmarks by running `mops bench` in the project directory.
-
-Encoding to Candid is more efficient than using a custom encoding function.
-However, a custom encoding can be implemented to use less stable memory because it's more flexible and is not required to store the type information with the serialized data.
-
-
+### Serialization Notes
+- Serialization and deserialization using candid is often much more performant than using Blobify or any other serialization methods. The reason for this is because the to_candid and from_candid functions are system functions in the IC and therefore more efficient than any custom serialization methods. However, the candid contains extra type information included in the serialized data, which can make the serialized data larger than using Blobify. This difference in size can be significant if each of the pieces of data being serialized is small. For example a serialized value of Nat8 value if serialized with Blobify will be 1 bytes, but if serialized into candid will include the magic number (4 bytes), the type (1 byte) and the value (1 byte) for a total of 6 bytes. This difference in size can be significant if each of the pieces of data being serialized is small. However, if the data being serialized is large, the overhead of the extra bytes is negligible. So be mindful of the size of the data being serialized when choosing between Blobify and candid.

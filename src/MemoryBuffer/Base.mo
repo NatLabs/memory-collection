@@ -14,7 +14,7 @@
 /// |--------------------------|--------|------|--------|-------|-------------------------------------------------------------------------|
 /// | Magic Number             |  0     |  3   | Blob   | "BLB" | Magic Number used to identify the Blob Region                           |
 /// | Layout Version           |  3     |  1   | Nat8   | 0     | Layout Version detailing how the data in the region is structured       |
-/// | Buffer Metadata Region   |  4     |  4   | Nat32  | -     | Region Id of the Buffer Metadata Region that it is attached to                 |
+/// | Buffer Metadata Region   |  4     |  4   | Nat32  | -     | Region Id of the Buffer Metadata Region that it is attached to          |
 /// | Reserved Header Space    |  8     |  56  | -      | -     | Reserved Space for future use if the layout needs to be updated         |
 /// | Value * `N`              |  64    |  -   | Blob   | -     | N number of arbitrary sized values, serialized and stored in the region |
 /// 
@@ -241,7 +241,9 @@ module MemoryBuffer {
 
     /// Returns the internal index where the value at the given index is stored.
     public func get_circular_index<A>(self : MemoryBuffer<A>, index : Int) : Nat {
-        Int.abs((self.start + index ) % buffer_capacity(self));
+        let buffer_cap = buffer_capacity(self);
+        
+        Int.abs((((self.start + index) % buffer_cap) + buffer_cap) % buffer_cap );
     };
 
     func grow_if_needed<A>(self: MemoryBuffer<A>) {
@@ -361,9 +363,14 @@ module MemoryBuffer {
 
         grow_if_needed(self);
 
+        Debug.print("start: " # debug_show self.start);
+        Debug.print("start - 1: " # debug_show get_circular_index(self, -1));
         let i = get_circular_index(self, -1);
         update_pointer_at_index(self, i, mb_address, blob.size());
         update_start(self, i);
+
+        Debug.print("start after update: " # debug_show self.start);
+        Debug.print("next start: " # debug_show get_circular_index(self, -1));
         update_count(self, self.count + 1);
     };
 
@@ -894,12 +901,12 @@ module MemoryBuffer {
             for (index in Iter.range(pivot + 1, end - 1)) {
 
                 let ord = switch(mem_cmp){
-                    case (#blob_cmp(cmp)) {
+                    case (#BlobCmp(cmp)) {
                         let elem : Blob = _get_blob(mbuffer, get_circular_index(self, index));
                         let pivot_elem : Blob = _get_blob(mbuffer, get_circular_index(self, pivot));
                         cmp(elem, pivot_elem);
                     };
-                    case (#cmp(cmp)){
+                    case (#GenCmp(cmp)){
                         let elem : A = get(mbuffer, blobify, index);
                         let pivot_elem : A = get(mbuffer, blobify, pivot);
                         cmp(elem, pivot_elem);

@@ -21,28 +21,6 @@ import Blobify "../../src/Blobify";
 
 module {
 
-    let candid_text : Blobify.Blobify<Text> = {
-        from_blob = func(b : Blob) : Text {
-            let ?n : ?Text = from_candid (b) else {
-                Debug.trap("Failed to decode Text from blob");
-            };
-            n;
-        };
-        to_blob = func(n : Text) : Blob = to_candid (n);
-    };
-
-    let candid_nat : Blobify.Blobify<Nat> = {
-        from_blob = func(b : Blob) : Nat {
-            let ?n : ?Nat = from_candid (b) else {
-                Debug.trap("Failed to decode Nat from blob");
-            };
-            n;
-        };
-        to_blob = func(n : Nat) : Blob = to_candid (n);
-    };
-
-    let candid_mem_utils = (candid_text, candid_text, MemoryCmp.Default);
-
     type MemoryBTree = MemoryBTree.MemoryBTree;
     type BTreeUtils<K, V> = BTreeUtils.BTreeUtils<K, V>;
 

@@ -4,6 +4,7 @@ import Nat64 "mo:base/Nat64";
 import Region "mo:base/Region";
 import Buffer "mo:base/Buffer";
 import Text "mo:base/Text";
+import Nat "mo:base/Nat";
 
 import Bench "mo:bench";
 import Fuzz "mo:fuzz";
@@ -21,20 +22,25 @@ module {
 
     type MemoryBTree = MemoryBTree.MemoryBTree;
     type BTreeUtils<K, V> = MemoryBTree.BTreeUtils<K, V>;
+    type Buffer<T> = Buffer.Buffer<T>;
 
     public func init() : Bench.Bench {
         let fuzz = Fuzz.fromSeed(0xdeadbeef);
 
         let bench = Bench.Bench();
-        bench.name("Comparing RBTree, BTree and B+Tree (BpTree)");
+        bench.name("Comparing B+Tree and Memory B+Tree with different serialization formats and comparison functions");
         bench.description("Benchmarking the performance with 10k entries");
 
         bench.rows([
-            "B+Tree",
-            "MotokoStableBTree",
-            "Memory B+Tree (blob cmp)",
-            "Memory B+Tree (deserialized cmp)",
+            "Memory B+Tree - Text (#BlobCmp)",
+            "Memory B+Tree - Text (#GenCmp)",
+            "Memory B+Tree - Candid Text (#BlobCmp)",
+            "Memory B+Tree - Candid Text (#GenCmp)",
+            "Memory B+Tree - Nat (#BlobCmp)",
+            "Memory B+Tree - Nat (#GenCmp)",
+            "Memory B+Tree - Candid Nat (#GenCmp)",
         ]);
+
         bench.cols([
             "insert()",
             "get()",
@@ -50,18 +56,27 @@ module {
 
         let tconv_10 = tconv(10);
 
-        let bptree = BpTree.new<Text, Text>(?128);
-        let stable_btree = BTreeMap.new<Text, Text>(BTreeMapMemory.RegionMemory(Region.new()), tconv_10, tconv_10);
-        let mem_btree = MemoryBTree.new(?128);
-        let mem_btree_blob_cmp = MemoryBTree.new(?128);
+        let mem_btree_text_gen_cmp = MemoryBTree.new(?128);
+        let mem_btree_text_blob_cmp = MemoryBTree.new(?128);
+        let mem_btree_candid_text_gen_cmp = MemoryBTree.new(?128);
+        let mem_btree_candid_text_blob_cmp = MemoryBTree.new(?128);
+
+        let mem_btree_nat_gen_cmp = MemoryBTree.new(?128);
+        let mem_btree_nat_blob_cmp = MemoryBTree.new(?128);
+        let mem_btree_candid_nat_gen_cmp = MemoryBTree.new(?128);
+        let mem_btree_candid_nat_blob_cmp = MemoryBTree.new(?128);
 
         let entries = Buffer.Buffer<(Text, Text)>(limit);
+        let nat_entries = Buffer.Buffer<(Nat, Nat)>(limit);
         // let replacements = Buffer.Buffer<(Text, Text)>(limit);
 
         for (i in Iter.range(0, limit - 1)) {
             let key = fuzz.text.randomAlphabetic(10);
 
             entries.add((key, key));
+
+            let n = fuzz.nat.randomRange(0, limit ** 2);
+            nat_entries.add((n * limit, n));
 
             // let replace_val = fuzz.text.randomAlphabetic(10);
 
@@ -71,11 +86,11 @@ module {
         let sorted = Buffer.clone(entries);
         sorted.sort(func(a, b) = Text.compare(a.0, b.0));
 
-        func run_bench<K, V>(name : Text, category : Text, mem_btree : MemoryBTree, btree_utils: BTreeUtils<Text, Text>) {
+        func run_bench<K, V>(name : Text, category : Text, mem_btree : MemoryBTree, btree_utils: BTreeUtils<K, V>, entries: Buffer<(K, V)>, equal: (V, V) -> Bool) {
             switch (category) {
                 case ("insert()") {
                     for ((key, val) in entries.vals()) {
-                        ignore MemoryBTree.insert<Text, Text>(mem_btree, btree_utils, key, val);
+                        ignore MemoryBTree.insert<K, V>(mem_btree, btree_utils, key, val);
                     };
                 };
                 case ("replace()") {
@@ -86,7 +101,8 @@ module {
                 case ("get()") {
                     for (i in Iter.range(0, limit - 1)) {
                         let (key, val) = entries.get(i);
-                        assert ?val == MemoryBTree.get(mem_btree, btree_utils, key);
+                        let ?v = MemoryBTree.get(mem_btree, btree_utils, key);
+                        assert equal(val, v);
                     };
                 };
                 case ("entries()") {
@@ -106,91 +122,59 @@ module {
             };
         };
 
-        let btree_utils = BTreeUtils.createUtils(BTreeUtils.Text, BTreeUtils.Text);
-        let ds_text_utils = {
+        let btree_utils  = BTreeUtils.createUtils(BTreeUtils.Text, BTreeUtils.Text);
+        let gen_cmp_text_utils = {
             key = Blobify.Text;
             val = Blobify.Text;
-            cmp = #cmp(Int8Cmp.Text);
+            cmp = #GenCmp(Int8Cmp.Text);
         };
+
+        let candid_text_utils = BTreeUtils.createUtils(BTreeUtils.Candid.Text, BTreeUtils.Candid.Text);
+        let candid_text_gen_cmp_utils = {
+            key = Blobify.Candid.Text;
+            val = Blobify.Candid.Text;
+            cmp = #GenCmp(Int8Cmp.Text);
+        };
+
+        let nat_btree_utils = BTreeUtils.createUtils(BTreeUtils.BigEndian.Nat, BTreeUtils.BigEndian.Nat);
+        let nat_gen_cmp_utils : BTreeUtils<Nat, Nat> = {
+            key = Blobify.BigEndian.Nat;
+            val = Blobify.BigEndian.Nat;
+            cmp = #GenCmp(Int8Cmp.Nat);
+        };
+
+        let candid_nat_utils = BTreeUtils.createUtils(BTreeUtils.Candid.Nat, BTreeUtils.Candid.Nat);
 
         bench.runner(
             func(col, row) = switch (col, row) {
-                case ("B+Tree", "insert()") {
-                    for ((key, val) in entries.vals()) {
-                        ignore BpTree.insert(bptree, Cmp.Text, key, val);
-                    };
-                };
-                case ("B+Tree", "replace()") {
-                    for ((key, val) in entries.vals()) {
-                        ignore BpTree.insert(bptree, Cmp.Text, key, val);
-                    };
-                };
-                case ("B+Tree", "get()") {
-                    for (i in Iter.range(0, limit - 1)) {
-                        let key = entries.get(i).0;
-                        ignore BpTree.get(bptree, Cmp.Text, key);
-                    };
-                };
-                case ("B+Tree", "entries()") {
-                    for (kv in BpTree.entries(bptree)) { ignore kv };
-                };
-                case ("B+Tree", "scan()") {
-                    var i = 0;
 
-                    while (i < limit) {
-                        let a = sorted.get(i).0;
-                        let b = sorted.get(i + 99).0;
-
-                        for (kv in BpTree.scan(bptree, Cmp.Text, ?a, ?b)) {
-                            ignore kv;
-                        };
-                        i += 100;
-                    };
-                };
-                case ("B+Tree", "remove()") {
-                    for ((k, v) in entries.vals()) {
-                        ignore BpTree.remove(bptree, Cmp.Text, k);
-                    };
+                case ("Memory B+Tree - Text (#BlobCmp)", category) {
+                    run_bench("Memory B+Tree", category, mem_btree_text_blob_cmp, btree_utils, entries, Text.equal);
                 };
 
-                case ("MotokoStableBTree", "insert()") {
-                    for ((key, val) in entries.vals()) {
-                        ignore stable_btree.insert(key, tconv_10, val, tconv_10);
-                    };
-                };
-                case ("MotokoStableBTree", "replace()") {
-                    for ((key, val) in entries.vals()) {
-                        ignore stable_btree.insert(key, tconv_10, val, tconv_10);
-                    };
-                };
-                case ("MotokoStableBTree", "get()") {
-                    for (i in Iter.range(0, limit - 1)) {
-                        let (key, val) = entries.get(i);
-                        ignore stable_btree.get(key, tconv_10, tconv_10);
-                    };
-                };
-                case ("MotokoStableBTree", "entries()") {
-                    var i = 0;
-                    for (kv in stable_btree.iter(tconv_10, tconv_10)) {
-                        i += 1;
-                    };
-
-                    assert Nat64.fromNat(i) == stable_btree.getLength();
-                    Debug.print("Size: " # debug_show (i, stable_btree.getLength()));
-                };
-                case ("MotokoStableBTree", "scan()") {};
-                case ("MotokoStableBTree", "remove()") {
-                    for ((k, v) in entries.vals()) {
-                        ignore stable_btree.remove(k, tconv_10, tconv_10);
-                    };
+                case ("Memory B+Tree - Text (#GenCmp)", category) {
+                    run_bench("Memory B+Tree", category, mem_btree_text_gen_cmp, gen_cmp_text_utils, entries, Text.equal);
                 };
 
-                case ("Memory B+Tree (blob cmp)", category) {
-                    run_bench("Memory B+Tree", category, mem_btree_blob_cmp, btree_utils);
+                case ("Memory B+Tree - Candid Text (#BlobCmp)", category) {
+                    run_bench("Memory B+Tree", category, mem_btree_candid_text_blob_cmp, candid_text_utils, entries, Text.equal);
                 };
 
-                case ("Memory B+Tree (deserialized cmp)", category) {
-                    run_bench("Memory B+Tree", category, mem_btree, ds_text_utils);
+                case ("Memory B+Tree - Candid Text (#GenCmp)", category) {
+                    run_bench("Memory B+Tree", category, mem_btree_candid_text_gen_cmp, candid_text_gen_cmp_utils, entries, Text.equal);
+                };
+
+
+                case ("Memory B+Tree - Nat (#BlobCmp)", category) {
+                    run_bench("Memory B+Tree", category, mem_btree_nat_blob_cmp, nat_btree_utils, nat_entries, Nat.equal);
+                };
+
+                case ("Memory B+Tree - Nat (#GenCmp)", category) {
+                    run_bench<Nat, Nat>("Memory B+Tree", category, mem_btree_nat_gen_cmp, nat_gen_cmp_utils, nat_entries, Nat.equal);
+                };
+
+                case ("Memory B+Tree - Candid Nat (#GenCmp)", category) {
+                    run_bench("Memory B+Tree", category, mem_btree_candid_nat_gen_cmp, candid_nat_utils, nat_entries, Nat.equal);
                 };
                 case (_) {
                     Debug.trap("Should not reach with row = " # debug_show row # " and col = " # debug_show col);

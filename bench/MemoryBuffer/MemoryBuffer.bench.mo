@@ -15,7 +15,6 @@ import Fuzz "mo:fuzz";
 import Blobify "../../src/Blobify";
 import MemoryBuffer "../../src/MemoryBuffer/Base";
 import VersionedMemoryBuffer "../../src/MemoryBuffer/Versioned";
-import MemoryBufferClass "../../src/MemoryBuffer/Class";
 
 import Utils "../../src/Utils";
 import MemoryCmp "../../src/MemoryCmp";
@@ -56,9 +55,9 @@ module {
             "reverse()",
             "remove()",
             "insert()",
-            "sortUnstable()",
+            "sortUnstable() #GenCmp",
             "shuffle()",
-            "sortUnstable() (#blob_cmp)",
+            "sortUnstable() #BlobCmp",
         ]);
 
         let limit = 10_000;
@@ -141,10 +140,10 @@ module {
                 case ("Buffer", "reverse()") {
                     Buffer.reverse(buffer);
                 };
-                case ("Buffer", "sortUnstable()") {
+                case ("Buffer", "sortUnstable() #GenCmp") {
                     buffer.sort(Nat.compare);
                 };
-                case ("Buffer", "sortUnstable() (#blob_cmp)") { };
+                case ("Buffer", "sortUnstable() #BlobCmp") { };
                 case ("Buffer", "shuffle()") {
                     // fuzz.buffer.shuffle(buffer);
                 };
@@ -219,10 +218,10 @@ module {
                 case("MemoryBuffer (encode to candid)", "reverse()") {
                     MemoryBuffer.reverse(cbuffer);
                 };
-                case("MemoryBuffer (encode to candid)", "sortUnstable()") {
-                    MemoryBuffer.sortUnstable(cbuffer, candid_blobify, #cmp(Cmp.Nat));
+                case("MemoryBuffer (encode to candid)", "sortUnstable() #GenCmp") {
+                    MemoryBuffer.sortUnstable(cbuffer, candid_blobify, #GenCmp(Cmp.Nat));
                 };
-                case("MemoryBuffer (encode to candid)", "sortUnstable() (#blob_cmp)") {};
+                case("MemoryBuffer (encode to candid)", "sortUnstable() #BlobCmp") {};
                 case ("MemoryBuffer (encode to candid)", "shuffle()") {
                     MemoryBuffer.shuffle(cbuffer);
                 };
@@ -298,14 +297,14 @@ module {
                 case("MemoryBuffer (with Blobify)", "reverse()") {
                     MemoryBuffer.reverse(mbuffer);
                 };
-                case("MemoryBuffer (with Blobify)", "sortUnstable()") {
-                    MemoryBuffer.sortUnstable(mbuffer, Blobify.BigEndian.Nat, #cmp(Cmp.Nat));
+                case("MemoryBuffer (with Blobify)", "sortUnstable() #GenCmp") {
+                    MemoryBuffer.sortUnstable(mbuffer, Blobify.BigEndian.Nat, #GenCmp(Cmp.Nat));
                 };
                 case("MemoryBuffer (with Blobify)", "shuffle()") {
                     MemoryBuffer.shuffle(mbuffer);
                 };
-                case("MemoryBuffer (with Blobify)", "sortUnstable() (#blob_cmp)") {
-                    MemoryBuffer.sortUnstable(mbuffer, Blobify.BigEndian.Nat, #blob_cmp(Cmp.Blob));
+                case("MemoryBuffer (with Blobify)", "sortUnstable() #BlobCmp") {
+                    MemoryBuffer.sortUnstable(mbuffer, Blobify.BigEndian.Nat, #BlobCmp(Cmp.Blob));
                 };
                 case ("MemoryBuffer (with Blobify)", "removeLast()") {
                     for (_ in Iter.range(0, limit - 1)) {

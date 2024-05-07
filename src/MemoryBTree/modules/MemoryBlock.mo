@@ -1,12 +1,3 @@
-/// ![MemoryBlock](./mem-block.png)
-/// Instructions
-/// 
-/// |                            |    insert() |       get() |   replace() |  entries() |      remove() |
-/// | :------------------------- | ----------: | ----------: | ----------: | ---------: | ------------: |
-/// | B+Tree                     | 175_383_943 | 144_101_415 | 154_390_977 |  4_851_558 |   184_602_693 |
-/// | MotokoStableBTree          | 807_443_679 |   3_564_997 | 807_444_791 |     11_835 |     2_817_599 |
-/// | Memory B+Tree (order 4)    | 872_667_810 | 640_728_910 | 961_841_824 | 48_674_343 | 1_065_621_728 |
-
 import Nat "mo:base/Nat";
 import Blob "mo:base/Blob";
 import Nat64 "mo:base/Nat64";
@@ -26,10 +17,15 @@ module MemoryBlock {
     /// blocks region
     /// header - 64 bytes
     /// each entry - 23 bytes
-    /// ---------------------------------------------------------------------------------------
-    /// |      1 byte     |     10 bytes        (8 + 2)    |        12 bytes       (8 + 4)    |
-    /// | reference count | key mem block (address + size) | value mem block (address + size) |
-    /// ---------------------------------------------------------------------------------------
+
+    /// Memory Layout - (15 bytes)
+    ///
+    /// | Field           | Size (bytes) | Description |
+    /// |-----------------|--------------|-------------|
+    /// | reference count |  1           | reference count                     |
+    /// | address         |  8           | address of key blob in blobs region |
+    /// | key size        |  2           | size of key blob                    |
+    /// | value size      |  4           | size of value blob                  |
 
     type Address = Nat;
     type MemoryRegion = MemoryRegion.MemoryRegion;
@@ -56,6 +52,13 @@ module MemoryBlock {
     func store_blob(btree : MemoryBTree, key : Blob) : Address {
         let mb_address = MemoryRegion.allocate(btree.blobs, key.size());
         MemoryRegion.storeBlob(btree.blobs, mb_address, key);
+        mb_address
+    };
+
+    func store_kv_pair(btree : MemoryBTree, key : Blob, val: Blob) : Address {
+        let mb_address = MemoryRegion.allocate(btree.blobs, key.size() + val.size());
+        MemoryRegion.storeBlob(btree.blobs, mb_address, key);
+        MemoryRegion.storeBlob(btree.blobs, mb_address + key.size(), val);
         mb_address
     };
 
@@ -100,11 +103,6 @@ module MemoryBlock {
         let block_address = get_location_from_id(id);
         let ref_count = MemoryRegion.loadNat8(btree.blocks, block_address + REFERENCE_COUNT_START);
         Nat8.toNat(ref_count)
-    };
-
-    func update_ref_count(btree : MemoryBTree, id : UniqueId, ref_count : Nat) {
-        let block_address = get_location_from_id(id);
-        MemoryRegion.storeNat8(btree.blocks, block_address + REFERENCE_COUNT_START, Nat8.fromNat(ref_count));
     };
 
     public func increment_ref_count(btree : MemoryBTree, id : UniqueId) {

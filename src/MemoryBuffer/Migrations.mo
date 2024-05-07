@@ -1,4 +1,5 @@
-/// A memory buffer is a data structure that stores a sequence of values in memory.
+/// The Migration module is responsible for upgrading the memory buffer to the latest version.
+/// It stores the different versions of the memory buffer and provides functions to upgrade and retrieve the current version.
 
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
@@ -26,6 +27,8 @@ module Migrations {
         #v1 : MemoryBufferV1<A>;
     };
 
+
+    /// Upgrade the memory buffer to the latest version.
     public func upgrade<A>(versions: VersionedMemoryBuffer<A>) : VersionedMemoryBuffer<A> = switch(versions){
         case (#v0(v0)) {
             let v1 : MemoryBufferV1 <A> = {
@@ -45,6 +48,7 @@ module Migrations {
         case (#v1(v1)) versions;
     };
 
+    /// Get the current version of the memory buffer.
     public func getCurrentVersion<A>(versions: VersionedMemoryBuffer<A>) : MemoryBuffer<A> {
         switch(versions){
             case (#v1(v1)) v1;

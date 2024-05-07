@@ -1,9 +1,10 @@
 [package]
-name = "memory-buffer"
-version = "0.1.0"
+name = "memory-collection"
+version = "0.0.1"
 description = "A persistent buffer implementation in motoko."
 repository = "https://github.com/NatLabs/memory-buffer"
 keywords = [ "region", "buffer", "persistent", "collections", "encoding" ]
+license = "MIT"
 
 [dependencies]
 base = "0.11.1"

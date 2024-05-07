@@ -418,6 +418,7 @@ module Branch {
             case (? #leaf(_)) return #leaf;
             case (_) {};
         };
+        
         assert MemoryRegion.loadBlob(btree.metadata, node_address, MC.MAGIC_SIZE) == MC.MAGIC;
 
         let node_type = MemoryRegion.loadNat8(btree.metadata, node_address + MC.NODE_TYPE_START);

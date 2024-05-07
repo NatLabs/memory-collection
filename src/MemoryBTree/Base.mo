@@ -187,8 +187,8 @@ module {
         let count = Leaf.get_count(btree, leaf_address);
 
         let int_index = switch (btree_utils.cmp) {
-            case (#cmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
-            case (#blob_cmp(cmp)) {
+            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
+            case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
             };
         };
@@ -244,7 +244,7 @@ module {
             let ?parent_address = opt_parent else Debug.trap("insert: Failed to get parent address");
 
             let parent_count = Branch.get_count(btree, parent_address);
-            // assert MemoryRegion.loadBlob(btree.metadata, parent_address, Branch.MC.MAGIC_SIZE) == Branch.MC.MAGIC;
+            assert MemoryRegion.loadBlob(btree.metadata, parent_address, Branch.MC.MAGIC_SIZE) == Branch.MC.MAGIC;
 
             // insert right node in parent if there is enough space
             if (parent_count < btree.order) {
@@ -342,8 +342,8 @@ module {
         let count = Leaf.get_count(btree, leaf_address);
 
         let int_index = switch (btree_utils.cmp) {
-            case (#cmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
-            case (#blob_cmp(cmp)) {
+            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
+            case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
             };
         };
@@ -408,8 +408,8 @@ module {
         let count = Leaf.get_count(btree, leaf_address);
 
         let int_index = switch (btree_utils.cmp) {
-            case (#cmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
-            case (#blob_cmp(cmp)) {
+            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
+            case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
             };
         };
@@ -444,23 +444,6 @@ module {
         let key = btree_utils.key.from_blob(key_blob);
         let value = btree_utils.val.from_blob(val_blob);
         ?(key, value);
-    };
-
-    func clear_region_after_header(region: MemoryRegion, header_size: Nat){
-        var prev_size = header_size;
-
-        for ((mem_block) in MemoryRegion.getFreeMemory(region).vals()) {
-            assert prev_size <= mem_block.0;
-            MemoryRegion.deallocate(region, prev_size, mem_block.0 - prev_size);
-            prev_size := mem_block.0 + mem_block.1;
-        };
-
-        if (prev_size < MemoryRegion.size(region)) {
-            MemoryRegion.deallocate(region, prev_size, MemoryRegion.size(region) - prev_size);
-        };
-
-        assert MemoryRegion.allocated(region) == header_size;
-
     };
 
     public func clear(btree : MemoryBTree) {
@@ -518,8 +501,8 @@ module {
         let count = Leaf.get_count(btree, leaf_address);
 
         let int_index = switch (btree_utils.cmp) {
-            case (#cmp(cmp)) Leaf.binary_search(btree, btree_utils, leaf_address, cmp, key, count);
-            case (#blob_cmp(cmp)) {
+            case (#GenCmp(cmp)) Leaf.binary_search(btree, btree_utils, leaf_address, cmp, key, count);
+            case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
             };
         };
@@ -694,8 +677,8 @@ module {
         let leaf_address = Methods.get_leaf_address<K, V>(btree, btree_utils, key, ?key_blob);
 
         let i = switch(btree_utils.cmp){
-            case(#cmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, Leaf.get_count(btree, leaf_address));
-            case(#blob_cmp(cmp)) {
+            case(#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, Leaf.get_count(btree, leaf_address));
+            case(#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, Leaf.get_count(btree, leaf_address));
             };
         };
@@ -723,8 +706,8 @@ module {
         let leaf_address = Methods.get_leaf_address<K, V>(btree, btree_utils, key, ?key_blob);
 
         let i = switch(btree_utils.cmp){
-            case(#cmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, Leaf.get_count(btree, leaf_address));
-            case(#blob_cmp(cmp)) {
+            case(#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, Leaf.get_count(btree, leaf_address));
+            case(#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, Leaf.get_count(btree, leaf_address));
             };
         };
@@ -771,8 +754,8 @@ module {
         // Debug.print("key_blob: " # debug_show key_blob);
         let count = Leaf.get_count(btree, leaf_address);
         let int_index = switch (btree_utils.cmp) {
-            case (#cmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
-            case (#blob_cmp(cmp)) {
+            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
+            case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
             };
         };
@@ -812,8 +795,8 @@ module {
 
         let start_index = switch(start){
             case(?key) switch(btree_utils.cmp){
-                case(#cmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, start_address, cmp, key, Leaf.get_count(btree, start_address));
-                case(#blob_cmp(cmp)) {
+                case(#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, start_address, cmp, key, Leaf.get_count(btree, start_address));
+                case(#BlobCmp(cmp)) {
                     let key_blob = btree_utils.key.to_blob(key);
                     Leaf.binary_search_blob_seq(btree, start_address, cmp, key_blob, Leaf.get_count(btree, start_address));
                 };
@@ -835,8 +818,8 @@ module {
 
         let end_index = switch(end){
             case(?key) switch(btree_utils.cmp){
-                case(#cmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, end_address, cmp, key, Leaf.get_count(btree, end_address));
-                case(#blob_cmp(cmp)) {
+                case(#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, end_address, cmp, key, Leaf.get_count(btree, end_address));
+                case(#BlobCmp(cmp)) {
                     let key_blob = btree_utils.key.to_blob(key);
                     Leaf.binary_search_blob_seq(btree, end_address, cmp, key_blob, Leaf.get_count(btree, end_address));
                 };

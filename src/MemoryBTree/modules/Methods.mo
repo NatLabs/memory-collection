@@ -39,7 +39,7 @@ module {
         loop {
             switch (Branch.get_node_type(btree, curr_address)) {
                 case (#leaf) {
-                    // assert Leaf.validate(btree, curr_address);
+                    assert Leaf.validate(btree, curr_address);
                     Leaf.add_to_cache(btree, curr_address);
                     return curr_address;
                 };
@@ -47,13 +47,13 @@ module {
                     // load breanch from stable memory
                     // and add it to the cache
                     Branch.add_to_cache(btree, curr_address);
-                    // assert MemoryRegion.loadBlob(btree.metadata, curr_address, Branch.MC.MAGIC_SIZE) == Branch.MC.MAGIC;
+                    assert MemoryRegion.loadBlob(btree.metadata, curr_address, Branch.MC.MAGIC_SIZE) == Branch.MC.MAGIC;
 
                     let count = Branch.get_count(btree, curr_address);
 
                     let int_index = switch (btree_utils.cmp) {
-                        case (#cmp(cmp)) Branch.binary_search<K, V>(btree, btree_utils, curr_address, cmp, key, count - 1);
-                        case (#blob_cmp(cmp)) {
+                        case (#GenCmp(cmp)) Branch.binary_search<K, V>(btree, btree_utils, curr_address, cmp, key, count - 1);
+                        case (#BlobCmp(cmp)) {
 
                             let key_blob = switch (opt_key_blob) {
                                 case (null) {
@@ -83,7 +83,7 @@ module {
         loop {
             switch (Branch.get_node_type(btree, curr_address)) {
                 case (#leaf) {
-                    // assert Leaf.validate(btree, curr_address);
+                    assert Leaf.validate(btree, curr_address);
                     Leaf.add_to_cache(btree, curr_address);
                     return curr_address;
                 };
@@ -91,13 +91,13 @@ module {
                     // load breanch from stable memory
                     // and add it to the cache
                     Branch.add_to_cache(btree, curr_address);
-                    // assert MemoryRegion.loadBlob(btree.metadata, curr_address, Branch.MC.MAGIC_SIZE) == Branch.MC.MAGIC;
+                    assert MemoryRegion.loadBlob(btree.metadata, curr_address, Branch.MC.MAGIC_SIZE) == Branch.MC.MAGIC;
 
                     let count = Branch.get_count(btree, curr_address);
 
                     let int_index = switch (btree_utils.cmp) {
-                        case (#cmp(cmp)) Branch.binary_search<K, V>(btree, btree_utils, curr_address, cmp, key, count - 1);
-                        case (#blob_cmp(cmp)) {
+                        case (#GenCmp(cmp)) Branch.binary_search<K, V>(btree, btree_utils, curr_address, cmp, key, count - 1);
+                        case (#BlobCmp(cmp)) {
 
                             let key_blob = switch (opt_key_blob) {
                                 case (null) {
@@ -208,7 +208,7 @@ module {
                         
                         // Debug.print("branch child: " # debug_show child);
                         switch(btree_utils.cmp) {
-                            case (#cmp(cmp)) {
+                            case (#GenCmp(cmp)) {
                                 let ds_key = btree_utils.key.from_blob(key);
                                 let ds_search_key = btree_utils.key.from_blob(search_key);
                                 // Debug.print("(key, search_key, res) -> " # debug_show (key, search_key, cmp(ds_key, ds_search_key)));
@@ -217,7 +217,7 @@ module {
                                     return get_node(child, key);
                                 };
                             };
-                            case (#blob_cmp(cmp)) {
+                            case (#BlobCmp(cmp)) {
                                 // Debug.print("(key, search_key, res) -> " # debug_show (key, search_key, cmp(key, search_key)));
                                 if (cmp(key, search_key) >= 0) {
                                     return get_node(child, key);
@@ -233,7 +233,7 @@ module {
                         rank -= Leaf.get_count(btree, child);
 
                         switch(btree_utils.cmp) {
-                            case (#cmp(cmp)) {
+                            case (#GenCmp(cmp)) {
                                 let ds_key = btree_utils.key.from_blob(key);
                                 let ds_search_key = btree_utils.key.from_blob(search_key);
                                 // Debug.print("(key, search_key, res) -> " # debug_show (key, search_key, cmp(ds_key, ds_search_key)));
@@ -241,7 +241,7 @@ module {
                                     return child;
                                 };
                             };
-                            case (#blob_cmp(cmp)) {
+                            case (#BlobCmp(cmp)) {
                                 // Debug.print("(key, search_key, res) -> " # debug_show (key, search_key, cmp(key, search_key)));
                                 if (cmp(key, search_key) >= 0) {
                                     return child;
@@ -588,7 +588,7 @@ module {
                             case (null) {};
                             case (?prev) {
                                 switch (btree_utils.cmp) {
-                                    case (#cmp(cmp)) {
+                                    case (#GenCmp(cmp)) {
                                         let _prev = btree_utils.key.from_blob(prev);
                                         let _key = btree_utils.key.from_blob(key);
                                         // Debug.print("l (prev, key): " # debug_show (_prev, _key));
@@ -602,7 +602,7 @@ module {
                                             assert false;
                                         };
                                     };
-                                    case (#blob_cmp(cmp)) {
+                                    case (#BlobCmp(cmp)) {
                                         if (cmp(prev, key) != -1) {
                                             Debug.print("key mismatch at index: " # debug_show i);
                                             Debug.print("prev: " # debug_show prev);
@@ -651,7 +651,7 @@ module {
                                 case (null) {};
                                 case (?prev) {
                                     switch (btree_utils.cmp) {
-                                        case (#cmp(cmp)) {
+                                        case (#GenCmp(cmp)) {
                                             let _prev = btree_utils.key.from_blob(prev);
                                             let _key = btree_utils.key.from_blob(key);
                                             // Debug.print("b (prev, key): " # debug_show (_prev, _key));
@@ -663,7 +663,7 @@ module {
                                                 assert false;
                                             };
                                         };
-                                        case (#blob_cmp(cmp)) {
+                                        case (#BlobCmp(cmp)) {
                                             if (cmp(prev, key) != -1) {
                                                 Debug.print("key mismatch at index: " # debug_show i);
                                                 Debug.print("prev: " # debug_show prev);

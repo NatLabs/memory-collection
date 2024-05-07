@@ -8,6 +8,11 @@
 ///
 /// It is recommended to use the MemoryBuffer Class for most use-cases.
 ///
+/// Import the `MemoryBuffer` and `Blobify` module to get started.
+/// ```motoko
+///     import Blobify "mo:memory-collection/Blobify";
+///     import MemoryBuffer "mo:memory-collection/MemoryBuffer";
+/// ```
 
 import Iter "mo:base/Iter";
 import Order "mo:base/Order";
