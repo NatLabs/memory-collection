@@ -200,13 +200,16 @@ module Leaf {
 
             let key_block = MemoryBlock.get_key_block(btree, key_id);
             let key_blob = MemoryBlock.get_key_blob(btree, key_id);
+            // Debug.print("key_block = " # debug_show key_block);
             // Debug.print("key_blob = " # debug_show key_blob);
 
             leaf.2 [i] := ?(key_block);
 
             let val_block = MemoryBlock.get_val_block(btree, key_id);
             let val_blob = MemoryBlock.get_val_blob(btree, key_id);
+            // Debug.print("val_block = " # debug_show val_block);
             // Debug.print("val_blob = " # debug_show val_blob);
+
             leaf.3 [i] := ?(val_block);
             leaf.4 [i] := ?(key_blob, val_blob);
 
@@ -381,6 +384,11 @@ module Leaf {
 
         let key_offset = get_kv_id_offset(address, i);
         MemoryRegion.storeNat64(btree.metadata, key_offset, NULL_ADDRESS);
+    };
+
+    public func replace_kv_id(btree: MemoryBTree, address: Nat, index: Nat, new_id: UniqueId) {
+        let id_offset = get_kv_id_offset(address, index);
+        MemoryRegion.storeNat64(btree.metadata, id_offset, Nat64.fromNat(new_id));
     };
 
     public func get_kv_blobs(btree : MemoryBTree, address : Nat, index : Nat) : ?(Blob, Blob) {

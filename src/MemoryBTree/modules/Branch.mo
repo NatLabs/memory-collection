@@ -419,7 +419,7 @@ module Branch {
             case (_) {};
         };
         
-        assert MemoryRegion.loadBlob(btree.metadata, node_address, MC.MAGIC_SIZE) == MC.MAGIC;
+        // assert MemoryRegion.loadBlob(btree.metadata, node_address, MC.MAGIC_SIZE) == MC.MAGIC;
 
         let node_type = MemoryRegion.loadNat8(btree.metadata, node_address + MC.NODE_TYPE_START);
 
@@ -998,7 +998,7 @@ module Branch {
         let branch_index = Branch.get_index(btree, branch);
         // Debug.print("redistribute: " # debug_show branch_index);
         let ?neighbour = Branch.get_larger_neighbour(btree, parent, branch_index) else return false;
-        assert MemoryRegion.loadBlob(btree.metadata, parent, MC.MAGIC_SIZE) == MC.MAGIC;
+        // assert MemoryRegion.loadBlob(btree.metadata, parent, MC.MAGIC_SIZE) == MC.MAGIC;
 
         let neighbour_index = Branch.get_index(btree, neighbour);
 

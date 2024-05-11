@@ -16,7 +16,6 @@ import T "Types";
 import Leaf "Leaf";
 import Branch "Branch";
 import Migrations "../Migrations";
-import BTreeUtils "../BTreeUtils";
 
 module {
     public type Leaf = Migrations.Leaf;

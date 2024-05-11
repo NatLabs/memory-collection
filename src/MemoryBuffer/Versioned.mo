@@ -1,7 +1,4 @@
-/// Versioned Module for the MemoryBuffer
-///
-/// This module provides a this wrapper around the base MemoryBuffer module that add versioning for easy
-/// upgrades to future versions without breaking compatibility with existing code.
+/// A memory buffer is a data structure that stores a sequence of values in memory.
 
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
@@ -100,14 +97,24 @@ module VersionedMemoryBuffer {
         return MemoryBuffer.get(state, blobify, index);
     };
 
-    public func addFirst<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, value : A) {
+    public func _get_pointer<A>(self : VersionedMemoryBuffer<A>, index : Nat) : Nat {
         let state = Migrations.getCurrentVersion(self);
-        MemoryBuffer.addFirst(state, blobify, value);
+        return MemoryBuffer._get_pointer(state, index);
     };
 
-    public func addLast<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, value : A) {
+    public func _get_memory_block<A>(self : VersionedMemoryBuffer<A>, index : Nat) : (Nat, Nat) {
         let state = Migrations.getCurrentVersion(self);
-        MemoryBuffer.addLast(state, blobify, value);
+        return MemoryBuffer._get_memory_block(state, index);
+    };
+
+    public func _get_blob<A>(self : VersionedMemoryBuffer<A>, index : Nat) : Blob {
+        let state = Migrations.getCurrentVersion(self);
+        return MemoryBuffer._get_blob<A>(state, index);
+    };
+
+    public func add<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, value : A) {
+        let state = Migrations.getCurrentVersion(self);
+        MemoryBuffer.add(state, blobify, value);
     };
 
     public func addFromIter<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, iter : Iter<A>) {
@@ -118,11 +125,6 @@ module VersionedMemoryBuffer {
     public func addFromArray<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, arr : [A]) {
         let state = Migrations.getCurrentVersion(self);
         MemoryBuffer.addFromArray(state, blobify, arr);
-    };
-
-    public func add<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, value : A) {
-        let state = Migrations.getCurrentVersion(self);
-        MemoryBuffer.add(state, blobify, value);
     };
 
     public func append<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, other : VersionedMemoryBuffer<A>) {
@@ -159,11 +161,6 @@ module VersionedMemoryBuffer {
     public func remove<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, index : Nat) : A {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.remove(state, blobify, index);
-    };
-
-    public func removeFirst<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>) : ?A {
-        let state = Migrations.getCurrentVersion(self);
-        return MemoryBuffer.removeFirst(state, blobify);
     };
 
     public func removeLast<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>) : ?A {
@@ -206,7 +203,7 @@ module VersionedMemoryBuffer {
         MemoryBuffer.sortUnstable(state, blobify, cmp);
     };
 
-    public func shuffle<A>(self : VersionedMemoryBuffer<A>) {
+    public func shuffle<A>(self: VersionedMemoryBuffer<A>) {
         let state = Migrations.getCurrentVersion(self);
         MemoryBuffer.shuffle(state);
     };
@@ -229,26 +226,6 @@ module VersionedMemoryBuffer {
     public func isEmpty<A>(self : VersionedMemoryBuffer<A>) : Bool {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.isEmpty(state);
-    };
-
-    public func first<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>) : A {
-        let state = Migrations.getCurrentVersion(self);
-        return MemoryBuffer.first(state, blobify);
-    };
-
-    public func last<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>) : A {
-        let state = Migrations.getCurrentVersion(self);
-        return MemoryBuffer.last(state, blobify);
-    };
-
-    public func peekFirst<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>) : ?A {
-        let state = Migrations.getCurrentVersion(self);
-        return MemoryBuffer.peekFirst(state, blobify);
-    };
-
-    public func peekLast<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>) : ?A {
-        let state = Migrations.getCurrentVersion(self);
-        return MemoryBuffer.peekLast(state, blobify);
     };
 
     public func toArray<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>) : [A] {

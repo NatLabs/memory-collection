@@ -1,19 +1,3 @@
-/// The `MemoryBuffer` is an object wrapper around the [BaseMemoryBuffer module](../BaseMemoryBuffer) BaseMemoryBuffer. 
-/// It provides a more user-friendly interface opting for methods exposed from the object instead of top-level module functions.
-///
-/// There are three different modules available for this datastructure:
-/// - [Base MemoryBuffer](../Base) - The base module that provides the core functionality for the memory buffer.
-/// - [Versioned MemoryBuffer](../Versioned) - The versioned module that supports seamless upgrades without losing data.
-/// - MemoryBuffer Class - Class that wraps the versioned module and provides a more user-friendly interface.
-///
-/// It is recommended to use the MemoryBuffer Class for most use-cases.
-///
-/// Import the `MemoryBuffer` and `Blobify` module to get started.
-/// ```motoko
-///     import Blobify "mo:memory-collection/Blobify";
-///     import MemoryBuffer "mo:memory-collection/MemoryBuffer";
-/// ```
-
 import Iter "mo:base/Iter";
 import Order "mo:base/Order";
 import Nat "mo:base/Nat";
@@ -26,33 +10,11 @@ import VersionedMemoryBuffer "Versioned";
 import Migrations "Migrations";
 import MemoryCmp "../MemoryCmp";
 
-module MemoryBuffer {
+module {
 
     /// ```motoko
-    ///     import Blobify "mo:memory-collection/Blobify";
-    ///     import MemoryBuffer "mo:memory-collection/MemoryBuffer";
-    ///
-    ///     stable var sstore = MemoryBuffer.newStableStore<Nat>();
-    ///     sstore := MemoryBuffer.upgrade(sstore);
-    ///     
-    ///     let buffer = MemoryBuffer.MemoryBuffer<Nat>(sstore, Blobify.BigEndian.Nat);
-    ///
-    ///     buffer.add(0);
-    ///     buffer.add(1);
-    ///     assert buffer.size() == 2;
-    ///
-    ///     assert buffer.get(0) == 0;
-    ///     assert buffer.remove(1) == 1;
-    ///
-    ///     buffer.put(0, 2);
-    ///     assert buffer.get(0) == 2;
-    ///
+    ///     let mbuffer = MemoryBufferClass.new();
     /// ```
-    ///
-    /// More details about the memory layout of the buffer can be found in the [BaseMemoryBuffer module](../BaseMemoryBuffer).
-    ///
-    /// > **`Note:`** If you are upgrading to newer versions of the memory collection library, ensure that you call the 
-    /// `upgrade()` function to migrate the data to the latest version.
 
     type Iter<A> = Iter.Iter<A>;
     type RevIter<A> = RevIter.RevIter<A>;
@@ -63,14 +25,16 @@ module MemoryBuffer {
     public type VersionedMemoryBuffer<A> = Migrations.VersionedMemoryBuffer<A>;
 
     /// Creates a new stable store for the memory buffer.
+    public func new<A>() : VersionedMemoryBuffer<A> = VersionedMemoryBuffer.new();
+
+    /// Creates a new stable store for the memory buffer.
     public func newStableStore<A>() : VersionedMemoryBuffer<A> = VersionedMemoryBuffer.new();
 
-    /// Upgrades the memory buffer to the latest version.
     public func upgrade<A>(versions : VersionedMemoryBuffer<A>) : VersionedMemoryBuffer<A> {
         Migrations.upgrade<A>(versions);
     };
 
-    public class MemoryBuffer<A>(versions : VersionedMemoryBuffer<A>, blobify : Blobify<A>) {
+    public class MemoryBufferClass<A>(versions : VersionedMemoryBuffer<A>, blobify : Blobify<A>) {
         let internal = Migrations.getCurrentVersion(versions);
 
         /// Adds an element to the end of the buffer.
@@ -97,14 +61,6 @@ module MemoryBuffer {
         /// Returns the element at the given index or `null` if the index is out of bounds.
         public func getOpt(i: Nat) : ?A = BaseMemoryBuffer.getOpt<A>(internal, blobify, i);
 
-        /// Adds an element before the first element in the buffer.
-        /// Runtime: `O(1)`
-        public func addFirst(elem: A) = BaseMemoryBuffer.addFirst<A>(internal, blobify, elem);
-
-        /// Adds an element after the last element in the buffer. Alias for `add()`.
-        /// Runtime: `O(1)`
-        public func addLast(elem: A) = BaseMemoryBuffer.addLast<A>(internal, blobify, elem);
-
         /// Adds all elements from the given iterator to the end of the buffer.
         public func addFromIter(iter: Iter<A>) = BaseMemoryBuffer.addFromIter<A>(internal, blobify, iter);
 
@@ -114,10 +70,10 @@ module MemoryBuffer {
         /// Returns a reversable iterator over the elements in the buffer.
         /// 
         /// ```motoko
-        ///     stable var sstore = MemoryBuffer.newStableStore<Text>();
-        ///     sstore := MemoryBuffer.upgrade(sstore);
+        ///     stable var sstore = BaseMemoryBuffer.newStableStore<Text>();
+        ///     sstore := BaseMemoryBuffer.upgrade(sstore);
         ///     
-        ///     let buffer = MemoryBuffer.MemoryBuffer<Text>(sstore, Blobify.Text);
+        ///     let buffer = BaseMemoryBuffer.BaseMemoryBuffer<Text>(sstore, Blobify.Text);
         ///
         ///     buffer.addFromArray(["a", "b", "c"]);
         ///
@@ -144,23 +100,20 @@ module MemoryBuffer {
         /// Removes the element at the given index.
         public func remove(i: Nat) : A = BaseMemoryBuffer.remove<A>(internal, blobify, i);
 
-        /// Removes the first element in the buffer.
+        /// Removes the last element from the buffer.
         ///
         /// ```motoko
-        ///     stable var sstore = MemoryBuffer.newStableStore<Text>();
-        ///     sstore := MemoryBuffer.upgrade(sstore);
+        ///     stable var sstore = BaseMemoryBuffer.newStableStore<Text>();
+        ///     sstore := BaseMemoryBuffer.upgrade(sstore);
         ///     
-        ///     let buffer = MemoryBuffer.MemoryBuffer<Nat>(sstore, Blobify.Nat); // little-endian
+        ///     let buffer = BaseMemoryBuffer.BaseMemoryBuffer<Nat>(sstore, Blobify.Nat); // little-endian
         ///
         ///     buffer.addFromArray([1, 2, 3]);
         ///
-        ///     assert buffer.removeFirst() == ?1;
+        ///     assert buffer.removeLast() == ?3;
         /// ```
-        public func removeFirst() : ?A = BaseMemoryBuffer.removeFirst<A>(internal, blobify);
-
-        /// Removes the last element in the buffer.
         public func removeLast() : ?A = BaseMemoryBuffer.removeLast<A>(internal, blobify);
-
+        
         /// Inserts an element at the given index.
         public func insert(i: Nat, elem: A) = BaseMemoryBuffer.insert<A>(internal, blobify, i, elem);
 
@@ -169,6 +122,14 @@ module MemoryBuffer {
         /// It also supports a comparision function that can either compare the elements the default type or in their serialized form as blobs.
         /// For more information on the comparison function, refer to the [MemoryCmp module](../MemoryCmp).
         public func sortUnstable(cmp: MemoryCmp.MemoryCmp<A> ) = BaseMemoryBuffer.sortUnstable<A>(internal, blobify, cmp);
+
+
+        /// Removes all elements from the buffer.
+        public func clear() = BaseMemoryBuffer.clear<A>(internal);
+
+        /// Copies all the elements in the buffer to a new array.
+        public func toArray() : [A] = BaseMemoryBuffer.toArray<A>(internal, blobify);
+
 
         /// Randomly shuffles the elements in the buffer.
         public func shuffle() = BaseMemoryBuffer.shuffle<A>(internal);
@@ -188,50 +149,53 @@ module MemoryBuffer {
         /// Returns `true` if the buffer is empty.
         public func isEmpty() : Bool = BaseMemoryBuffer.isEmpty<A>(internal);
 
-        /// Returns the first element in the buffer. Traps if the buffer is empty.
-        public func first() : A = BaseMemoryBuffer.first<A>(internal, blobify);
-
-        /// Returns the last element in the buffer. Traps if the buffer is empty.
-        public func last() : A = BaseMemoryBuffer.last<A>(internal, blobify);
-
-        /// Returns the first element in the buffer or `null` if the buffer is empty.
-        public func peekFirst() : ?A = BaseMemoryBuffer.peekFirst<A>(internal, blobify);
-
-        /// Returns the last element in the buffer or `null` if the buffer is empty.
-        public func peekLast() : ?A = BaseMemoryBuffer.peekLast<A>(internal, blobify);
-        
-        /// Removes all elements from the buffer.
-        public func clear() = BaseMemoryBuffer.clear<A>(internal);
-
-        /// Copies all the elements in the buffer to a new array.
-        public func toArray() : [A] = BaseMemoryBuffer.toArray<A>(internal, blobify);
-
         public func _getInternalRegion() : BaseMemoryBuffer<A> = internal;
         public func _getBlobifyFn() : Blobify<A> = blobify;
     };
 
-    // public func init<A>(internal: VersionedMemoryBuffer<A>, blobify: Blobify<A>, size: Nat, val: A) : MemoryBuffer<A> {
-    //     let mbuffer = MemoryBuffer(internal, blobify);
+    public func init<A>(internal: VersionedMemoryBuffer<A>, blobify: Blobify<A>, size: Nat, val: A) : MemoryBufferClass<A> {
+        let mbuffer = MemoryBufferClass(internal, blobify);
 
-    //     for (_ in Iter.range(0, size - 1)){
-    //         mbuffer.add(val);
-    //     };
+        for (_ in Iter.range(0, size - 1)){
+            mbuffer.add(val);
+        };
 
-    //     return mbuffer;
-    // };
+        return mbuffer;
+    };
 
-    // public func tabulate<A>(internal: VersionedMemoryBuffer<A>, blobify: Blobify<A>, size: Nat, f: (Nat) -> A) : MemoryBuffer<A> {
+    // public func tabulate<A>(internal: VersionedMemoryBuffer<A>, blobify: Blobify<A>, size: Nat, f: (Nat) -> A) : MemoryBufferClass<A> {
     //     BaseMemoryBuffer.tabulate(internal, blobify, size, f);
-    //     return MemoryBuffer(internal, blobify);
+    //     return MemoryBufferClass(internal, blobify);
     // };
 
-    // public func fromArray<A>(internal: VersionedMemoryBuffer<A>, blobify: Blobify<A>, arr: [A]) : MemoryBuffer<A> {
+    // public func fromArray<A>(internal: VersionedMemoryBuffer<A>, blobify: Blobify<A>, arr: [A]) : MemoryBufferClass<A> {
     //     BaseMemoryBuffer.fromArray(internal, blobify, arr);
-    //     return MemoryBuffer(internal, blobify);
+    //     return MemoryBufferClass(internal, blobify);
     // };
 
-    public func toArray<A>(mbuffer: MemoryBuffer<A>) : [A] {
+    public func toArray<A>(mbuffer: MemoryBufferClass<A>) : [A] {
         return BaseMemoryBuffer.toArray(mbuffer._getInternalRegion(), mbuffer._getBlobifyFn());
     };
+
+    // public func fromIter<A>(internal: VersionedMemoryBuffer<A>, blobify: Blobify<A>, iter: Iter<A>) : MemoryBufferClass<A> {
+    //     BaseMemoryBuffer.fromIter(internal, blobify, iter);
+    //     return MemoryBufferClass(internal, blobify);
+    // };
+
+    public func append<A>(mbuffer: MemoryBufferClass<A>, b: MemoryBufferClass<A>) {
+        BaseMemoryBuffer.append(mbuffer._getInternalRegion(), mbuffer._getBlobifyFn(), b._getInternalRegion());
+    };
+
+    public func appendArray<A>(mbuffer: MemoryBufferClass<A>, arr: [A]) {
+        BaseMemoryBuffer.appendArray<A>(mbuffer._getInternalRegion(), mbuffer._getBlobifyFn(), arr);
+    };
+
+    public func appendBuffer<A>(mbuffer: MemoryBufferClass<A>, other : { vals : () -> Iter<A> }) {
+        BaseMemoryBuffer.appendBuffer<A>(mbuffer._getInternalRegion(), mbuffer._getBlobifyFn(), other);
+    };
+
+    public func blocks<A>(mbuffer: MemoryBufferClass<A>) : RevIter<(Nat, Nat)> = BaseMemoryBuffer.blocks<A>(mbuffer._getInternalRegion());
+    
+    public func reverse<A>(mbuffer: MemoryBufferClass<A>) = BaseMemoryBuffer.reverse<A>(mbuffer._getInternalRegion());
 
 }

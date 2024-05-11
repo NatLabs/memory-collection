@@ -4,6 +4,7 @@ import Debug "mo:base/Debug";
 import Iter "mo:base/Iter";
 import Buffer "mo:base/Buffer";
 import Nat32 "mo:base/Nat32";
+import Nat64 "mo:base/Nat64";
 import Nat "mo:base/Nat";
 import Order "mo:base/Order";
 
@@ -11,9 +12,10 @@ import LruCache "mo:lru-cache";
 import Fuzz "mo:fuzz";
 import Itertools "mo:itertools/Iter";
 import Map "mo:map/Map";
+import MemoryRegion "mo:memory-region/MemoryRegion";
 
 import MemoryBTree "../../src/MemoryBTree/Base";
-import BTreeUtils "../../src/MemoryBTree/BTreeUtils";
+import TypeUtils "../../src/TypeUtils";
 import Blobify "../../src/Blobify";
 import MemoryCmp "../../src/MemoryCmp";
 import Utils "../../src/Utils";
@@ -21,10 +23,11 @@ import Branch "../../src/MemoryBTree/modules/Branch";
 import Leaf "../../src/MemoryBTree/modules/Leaf";
 import Methods "../../src/MemoryBTree/modules/Methods";
 
-type BTreeUtils<K, V> = MemoryBTree.BTreeUtils<K, V>;
+type TypeUtils<K, V> = MemoryBTree.TypeUtils<K, V>;
 type Buffer<A> = Buffer.Buffer<A>;
 type Iter<A> = Iter.Iter<A>;
 type Order = Order.Order;
+type MemoryBlock = MemoryBTree.MemoryBlock;
 
 let { nhash } = Map;
 let fuzz = Fuzz.fromSeed(0xdeadbeef);
@@ -34,7 +37,11 @@ let limit = 10_000;
 let nat_gen_iter : Iter<Nat> = {
     next = func() : ?Nat = ?fuzz.nat.randomRange(1, limit ** 2);
 };
-let unique_iter = Itertools.unique<Nat>(nat_gen_iter, Nat32.fromNat, Nat.equal);
+let unique_iter = Itertools.unique<Nat>(
+    nat_gen_iter, 
+    func (n: Nat) : Nat32 = Nat64.toNat32(Nat64.fromNat(n) & 0xFFFF_FFFF), 
+    Nat.equal
+);
 let random = Itertools.toBuffer<(Nat, Nat)>(
     Iter.map<(Nat, Nat), (Nat, Nat)>(
         Itertools.enumerate(Itertools.take(unique_iter, limit)),
@@ -57,7 +64,7 @@ let candid_blobify : Blobify.Blobify<Nat> = {
 
 
 let btree = MemoryBTree._new_with_options(?8, ?0, false);
-let btree_utils = BTreeUtils.createUtils(BTreeUtils.BigEndian.Nat, BTreeUtils.BigEndian.Nat);
+let btree_utils = MemoryBTree.createUtils(TypeUtils.BigEndian.Nat, TypeUtils.BigEndian.Nat);
 let candid_mem_utils = {
     key = candid_blobify;
     val =  candid_blobify;
@@ -191,6 +198,7 @@ suite(
                     let received = MemoryBTree.getFloor(btree, btree_utils, key);
 
                     if (not (?expected == received)) {
+                        Debug.print("equality check failed");
                         Debug.print("mismatch at key:" # debug_show key);
                         Debug.print("expected != received: " # debug_show (expected, received));
                         assert false;
@@ -203,6 +211,7 @@ suite(
                         let received = MemoryBTree.getFloor(btree, btree_utils, prev);
 
                         if (not (?(expected) == received)) {
+                            Debug.print("prev key failed");
                             Debug.print("mismatch at key:" # debug_show prev);
                             Debug.print("expected != received: " # debug_show (expected, received));
                             assert false;
@@ -214,10 +223,11 @@ suite(
                     let next = key + 1;
 
                     do {
-                        let expected = sorted.get(i);
+                        let expected = if (i + 1 < sorted.size() and sorted.get(i + 1).0 == next) sorted.get(i + 1) else sorted.get(i);
                         let received = MemoryBTree.getFloor(btree, btree_utils, next);
 
                         if (not (?expected == received)) {
+                            Debug.print("next key failed");
                             Debug.print("mismatch at key:" # debug_show next);
                             Debug.print("expected != received: " # debug_show (expected, received));
                             assert false;
@@ -238,6 +248,7 @@ suite(
                     let received = MemoryBTree.getCeiling<Nat, Nat>(btree, btree_utils, key);
 
                     if (not (?expected == received)) {
+                        Debug.print("equality check failed");
                         Debug.print("mismatch at key:" # debug_show key);
                         Debug.print("expected != received: " # debug_show (expected, received));
                         assert false;
@@ -246,10 +257,11 @@ suite(
                     let prev = key - 1;
 
                     do {
-                        let expected = sorted.get(i);
+                        let expected = if (i > 0 and sorted.get(i - 1).0 == prev) sorted.get(i - 1) else sorted.get(i);
                         let received = MemoryBTree.getCeiling<Nat, Nat>(btree, btree_utils, prev);
 
                         if (not (?expected == received)) {
+                            Debug.print("prev key failed");
                             Debug.print("mismatch at key:" # debug_show prev);
                             Debug.print("expected != received: " # debug_show (expected, received));
                             assert false;
@@ -263,6 +275,7 @@ suite(
                         let received = MemoryBTree.getCeiling<Nat, Nat>(btree, btree_utils, next);
 
                         if (not (?expected == received)) {
+                            Debug.print("next key failed");
                             Debug.print("mismatch at key:" # debug_show next);
                             Debug.print("expected != received: " # debug_show (expected, received));
                             assert false;
@@ -357,17 +370,95 @@ suite(
         test(
             "replace",
             func() {
+                let size = MemoryBTree.size(btree);
+                let mem_blocks = Buffer.Buffer<(MemoryBlock, MemoryBlock)>(8);
+                let blobs = Buffer.Buffer<(Blob, Blob)>(8);
 
                 for ((key, i) in random.vals()) {
+                    // Debug.print("replacing " # debug_show key # " at index " # debug_show i # " with " # debug_show (i * 10));
+
                     let prev_val = i;
                     let new_val = prev_val * 10;
 
-                    assert ?prev_val == MemoryBTree.insert<Nat, Nat>(btree, btree_utils, key, new_val);
+                    let ?prev_id = MemoryBTree._getId(btree, btree_utils, key);
+                    assert ?(key, prev_val) == MemoryBTree._lookup(btree, btree_utils, prev_id);
+                    let ?mem_block = MemoryBTree._lookup_mem_block(btree,  prev_id);
+                    let prev_key_blob = MemoryRegion.loadBlob(btree.blocks, mem_block.0.0, mem_block.0.1);
+                    let prev_val_blob = MemoryRegion.loadBlob(btree.blocks, mem_block.1.0, mem_block.1.1);
+                    // MemoryBTree._lookup_val_blob(btree,  prev_id);
+
+                    assert ?prev_val == MemoryBTree.insert(btree, btree_utils, key, new_val);
+
+                    let ?id = MemoryBTree._getId(btree, btree_utils, key);
+
                     assert ?new_val == MemoryBTree.get(btree, btree_utils, key);
+                    let ?new_mem_block = MemoryBTree._lookup_mem_block(btree,  id);
+                    // Debug.print("id at test: " # debug_show id);
+
+                    // Debug.print("new entry: " # debug_show (key, new_val));
+                    assert ?(key, new_val) == MemoryBTree._lookup(btree, btree_utils, id);
+                    assert prev_key_blob == MemoryRegion.loadBlob(btree.blocks, new_mem_block.0.0, new_mem_block.0.1);
+                    let new_val_blob = btree_utils.val.to_blob(new_val);
+
+                    let recieved_val_blob = MemoryRegion.loadBlob(btree.blocks, new_mem_block.1.0, new_mem_block.1.1);
+                    // Debug.print("new_val_mem_block: " # debug_show new_mem_block.1);
+                    // Debug.print("new_val_blob (recieved, expected) " # debug_show (recieved_val_blob, new_val_blob));
+                    assert new_val_blob == recieved_val_blob;
+
+                    mem_blocks.add(new_mem_block);
+                    blobs.add((prev_key_blob, new_val_blob));
+
+                    if (i > 0){
+                        let ?left_id = MemoryBTree._getId(btree, btree_utils, random.get(i - 1).0);
+                        let ?left_key_blob = MemoryBTree._lookup_key_blob(btree,  left_id);
+                        let ?left_val_blob = MemoryBTree._lookup_val_blob(btree,  left_id);
+
+                        let ?left_mem_block = MemoryBTree._lookup_mem_block(btree,  left_id);
+
+                        let left_blob_entry = (left_key_blob, left_val_blob);
+                        let expected_blob_entry = blobs.get(i - 1);
+
+                        if (left_blob_entry != expected_blob_entry) {
+                            Debug.print("blob entry mismatch: " # debug_show (left_blob_entry, expected_blob_entry) # " at index " # debug_show (i - 1));
+                            Debug.print("left_mem_block " # debug_show left_mem_block);
+                            Debug.print(debug_show Buffer.toArray(mem_blocks));
+                            assert false;
+                        };
+                    };
+
+
+                    assert MemoryBTree.size(btree) == size;
                 };
 
                 assert Methods.validate_memory(btree, btree_utils);
 
+                var i = 0;
+                for ((key, _val) in random.vals()) {
+                    let val = _val * 10;
+                    let received = MemoryBTree.get(btree, btree_utils, key);
+                    let ?id = MemoryBTree._getId(btree, btree_utils, key);
+                    let ?mem_block = MemoryBTree._lookup_mem_block(btree,  id);
+                    let expected_mem_block = mem_blocks.get(i);
+
+                    let ?(received_key_blob) = MemoryBTree._lookup_key_blob(btree,  id);
+                    let ?(received_val_blob) = MemoryBTree._lookup_val_blob(btree,  id);
+                    let recieved_blob_entry = (received_key_blob, received_val_blob);
+
+                    let expected_blob_entry = blobs.get(i);
+
+                    if (recieved_blob_entry != expected_blob_entry) {
+                        Debug.print("blob entry mismatch: " # debug_show (recieved_blob_entry, expected_blob_entry) # " at index " # debug_show i);
+                        // Debug.print(debug_show Buffer.toArray(mem_blocks));
+                        assert false;
+                    };
+
+                    assert mem_block == expected_mem_block;
+                    if (?val != received) {
+                        Debug.print("mismatch (recieved, expected) " # debug_show (received, val) # " at index " # debug_show i);
+                        assert false;
+                    };
+                    i += 1;
+                };
             },
         );
 
@@ -387,7 +478,6 @@ suite(
                     assert MemoryBTree.size(btree) == random.size() - i - 1;
                     // Debug.print("node keys: " # debug_show MemoryBTree.toNodeKeys(btree, btree_utils));
                     // Debug.print("leaf nodes: " # debug_show Iter.toArray(MemoryBTree.leafNodes(btree, btree_utils)));
-
                 };
 
                 assert Methods.validate_memory(btree, btree_utils);

@@ -20,16 +20,6 @@ import Utils "../../src/Utils";
 import MemoryCmp "../../src/MemoryCmp";
 import Int8Cmp "../../src/Int8Cmp";
 
-let candid_blobify : Blobify.Blobify<Nat> = {
-    from_blob = func(b : Blob) : Nat {
-        let ?n : ?Nat = from_candid (b) else {
-            Debug.trap("Failed to decode Nat from blob");
-        };
-        n;
-    };
-    to_blob = func(n : Nat) : Blob = to_candid (n);
-};
-
 let limit = 10_000;
 let order = Buffer.Buffer<Nat>(limit);
 let values = Buffer.Buffer<Nat>(limit);
@@ -282,70 +272,7 @@ suite(
             },
         );
 
-        test(
-            "addFirst()",
-            func() {
-                for (i in Iter.range(0, limit - 1)) {
-                    MemoryBuffer.addFirst(mbuffer, Blobify.BigEndian.Nat, i);
-                    assert MemoryBuffer.peekFirst(mbuffer, Blobify.BigEndian.Nat) == ?i;
-                    assert MemoryBuffer.first(mbuffer, Blobify.BigEndian.Nat) == i;
-                    assert MemoryBuffer.size(mbuffer) == (i + 1);
-                };
-
-                for (i in Iter.range(0, limit - 1)) {
-                    let j = limit - i - 1;
-                    let n = MemoryBuffer.get(mbuffer, Blobify.BigEndian.Nat, j);
-                    assert n == i;
-                };
-            },
-        );
-
-        test(
-            "removeLast()",
-            func() {
-                for (i in Iter.range(0, limit - 1)) {
-                    Debug.print("i = " # debug_show i);
-                    let expected = i;
-
-                    assert MemoryBuffer.last(mbuffer, Blobify.BigEndian.Nat) == i;
-                    assert MemoryBuffer.peekLast(mbuffer, Blobify.BigEndian.Nat) == ?i;
-                    assert MemoryBuffer.first(mbuffer, Blobify.BigEndian.Nat) == (limit - 1);
-                    
-                    let received = MemoryBuffer.removeLast(mbuffer, Blobify.BigEndian.Nat);
-                    Debug.print("(expected, received) -> " # debug_show (expected, received));
-
-                    assert ?expected == received;
-                    assert MemoryBuffer.size(mbuffer) == (limit - i - 1);
-
-                };
-            },
-        );
-
         
-        
-
-        test(
-            "addLast()",
-            func() {
-                for (i in Iter.range(0, limit - 1)) {
-                    MemoryBuffer.addLast(mbuffer, Blobify.BigEndian.Nat, i);
-                    assert MemoryBuffer.peekLast(mbuffer, Blobify.BigEndian.Nat) == ?i;
-                    assert MemoryBuffer.last(mbuffer, Blobify.BigEndian.Nat) == i;
-                };
-            },
-        );
-
-        test(
-            "removeFirst()",
-            func() {
-                for (i in Iter.range(0, limit - 1)) {
-                    let expected = i;
-                    let received = MemoryBuffer.removeFirst(mbuffer, Blobify.BigEndian.Nat);
-                    assert ?expected == received;
-                };
-            },
-        );
-
         test(
             "addFromIter",
             func() {

@@ -23,6 +23,7 @@ import Utils "../Utils";
 import Migrations "Migrations";
 import Leaf "modules/Leaf";
 import T "modules/Types";
+import TypeUtils "../TypeUtils";
 
 module {
     type Address = Nat;
@@ -34,7 +35,7 @@ module {
     type UniqueId = T.UniqueId;
 
     public type MemoryCmp<A> = MemoryCmp.MemoryCmp<A>;
-
+    public type TypeUtils<A> = TypeUtils.TypeUtils<A>;
     public type MemoryBTree = Migrations.MemoryBTree;
     public type Node = Migrations.Node;
     public type Leaf = Migrations.Leaf;
@@ -42,10 +43,40 @@ module {
     public type VersionedMemoryBTree = Migrations.VersionedMemoryBTree;
 
     public type MemoryBlock = T.MemoryBlock;
-    public type BTreeUtils<K, V> = T.BTreeUtils<K, V>;
+
+    /// Blobify and cmp utils for the key and value types of a BTree
+    public type BTreeUtils<K, V> = {
+        key: Blobify<K>;
+        val: Blobify<V>;
+        cmp: MemoryCmp<K>;
+    };
+
+    /// Create BTreeUtils for a given key and value type
+    ///
+    /// ```motoko
+    ///     import MemoryBTree "mo:memory-collection/MemoryBTree";
+    ///     import TypeUtils "mo:memory-collection/TypeUtils";
+    ///
+    ///     let btree_utils = MemoryBTree.createUtils(
+    ///         TypeUtils.BigEndian.Nat, 
+    ///         TypeUtils.Text
+    ///     );
+    ///
+    ///     let sstore = MemoryBTree.newStableStore(null);
+    ///     let mbtree = MemoryBTree.MemoryBTree(sstore, btree_utils);
+    ///     mbtree.insert(0, "hello");
+    /// 
+    /// ```
+    public func createUtils<K, V>(key: TypeUtils<K>, val: TypeUtils<V>) : BTreeUtils<K, V> {
+        return { 
+            key = key.blobify;
+            val = val.blobify;
+            cmp = key.cmp 
+        };
+    };
 
     let CACHE_LIMIT = 50_000;
-    let DEFAULT_ORDER = 32;
+    let DEFAULT_ORDER = 256;
 
     public func _new_with_options(order : ?Nat, opt_cache_size: ?Nat, is_set : Bool) : MemoryBTree {
         let cache_size = Option.get(opt_cache_size, CACHE_LIMIT);
@@ -202,7 +233,36 @@ module {
             let ?id = Leaf.get_kv_id(btree, leaf_address, elem_index) else Debug.trap("insert: accessed a null value");
 
             let prev_val_blob = MemoryBlock.get_val_blob(btree, id);
-            MemoryBlock.replace_val(btree, id, val_blob);
+
+            // Debug.print("prev id: " # debug_show id);
+            // Debug.print("key_block: " # debug_show MemoryBlock.get_key_block(btree, id));
+            // Debug.print("val_block: " # debug_show MemoryBlock.get_val_block(btree, id));
+
+            // Debug.print("prev blobs: " # debug_show( MemoryBlock.get_key_blob(btree, id), MemoryBlock.get_val_blob(btree, id)));
+
+            let new_id = MemoryBlock.replace_val(btree, id, val_blob);
+
+            // Debug.print("curr id: " # debug_show new_id);
+            // Debug.print("key_block: " # debug_show MemoryBlock.get_key_block(btree, new_id));
+            // Debug.print("val_block: " # debug_show MemoryBlock.get_val_block(btree, new_id));
+
+            // Debug.print("kv_blobs: " # debug_show( MemoryBlock.get_key_blob(btree, new_id), MemoryBlock.get_val_blob(btree, new_id)));
+            // Debug.print("actual kv_blobs: " # debug_show (key_blob, val_blob));
+
+            Leaf.replace_kv_id(btree, leaf_address, elem_index, new_id);
+
+            let stored_id = Leaf.get_kv_id(btree, leaf_address, elem_index);
+
+            // Debug.print("stored id: " # debug_show stored_id);
+
+            if (elem_index == 0){
+                // update parent key
+                let ?parent = Leaf.get_parent(btree, leaf_address) else Debug.trap("insert: parent_address is null");
+                let leaf_index = Leaf.get_index(btree, leaf_address);
+                Branch.update_median_key_id(btree, parent, leaf_index, new_id);
+            };
+
+            
 
             Methods.update_leaf_to_root(btree, leaf_address, decrement_subtree_size);
 
@@ -211,6 +271,9 @@ module {
 
         let key_val_id = MemoryBlock.store(btree, key_blob, val_blob);
         // Debug.print("key_val_id: " # debug_show key_val_id);
+        // Debug.print("key_block: " # debug_show MemoryBlock.get_key_block(btree, key_val_id));
+        // Debug.print("val_block: " # debug_show MemoryBlock.get_val_block(btree, key_val_id));
+
         // Debug.print("kv_blobs: " # debug_show( MemoryBlock.get_key_blob(btree, key_val_id), MemoryBlock.get_val_blob(btree, key_val_id)));
         // Debug.print("actual kv_blobs: " # debug_show (key_blob, val_blob));
 
@@ -244,7 +307,7 @@ module {
             let ?parent_address = opt_parent else Debug.trap("insert: Failed to get parent address");
 
             let parent_count = Branch.get_count(btree, parent_address);
-            assert MemoryRegion.loadBlob(btree.metadata, parent_address, Branch.MC.MAGIC_SIZE) == Branch.MC.MAGIC;
+            // assert MemoryRegion.loadBlob(btree.metadata, parent_address, Branch.MC.MAGIC_SIZE) == Branch.MC.MAGIC;
 
             // insert right node in parent if there is enough space
             if (parent_count < btree.order) {
@@ -292,35 +355,15 @@ module {
         null;
     };
 
-    /// Increase the reference count of the entry with the given id if it exists.
-    /// The reference count is used to track the number of entities depending on the entry.
-    /// If the reference count is 0, the entry is deleted.
-    /// To decrease the reference count, use the `remove()` function.
-    /// This is an opt-in feature that helps you maintain the integrity of the data.
-    /// Prevents you from prematurely deleting an entry that is still being used.
-    /// If you don't need this feature, you can use the library without calling this function.
-    public func reference<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, id: UniqueId){
-        if (not MemoryBlock.id_exists(btree, id)) return;
-        MemoryBlock.increment_ref_count(btree, id);
-    };
-
-    /// Get the reference count of the entry with the given id.
-    public func getRefCount<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, id: UniqueId) : ?Nat {
-        if (not MemoryBlock.id_exists(btree, id)) return null;
-        ?MemoryBlock.get_ref_count(btree, id);
-    };
-
-    public func lookup<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, id: UniqueId) : ?(K, V) {
-        if (not MemoryBlock.id_exists(btree, id)) return null;
-
+ 
+    public func _lookup<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, id: UniqueId) : ?(K, V) {
         let key_blob = MemoryBlock.get_key_blob(btree, id);
         let val_blob = MemoryBlock.get_val_blob(btree, id);
         let kv = Methods.deserialize_kv_blobs<K, V>(btree_utils, key_blob, val_blob);
         ?kv;
     };
 
-    public func lookupKey<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, id: UniqueId) : ?K {
-        if (not MemoryBlock.id_exists(btree, id)) return null;
+    public func _lookupKey<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, id: UniqueId) : ?K {
 
         let key_blob = MemoryBlock.get_key_blob(btree, id);
         let key = btree_utils.key.from_blob(key_blob);
@@ -328,14 +371,29 @@ module {
     };
 
     public func lookupVal<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, id: UniqueId) : ?V {
-        if (not MemoryBlock.id_exists(btree, id)) return null;
-
         let val_blob = MemoryBlock.get_val_blob(btree, id);
         let val = btree_utils.val.from_blob(val_blob);
         ?val;
     };
 
-    public func getId<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, key: K) : ?UniqueId {
+    public func _lookup_mem_block<K, V>(btree : MemoryBTree, id: UniqueId) : ?(MemoryBlock, MemoryBlock) {
+        let key_block = MemoryBlock.get_key_block(btree, id);
+        let val_block = MemoryBlock.get_val_block(btree, id);
+
+        ?(key_block, val_block);
+    };
+
+    public func _lookup_key_blob<K, V>(btree : MemoryBTree, id: UniqueId) : ?Blob {
+        let key_blob = MemoryBlock.get_key_blob(btree, id);
+        ?key_blob;
+    };
+
+    public func _lookup_val_blob<K, V>(btree : MemoryBTree, id: UniqueId) : ?Blob {
+        let val_blob = MemoryBlock.get_val_blob(btree, id);
+        ?val_blob;
+    };
+
+    public func _getId<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, key: K) : ?UniqueId {
         let key_blob = btree_utils.key.to_blob(key);
 
         let leaf_address = Methods.get_leaf_address(btree, btree_utils, key, ?key_blob);
@@ -355,11 +413,6 @@ module {
         let opt_key_id = Leaf.get_kv_id(btree, leaf_address, elem_index);
         opt_key_id;
     };
-
-    public func nextId<K, V>(btree : MemoryBTree) : UniqueId {
-        MemoryBlock.next_id(btree);
-    };
-
 
     public func entries<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>) : RevIter<(K, V)> {
         Methods.entries(btree, btree_utils);
@@ -519,8 +572,6 @@ module {
 
         let prev_val_blob = MemoryBlock.get_val_blob(btree, prev_kv_id);
         let prev_val = btree_utils.val.from_blob(prev_val_blob);
-
-        if (MemoryBlock.decrement_ref_count(btree, prev_kv_id) >= 1)  return ?prev_val;
 
         MemoryBlock.remove(btree, prev_kv_id); // deallocate key and value blocks
         Leaf.remove(btree, leaf_address, elem_index); // remove the deleted key-value pair from the leaf

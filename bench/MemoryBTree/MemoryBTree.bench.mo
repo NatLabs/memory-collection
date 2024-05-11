@@ -76,7 +76,7 @@ module {
             entries.add((key, key));
 
             let n = fuzz.nat.randomRange(0, limit ** 2);
-            nat_entries.add((n * limit, n));
+            nat_entries.add((n, n));
 
             // let replace_val = fuzz.text.randomAlphabetic(10);
 

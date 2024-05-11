@@ -94,33 +94,33 @@ module {
 
         let btree_utils = BTreeUtils.createUtils(BTreeUtils.Text, BTreeUtils.Text);
 
-        func run_bench(name : Text, category : Text, mem_btree_order_512 : MemoryBTree) {
+        func run_bench(name : Text, category : Text, mem_btree_order : MemoryBTree) {
             switch (category) {
                 case ("insert()") {
                     for ((key, val) in entries.vals()) {
-                        ignore MemoryBTree.insert<Text, Text>(mem_btree_order_512, btree_utils, key, val);
+                        ignore MemoryBTree.insert<Text, Text>(mem_btree_order, btree_utils, key, val);
                     };
                 };
                 case ("replace()") {
                     for ((key, val) in entries.vals()) {
-                        ignore MemoryBTree.insert(mem_btree_order_512, btree_utils, key, val);
+                        ignore MemoryBTree.insert(mem_btree_order, btree_utils, key, val);
                     };
                 };
                 case ("get()") {
                     for (i in Iter.range(0, limit - 1)) {
                         let (key, val) = entries.get(i);
-                        assert ?val == MemoryBTree.get(mem_btree_order_512, btree_utils, key);
+                        assert ?val == MemoryBTree.get(mem_btree_order, btree_utils, key);
                     };
                 };
                 case ("entries()") {
-                    for (kv in MemoryBTree.entries(mem_btree_order_512, btree_utils)) {
+                    for (kv in MemoryBTree.entries(mem_btree_order, btree_utils)) {
                         ignore kv;
                     };
                 };
                 case ("scan()") {};
                 case ("remove()") {
                     for ((k, v) in entries.vals()) {
-                        ignore MemoryBTree.remove(mem_btree_order_512, btree_utils, k);
+                        ignore MemoryBTree.remove(mem_btree_order, btree_utils, k);
                     };
                 };
                 case (_) {

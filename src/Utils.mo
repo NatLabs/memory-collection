@@ -16,38 +16,8 @@ module {
     type Result<A, B> = Result.Result<A, B>;
     type Fuzzer = Fuzz.Fuzzer;    
 
-    // public func blob_pointer_at_index<A>(self : MemoryBuffer<A>, index : Nat) : Blob {
-    //     let address = index * 12;
-    //     MemoryRegion.loadBlob(self.pointers, address, 12);
-    // };
-
-    // public func address_at_index<A>(self : MemoryBuffer<A>, index : Nat) : Nat {
-    //     let pointer_address = Nat64.fromNat(index * 12);
-    //     let address = Region.loadNat64(self.pointers.region, pointer_address);
-    //     Nat64.toNat(address);
-    // };
-
-    // public func size_at_index<A>(self : MemoryBuffer<A>, index : Nat) : Nat {
-    //     let pointer_address = Nat64.fromNat(index * 12);
-    //     let value_size = Region.loadNat32(self.pointers.region, pointer_address + 8);
-
-    //     Nat32.toNat(value_size);
-    // };
-
-    // public func update_pointer_at_index<A>(self : MemoryBuffer<A>, index : Nat, address : Nat, size : Nat) {
-    //     if (index == 398) Debug.print("prev (i, address, size): " # debug_show (index, address, size));
-
-    //     let pointer_address = Nat64.fromNat(index * 12);
-
-    //     let value_address = Nat64.fromNat(address);
-    //     let value_size = Nat32.fromNat(size);
-
-    //     Region.storeNat64(self.pointers.region, pointer_address, value_address);
-    //     Region.storeNat32(self.pointers.region, pointer_address + 8, value_size);
-
-    //     if (index == 398) Debug.print("new (i, address, size): " # debug_show (index, value_address, value_size));
-    // };
-
+    public let NULL_ADDRESS = 0xFFFF_FFFF_FFFF_FFFF;
+    
     public func sized_iter_to_array<A>(iter: Iter<A>, size: Nat): [A] {
         Array.tabulate(size, func(_i: Nat): A {
             switch (iter.next()) {

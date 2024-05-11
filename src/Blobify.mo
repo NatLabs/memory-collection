@@ -15,7 +15,6 @@ import Nat64Module "mo:base/Nat64";
 import PrincipalModule "mo:base/Principal";
 
 import Debug "mo:base/Debug";
-import Char "mo:fuzz/Char";
 
 module Blobify {
 

@@ -11,10 +11,13 @@ module VersionedMemoryBTree {
     public type BTreeUtils<K, V> = T.BTreeUtils<K, V>;
     type RevIter<A> = RevIter.RevIter<A>;
 
+    public let {createUtils} = MemoryBTree;
+    
     public func new(order : ?Nat) : VersionedMemoryBTree {
         let btree = MemoryBTree.new(order);
         MemoryBTree.toVersioned(btree);
     };
+    
 
     public func fromArray<K, V>(
         btree_utils : BTreeUtils<K, V>,
@@ -137,41 +140,6 @@ module VersionedMemoryBTree {
     public func metadataBytes(btree : VersionedMemoryBTree) : Nat {
         let state = Migrations.getCurrentVersion(btree);
         MemoryBTree.metadataBytes(state);
-    };
-
-    public func getId<K, V>(btree: VersionedMemoryBTree, btree_utils: BTreeUtils<K, V>, key: K) : ?Nat {
-        let state = Migrations.getCurrentVersion(btree);
-        MemoryBTree.getId(state, btree_utils, key);
-    };
-
-    public func nextId<K, V>(btree: VersionedMemoryBTree) : Nat {
-        let state = Migrations.getCurrentVersion(btree);
-        MemoryBTree.nextId(state);
-    };
-
-    public func lookup<K, V>(btree: VersionedMemoryBTree, btree_utils: BTreeUtils<K, V>, id: Nat) : ?(K, V) {
-        let state = Migrations.getCurrentVersion(btree);
-        MemoryBTree.lookup(state, btree_utils, id);
-    };
-
-    public func lookupKey<K, V>(btree: VersionedMemoryBTree, btree_utils: BTreeUtils<K, V>, id: Nat) : ?K {
-        let state = Migrations.getCurrentVersion(btree);
-        MemoryBTree.lookupKey(state, btree_utils, id);
-    };
-
-    public func lookupVal<K, V>(btree: VersionedMemoryBTree, btree_utils: BTreeUtils<K, V>, id: Nat) : ?V {
-        let state = Migrations.getCurrentVersion(btree);
-        MemoryBTree.lookupVal(state, btree_utils, id);
-    };
-
-    public func reference<K, V>(btree: VersionedMemoryBTree, btree_utils: BTreeUtils<K, V>, id: Nat)  {
-        let state = Migrations.getCurrentVersion(btree);
-        MemoryBTree.reference(state, btree_utils, id);
-    };
-
-    public func getRefCount<K, V>(btree: VersionedMemoryBTree, btree_utils: BTreeUtils<K, V>, id: Nat) : ?Nat {
-        let state = Migrations.getCurrentVersion(btree);
-        MemoryBTree.getRefCount(state, btree_utils, id);
     };
 
 };
