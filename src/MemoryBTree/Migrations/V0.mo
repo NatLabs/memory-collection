@@ -5,8 +5,8 @@ import LruCache "mo:lru-cache";
 import RevIter "mo:itertools/RevIter";
 // import Branch "mo:augmented-btrees/BpTree/Branch";
 
-import Blobify "../../Blobify";
-import MemoryCmp "../../MemoryCmp";
+import Blobify "../../TypeUtils/Blobify";
+import MemoryCmp "../../TypeUtils/MemoryCmp";
 
 module {
     public type Address = Nat;
@@ -46,12 +46,6 @@ module {
         keys_blobs : [var ?Blob],
     );
 
-    public type MemoryUtils<K, V> = (
-        key : Blobify<K>,
-        value : Blobify<V>,
-        cmp : MemoryCmp<K>,
-    );
-
     public type Node = {
         #leaf : Leaf;
         #branch : Branch;
@@ -64,18 +58,23 @@ module {
 
     public type MemoryBTree = {
         is_set : Bool; // is true, only keys are stored
-        order : Nat;
+        node_capacity : Nat;
         var count : Nat;
         var root : Nat;
         var branch_count : Nat; // number of branch nodes
         var leaf_count : Nat; // number of leaf nodes
+        var depth : Nat;
+        var is_root_a_leaf : Bool;
 
         metadata : MemoryRegionV1;
         blocks : MemoryRegionV1;
         blobs : MemoryRegionV1;
 
+        leaves : MemoryRegionV1;
+        branches : MemoryRegionV1;
+        data : MemoryRegionV1;
+
         nodes_cache : LruCache<Address, Node>;
     };
-
 
 };

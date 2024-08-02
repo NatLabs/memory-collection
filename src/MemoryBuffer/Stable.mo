@@ -1,5 +1,3 @@
-/// A memory buffer is a data structure that stores a sequence of values in memory.
-
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
 import Result "mo:base/Result";
@@ -8,12 +6,12 @@ import Order "mo:base/Order";
 import MemoryRegion "mo:memory-region/MemoryRegion";
 import RevIter "mo:itertools/RevIter";
 
-import Blobify "../Blobify";
 import MemoryBuffer "Base";
 import Migrations "Migrations";
-import MemoryCmp "../MemoryCmp";
+import MemoryCmp "../TypeUtils/MemoryCmp";
+import Blobify "../TypeUtils/Blobify";
 
-module VersionedMemoryBuffer {
+module StableMemoryBuffer {
     type Iter<A> = Iter.Iter<A>;
     type RevIter<A> = RevIter.RevIter<A>;
     type Result<A, B> = Result.Result<A, B>;
@@ -26,209 +24,210 @@ module VersionedMemoryBuffer {
 
     public type Blobify<A> = Blobify.Blobify<A>;
     public type MemoryBuffer<A> = Migrations.MemoryBuffer<A>;
-    public type VersionedMemoryBuffer<A> = Migrations.VersionedMemoryBuffer<A>;
+    public type StableMemoryBuffer<A> = Migrations.VersionedMemoryBuffer<A>;
+    public type MemoryBufferUtils<A> = MemoryBuffer.MemoryBufferUtils<A>;
 
-    public func new<A>() : VersionedMemoryBuffer<A> {
+    public func new<A>() : StableMemoryBuffer<A> {
         return MemoryBuffer.toVersioned(MemoryBuffer.new());
     };
 
-    public func upgrade<A>(self : VersionedMemoryBuffer<A>) : VersionedMemoryBuffer<A> {
+    public func upgrade<A>(self : StableMemoryBuffer<A>) : StableMemoryBuffer<A> {
         Migrations.upgrade(self);
     };
 
-    public func verify<A>(self : VersionedMemoryBuffer<A>) : Result<(), Text> {
+    public func verify<A>(self : StableMemoryBuffer<A>) : Result<(), Text> {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.verify(state);
     };
 
-    public func init<A>(self : Blobify<A>, size : Nat, val : A) : VersionedMemoryBuffer<A> {
+    public func init<A>(self : MemoryBufferUtils<A>, size : Nat, val : A) : StableMemoryBuffer<A> {
         return MemoryBuffer.toVersioned(MemoryBuffer.init(self, size, val));
     };
 
-    public func tabulate<A>(blobify : Blobify<A>, size : Nat, fn : (i : Nat) -> A) : VersionedMemoryBuffer<A> {
+    public func tabulate<A>(blobify : MemoryBufferUtils<A>, size : Nat, fn : (i : Nat) -> A) : StableMemoryBuffer<A> {
         return MemoryBuffer.toVersioned(MemoryBuffer.tabulate(blobify, size, fn));
     };
 
-    public func fromArray<A>(blobify : Blobify<A>, arr : [A]) : VersionedMemoryBuffer<A> {
+    public func fromArray<A>(blobify : MemoryBufferUtils<A>, arr : [A]) : StableMemoryBuffer<A> {
         return MemoryBuffer.toVersioned(MemoryBuffer.fromArray(blobify, arr));
     };
 
-    public func fromIter<A>(blobify : Blobify<A>, iter : Iter<A>) : VersionedMemoryBuffer<A> {
+    public func fromIter<A>(blobify : MemoryBufferUtils<A>, iter : Iter<A>) : StableMemoryBuffer<A> {
         return MemoryBuffer.toVersioned(MemoryBuffer.fromIter(blobify, iter));
     };
 
-    public func size<A>(self : VersionedMemoryBuffer<A>) : Nat {
+    public func size<A>(self : StableMemoryBuffer<A>) : Nat {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.size(state);
     };
 
-    public func bytes<A>(self : VersionedMemoryBuffer<A>) : Nat {
+    public func bytes<A>(self : StableMemoryBuffer<A>) : Nat {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.bytes(state);
     };
 
-    public func metadataBytes<A>(self : VersionedMemoryBuffer<A>) : Nat {
+    public func metadataBytes<A>(self : StableMemoryBuffer<A>) : Nat {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.metadataBytes(state);
     };
 
-    public func totalBytes<A>(self : VersionedMemoryBuffer<A>) : Nat {
+    public func totalBytes<A>(self : StableMemoryBuffer<A>) : Nat {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.totalBytes(state);
     };
 
-    public func capacity<A>(self : VersionedMemoryBuffer<A>) : Nat {
+    public func capacity<A>(self : StableMemoryBuffer<A>) : Nat {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.capacity(state);
     };
 
-    public func put<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, index : Nat, value : A) {
+    public func put<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>, index : Nat, value : A) {
         let state = Migrations.getCurrentVersion(self);
         MemoryBuffer.put(state, blobify, index, value);
     };
 
-    public func getOpt<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, index : Nat) : ?A {
+    public func getOpt<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>, index : Nat) : ?A {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.getOpt(state, blobify, index);
     };
 
-    public func get<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, index : Nat) : A {
+    public func get<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>, index : Nat) : A {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.get(state, blobify, index);
     };
 
-    public func _get_pointer<A>(self : VersionedMemoryBuffer<A>, index : Nat) : Nat {
+    public func _get_pointer<A>(self : StableMemoryBuffer<A>, index : Nat) : Nat {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer._get_pointer(state, index);
     };
 
-    public func _get_memory_block<A>(self : VersionedMemoryBuffer<A>, index : Nat) : (Nat, Nat) {
+    public func _get_memory_block<A>(self : StableMemoryBuffer<A>, index : Nat) : (Nat, Nat) {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer._get_memory_block(state, index);
     };
 
-    public func _get_blob<A>(self : VersionedMemoryBuffer<A>, index : Nat) : Blob {
+    public func _get_blob<A>(self : StableMemoryBuffer<A>, index : Nat) : Blob {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer._get_blob<A>(state, index);
     };
 
-    public func add<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, value : A) {
+    public func add<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>, value : A) {
         let state = Migrations.getCurrentVersion(self);
         MemoryBuffer.add(state, blobify, value);
     };
 
-    public func addFromIter<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, iter : Iter<A>) {
+    public func addFromIter<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>, iter : Iter<A>) {
         let state = Migrations.getCurrentVersion(self);
         MemoryBuffer.addFromIter(state, blobify, iter);
     };
 
-    public func addFromArray<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, arr : [A]) {
+    public func addFromArray<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>, arr : [A]) {
         let state = Migrations.getCurrentVersion(self);
         MemoryBuffer.addFromArray(state, blobify, arr);
     };
 
-    public func append<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, other : VersionedMemoryBuffer<A>) {
+    public func append<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>, other : StableMemoryBuffer<A>) {
         let curr_state = Migrations.getCurrentVersion(self);
         let other_state = Migrations.getCurrentVersion(other);
         MemoryBuffer.append(curr_state, blobify, other_state);
     };
 
-    public func vals<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>) : RevIter<A> {
+    public func vals<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>) : RevIter<A> {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.vals(state, blobify);
     };
 
-    public func items<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>) : RevIter<(index : Nat, value : A)> {
+    public func items<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>) : RevIter<(index : Nat, value : A)> {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.items(state, blobify);
     };
 
-    public func blobs<A>(self : VersionedMemoryBuffer<A>) : RevIter<Blob> {
+    public func blobs<A>(self : StableMemoryBuffer<A>) : RevIter<Blob> {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.blobs(state);
     };
 
-    public func pointers<A>(self : VersionedMemoryBuffer<A>) : RevIter<Nat> {
+    public func pointers<A>(self : StableMemoryBuffer<A>) : RevIter<Nat> {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.pointers(state);
     };
 
-    public func blocks<A>(self: VersionedMemoryBuffer<A>) : RevIter<(Nat, Nat)> {
+    public func blocks<A>(self : StableMemoryBuffer<A>) : RevIter<(Nat, Nat)> {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.blocks(state);
     };
 
-    public func remove<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, index : Nat) : A {
+    public func remove<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>, index : Nat) : A {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.remove(state, blobify, index);
     };
 
-    public func removeLast<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>) : ?A {
+    public func removeLast<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>) : ?A {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.removeLast(state, blobify);
     };
 
-    public func swap<A>(self : VersionedMemoryBuffer<A>, index_a : Nat, index_b : Nat) {
+    public func swap<A>(self : StableMemoryBuffer<A>, index_a : Nat, index_b : Nat) {
         let state = Migrations.getCurrentVersion(self);
         MemoryBuffer.swap(state, index_a, index_b);
     };
 
-    public func swapRemove<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, index : Nat) : A {
+    public func swapRemove<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>, index : Nat) : A {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.swapRemove(state, blobify, index);
     };
 
-    public func reverse<A>(self : VersionedMemoryBuffer<A>) {
+    public func reverse<A>(self : StableMemoryBuffer<A>) {
         let state = Migrations.getCurrentVersion(self);
         MemoryBuffer.reverse(state);
     };
 
-    public func clear<A>(self : VersionedMemoryBuffer<A>) {
+    public func clear<A>(self : StableMemoryBuffer<A>) {
         let state = Migrations.getCurrentVersion(self);
         MemoryBuffer.clear(state);
     };
 
-    public func clone<A>(self : VersionedMemoryBuffer<A>) : VersionedMemoryBuffer<A> {
+    public func clone<A>(self : StableMemoryBuffer<A>) : StableMemoryBuffer<A> {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.toVersioned(MemoryBuffer.clone(state));
     };
 
-    public func insert<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, index : Nat, value : A) {
+    public func insert<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>, index : Nat, value : A) {
         let state = Migrations.getCurrentVersion(self);
         MemoryBuffer.insert(state, blobify, index, value);
     };
 
-    public func sortUnstable<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, cmp : MemoryCmp.MemoryCmp<A> ) {
+    public func sortUnstable<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>, cmp : MemoryCmp.MemoryCmp<A>) {
         let state = Migrations.getCurrentVersion(self);
         MemoryBuffer.sortUnstable(state, blobify, cmp);
     };
 
-    public func shuffle<A>(self: VersionedMemoryBuffer<A>) {
+    public func shuffle<A>(self : StableMemoryBuffer<A>) {
         let state = Migrations.getCurrentVersion(self);
         MemoryBuffer.shuffle(state);
     };
 
-    public func indexOf<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, equal: (A, A) -> Bool, value : A) : ?Nat {
+    public func indexOf<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>, equal : (A, A) -> Bool, value : A) : ?Nat {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.indexOf(state, blobify, equal, value);
     };
 
-    public func lastIndexOf<A>(self: VersionedMemoryBuffer<A>, blobify: Blobify<A>, equal: (A, A) -> Bool, value: A) : ?Nat {
+    public func lastIndexOf<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>, equal : (A, A) -> Bool, value : A) : ?Nat {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.lastIndexOf(state, blobify, equal, value);
     };
 
-    public func contains<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>, equal: (A, A) -> Bool, value : A) : Bool {
+    public func contains<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>, equal : (A, A) -> Bool, value : A) : Bool {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.contains(state, blobify, equal, value);
     };
 
-    public func isEmpty<A>(self : VersionedMemoryBuffer<A>) : Bool {
+    public func isEmpty<A>(self : StableMemoryBuffer<A>) : Bool {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.isEmpty(state);
     };
 
-    public func toArray<A>(self : VersionedMemoryBuffer<A>, blobify : Blobify<A>) : [A] {
+    public func toArray<A>(self : StableMemoryBuffer<A>, blobify : MemoryBufferUtils<A>) : [A] {
         let state = Migrations.getCurrentVersion(self);
         return MemoryBuffer.toArray(state, blobify);
     };

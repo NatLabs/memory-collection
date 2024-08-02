@@ -3,10 +3,10 @@ import Nat "mo:base/Nat";
 import MemoryRegion "mo:memory-region/MemoryRegion";
 import LruCache "mo:lru-cache";
 import RevIter "mo:itertools/RevIter";
-// import Branch "mo:augmented-btrees/BpTree/Branch";
 
-import Blobify "../../Blobify";
-import MemoryCmp "../../MemoryCmp";
+import Blobify "../../TypeUtils/Blobify";
+import MemoryCmp "../../TypeUtils/MemoryCmp";
+import TypeUtils "../../TypeUtils";
 
 module {
     public type Address = Nat;
@@ -22,10 +22,18 @@ module {
 
     public type MemoryCmp<A> = MemoryCmp.MemoryCmp<A>;
 
-    public type BTreeUtils<K, V> =  {
-        key: Blobify<K>;
-        val: Blobify<V>;
-        cmp: MemoryCmp<K>;
+    public type KeyUtils<K> = {
+        blobify : TypeUtils.Blobify<K>;
+        cmp : TypeUtils.MemoryCmp<K>;
+    };
+
+    public type ValueUtils<V> = {
+        blobify : TypeUtils.Blobify<V>;
+    };
+
+    public type BTreeUtils<K, V> = {
+        key : KeyUtils<K>;
+        value : ValueUtils<V>;
     };
 
     public type NodeType = {

@@ -15,14 +15,14 @@ import BTreeMapMemory "mo:MotokoStableBTree/modules/memory";
 import { BpTree; Cmp } "mo:augmented-btrees";
 
 import MemoryBTree "../../src/MemoryBTree/Base";
-import BTreeUtils "../../src/MemoryBTree/BTreeUtils";
+import TypeUtils "../../src/TypeUtils";
 import MemoryCmp "../../src/MemoryCmp";
 import Blobify "../../src/Blobify";
 
 module {
 
     type MemoryBTree = MemoryBTree.MemoryBTree;
-    type BTreeUtils<K, V> = BTreeUtils.BTreeUtils<K, V>;
+    type TypeUtils<K, V> = TypeUtils.TypeUtils<K, V>;
 
     public func init() : Bench.Bench {
         let fuzz = Fuzz.fromSeed(0xdeadbeef);
@@ -70,8 +70,8 @@ module {
             let key = fuzz.nat.randomRange(0, limit ** 2);
 
             entries.add((key, key));
-
-            // let replace_val = fuzz.text.randomAlphabetic(10);
+            let replaced_size = fuzz.nat.randomRange(5, 15);
+            // let replace_val = fuzz.text.randomAlphabetic(replaced_size);
 
             // replacements.add((key, key));
         };
@@ -79,9 +79,9 @@ module {
         let sorted = Buffer.clone(entries);
         sorted.sort(func(a, b) = Nat.compare(a.0, b.0));
 
-        let btree_utils = BTreeUtils.createUtils(BTreeUtils.BigEndian.Nat, BTreeUtils.BigEndian.Nat);
+        let btree_utils = MemoryBTree.createUtils(TypeUtils.BigEndian.Nat, TypeUtils.BigEndian.Nat);
 
-        func run_bench(name : Text, category : Text, mem_btree : MemoryBTree, btree_utils : BTreeUtils<Nat, Nat>) {
+        func run_bench(name : Text, category : Text, mem_btree : MemoryBTree, btree_utils : TypeUtils<Nat, Nat>) {
             switch (category) {
                 case ("insert()") {
                     for ((key, val) in entries.vals()) {

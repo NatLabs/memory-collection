@@ -17,8 +17,3 @@
 # frontend code
 node_modules/
 dist/
-
-# internal
-drafts/
-tests/drafts/
-bench/drafts/

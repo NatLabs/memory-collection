@@ -1,8 +1,5 @@
-import Array "mo:base/Array";
 import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
-import Prelude "mo:base/Prelude";
-import RbTree "mo:base/RBTree";
 import Nat "mo:base/Nat";
 import Buffer "mo:base/Buffer";
 
@@ -12,9 +9,7 @@ import Fuzz "mo:fuzz";
 import { BpTree; Cmp } "mo:augmented-btrees";
 
 import MemoryBTree "../../src/MemoryBTree/Base";
-import BTreeUtils "../../src/MemoryBTree/BTreeUtils";
-import MemoryCmp "../../src/MemoryCmp";
-import Blobify "../../src/Blobify";
+import TypeUtils "../../src/TypeUtils";
 
 module {
     type MemoryBTree = MemoryBTree.MemoryBTree;
@@ -43,9 +38,9 @@ module {
         let mem_btree = MemoryBTree.new(?256);
         let mem_btree2 = MemoryBTree.new(?256);
 
-        let btree_utils = BTreeUtils.createUtils(
-            BTreeUtils.BigEndian.Nat, 
-            BTreeUtils.Nat,
+        let btree_utils = MemoryBTree.createUtils(
+            TypeUtils.BigEndian.Nat,
+            TypeUtils.Nat,
         );
 
         let entries = Buffer.Buffer<(Nat, Nat)>(limit);

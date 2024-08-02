@@ -1,3 +1,5 @@
+import Debug "mo:base/Debug";
+
 import V0 "V0";
 
 module Migrations {
@@ -11,16 +13,18 @@ module Migrations {
         #v0 : V0.MemoryBTree;
     };
 
-    public func upgrade(versions: VersionedMemoryBTree) : VersionedMemoryBTree {
-        switch(versions) {
+    public type StableStore = VersionedMemoryBTree;
+
+    public func upgrade(versions : VersionedMemoryBTree) : VersionedMemoryBTree {
+        switch (versions) {
             case (#v0(v0)) versions;
-        }
+        };
     };
 
-    public func getCurrentVersion(versions: VersionedMemoryBTree) : MemoryBTree {
-        switch(versions) {
+    public func getCurrentVersion(versions : VersionedMemoryBTree) : MemoryBTree {
+        switch (versions) {
             case (#v0(v0)) v0;
-            // case (_) Debug.trap("Unsupported version. Please upgrade the memory buffer to the latest version.");
-        }
+            case (_) Debug.trap("Unsupported version. Please upgrade the memory buffer to the latest version.");
+        };
     };
-}
+};

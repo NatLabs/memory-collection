@@ -24,12 +24,12 @@ module Migrations {
         #v0 : MemoryBufferV0<A>;
     };
 
-    public func upgrade<A>(versions: VersionedMemoryBuffer<A>) : VersionedMemoryBuffer<A> = switch(versions){
+    public func upgrade<A>(versions : VersionedMemoryBuffer<A>) : VersionedMemoryBuffer<A> = switch (versions) {
         case (#v0(v0)) versions;
     };
 
-    public func getCurrentVersion<A>(versions: VersionedMemoryBuffer<A>) : MemoryBuffer<A> {
-        switch(versions){
+    public func getCurrentVersion<A>(versions : VersionedMemoryBuffer<A>) : MemoryBuffer<A> {
+        switch (versions) {
             case (#v0(v0)) v0;
             // case (_) Debug.trap("Unsupported version. Please upgrade the memory buffer to the latest version.");
         };

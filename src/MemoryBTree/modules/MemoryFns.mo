@@ -1,19 +1,18 @@
 import Int "mo:base/Int";
-
-import MemoryRegion "mo:memory-region/MemoryRegion";
+import Region "mo:base/Region";
+import Nat64 "mo:base/Nat64";
 
 module {
-    type MemoryRegion = MemoryRegion.MemoryRegion;
 
-    public func shift(region : MemoryRegion, start : Nat, end : Nat, offset : Int) {
+    public func shift(region : Region, start : Nat, end : Nat, offset : Int) {
         let size = (end - start : Nat);
         if (size == 0) return;
-        
-        let blob = MemoryRegion.loadBlob(region, start, size);
+
+        let blob = Region.loadBlob(region, Nat64.fromNat(start), size);
 
         let new_start = Int.abs(start + offset);
 
-        MemoryRegion.storeBlob(region, new_start, blob);
+        Region.storeBlob(region, Nat64.fromNat(new_start), blob);
     };
 
-}
+};

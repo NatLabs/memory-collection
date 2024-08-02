@@ -15,17 +15,9 @@ import BTreeMapMemory "mo:MotokoStableBTree/modules/memory";
 import { BpTree; Cmp } "mo:augmented-btrees";
 
 import MemoryBTree "../../src/MemoryBTree/Base";
-import BTreeUtils "../../src/MemoryBTree/BTreeUtils";
-import MemoryCmp "../../src/MemoryCmp";
-import Blobify "../../src/Blobify";
+import TypeUtils "../../src/TypeUtils";
 
 module {
-
-    let candid_mem_utils = (
-        Blobify.Candid.Text,
-        Blobify.Candid.Text,
-        MemoryCmp.Default,
-    );
 
     type MemoryBTree = MemoryBTree.MemoryBTree;
 
@@ -33,29 +25,28 @@ module {
         let fuzz = Fuzz.fromSeed(0xdeadbeef);
 
         let bench = Bench.Bench();
-        bench.name("Comparing B+Tree, MotokoStableBTree and Memory B+Tree");
+        bench.name("Comparing the Memory B+Tree with different node capacities");
         bench.description("Benchmarking the performance with 10k entries");
 
         bench.rows([
             "B+Tree",
-            "MotokoStableBTree",
-            "Memory B+Tree (order 4)",
-            "Memory B+Tree (order 32)",
-            "Memory B+Tree (order 64)",
-            "Memory B+Tree (order 128)",
-            "Memory B+Tree (order 256)",
-            "Memory B+Tree (order 512)",
-            "Memory B+Tree (order 1024)",
-            "Memory B+Tree (order 2048)",
-            "Memory B+Tree (order 4096)",
+            "Memory B+Tree (4)",
+            "Memory B+Tree (32)",
+            "Memory B+Tree (64)",
+            "Memory B+Tree (128)",
+            "Memory B+Tree (256)",
+            "Memory B+Tree (512)",
+            "Memory B+Tree (1024)",
+            "Memory B+Tree (2048)",
+            "Memory B+Tree (4096)",
         ]);
         bench.cols([
             "insert()",
             "get()",
             "replace()",
             "entries()",
-            // "scan()",
             "remove()",
+            // "random insert(), replace(), remove()",
         ]);
 
         let limit = 10_000;
@@ -77,22 +68,23 @@ module {
         let mem_btree_order_4096 = MemoryBTree.new(?4096);
 
         let entries = Buffer.Buffer<(Text, Text)>(limit);
-        // let replacements = Buffer.Buffer<(Text, Text)>(limit);
+        let replacements = Buffer.Buffer<(Text, Text)>(limit);
 
         for (i in Iter.range(0, limit - 1)) {
             let key = fuzz.text.randomAlphabetic(10);
 
             entries.add((key, key));
+            let replaced_size = fuzz.nat.randomRange(5, 15);
 
-            // let replace_val = fuzz.text.randomAlphabetic(10);
+            let replace_val = fuzz.text.randomAlphabetic(replaced_size);
 
-            // replacements.add((key, key));
+            replacements.add((key, replace_val));
         };
 
         let sorted = Buffer.clone(entries);
         sorted.sort(func(a, b) = Text.compare(a.0, b.0));
 
-        let btree_utils = BTreeUtils.createUtils(BTreeUtils.Text, BTreeUtils.Text);
+        let btree_utils = MemoryBTree.createUtils(TypeUtils.Text, TypeUtils.Text);
 
         func run_bench(name : Text, category : Text, mem_btree_order : MemoryBTree) {
             switch (category) {
@@ -101,8 +93,48 @@ module {
                         ignore MemoryBTree.insert<Text, Text>(mem_btree_order, btree_utils, key, val);
                     };
                 };
+                case ("random insert(), replace(), remove()") {
+                    let indices = [var 0, 0];
+
+                    for (i in Iter.range(0, limit - 1)) {
+                        var n = fuzz.nat.randomRange(0, 10);
+
+                        if (n < 2) {
+                            if (indices[0] >= indices[1]) (n := 9) else if (indices[0] == 0) (n := 5) else {
+                                // Debug.print("remove");
+
+                                let (key, val) = entries.get(indices[0]);
+                                indices[0] -= 1;
+                                ignore MemoryBTree.remove(mem_btree_order, btree_utils, key);
+                            };
+                        };
+
+                        if (n >= 2 and n < 6) {
+                            if (indices[0] >= indices[1]) n := 9 else {
+                                // Debug.print("replace");
+
+                                let (key, val) = replacements.get(indices[0]);
+                                indices[0] += 1;
+
+                                ignore MemoryBTree.insert(mem_btree_order, btree_utils, key, val);
+                            };
+                        };
+
+                        if (n >= 6 and n <= 10) {
+                            // Debug.print("insert");
+                            let (key, val) = entries.get(indices[1]);
+                            indices[1] += 1;
+
+                            ignore MemoryBTree.insert(mem_btree_order, btree_utils, key, val);
+                        };
+
+                        // Debug.print(debug_show indices);
+
+                    };
+
+                };
                 case ("replace()") {
-                    for ((key, val) in entries.vals()) {
+                    for ((key, val) in replacements.vals()) {
                         ignore MemoryBTree.insert(mem_btree_order, btree_utils, key, val);
                     };
                 };
@@ -137,8 +169,13 @@ module {
                         ignore BpTree.insert(bptree, Cmp.Text, key, val);
                     };
                 };
-                case ("B+Tree", "replace()") {
+                case ("B+Tree", "random insert(), replace(), remove()") {
                     for ((key, val) in entries.vals()) {
+                        ignore BpTree.insert(bptree, Cmp.Text, key, val);
+                    };
+                };
+                case ("B+Tree", "replace()") {
+                    for ((key, val) in replacements.vals()) {
                         ignore BpTree.insert(bptree, Cmp.Text, key, val);
                     };
                 };
@@ -176,7 +213,7 @@ module {
                     };
                 };
                 case ("MotokoStableBTree", "replace()") {
-                    for ((key, val) in entries.vals()) {
+                    for ((key, val) in replacements.vals()) {
                         ignore stable_btree.insert(key, tconv_10, val, tconv_10);
                     };
                 };
@@ -202,31 +239,31 @@ module {
                     };
                 };
 
-                case ("Memory B+Tree (order 4)", category) {
+                case ("Memory B+Tree (4)", category) {
                     run_bench("Memory B+Tree", category, mem_btree_order_4);
                 };
-                case ("Memory B+Tree (order 32)", category) {
+                case ("Memory B+Tree (32)", category) {
                     run_bench("Memory B+Tree", category, mem_btree_order_32);
                 };
-                case ("Memory B+Tree (order 64)", category) {
+                case ("Memory B+Tree (64)", category) {
                     run_bench("Memory B+Tree", category, mem_btree_order_64);
                 };
-                case ("Memory B+Tree (order 128)", category) {
+                case ("Memory B+Tree (128)", category) {
                     run_bench("Memory B+Tree", category, mem_btree_order_128);
                 };
-                case ("Memory B+Tree (order 256)", category) {
+                case ("Memory B+Tree (256)", category) {
                     run_bench("Memory B+Tree", category, mem_btree_order_256);
                 };
-                case ("Memory B+Tree (order 512)", category) {
+                case ("Memory B+Tree (512)", category) {
                     run_bench("Memory B+Tree", category, mem_btree_order_512);
                 };
-                case ("Memory B+Tree (order 1024)", category) {
+                case ("Memory B+Tree (1024)", category) {
                     run_bench("Memory B+Tree", category, mem_btree_order_1024);
                 };
-                case ("Memory B+Tree (order 2048)", category) {
+                case ("Memory B+Tree (2048)", category) {
                     run_bench("Memory B+Tree", category, mem_btree_order_2048);
                 };
-                case ("Memory B+Tree (order 4096)", category) {
+                case ("Memory B+Tree (4096)", category) {
                     run_bench("Memory B+Tree", category, mem_btree_order_4096);
                 };
 

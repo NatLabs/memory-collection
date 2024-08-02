@@ -1,14 +1,13 @@
 import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
-import Prelude "mo:base/Prelude";
 import Buffer "mo:base/Buffer";
 
 import Bench "mo:bench";
 import Fuzz "mo:fuzz";
 import Itertools "mo:itertools/Iter";
 
-import MemoryQueue "../../src/MemoryQueue/Base";
-import Blobify "../../src/Blobify";
+import MemoryQueue "../../src/MemoryQueue";
+import TypeUtils "../../src/TypeUtils";
 
 module {
     public func init() : Bench.Bench {
@@ -17,11 +16,12 @@ module {
         bench.name("Benchmarking the MemoryQueue");
         bench.description("Benchmarking the performance with 10k calls");
 
-        bench.rows(["MemoryQueue"]);
-        bench.cols([
+        bench.cols(["MemoryQueue"]);
+        bench.rows([
             "add()",
             "vals()",
             "pop()",
+            "random add()/pop()",
         ]);
 
         let fuzz = Fuzz.Fuzz();
@@ -29,27 +29,30 @@ module {
         let limit = 10_000;
 
         let buffer = Buffer.Buffer<Nat>(limit);
-        let mem_queue = MemoryQueue.new();
+        let buffer2 = Buffer.Buffer<Nat>(limit);
+        let sstore = MemoryQueue.newStableStore();
+        let mem_queue = MemoryQueue.MemoryQueue<Nat>(sstore, TypeUtils.Nat);
 
         for (i in Iter.range(0, limit - 1)) {
             let n = fuzz.nat.randomRange(0, limit ** 2);
-
+            let n2 = fuzz.nat.randomRange(0, limit ** 2);
             buffer.add(n);
+            buffer2.add(n2);
         };
 
         bench.runner(
-            func(row, col) = switch (row, col) {
+            func(col, row) = switch (row, col) {
 
                 case ("MemoryQueue", "add()") {
                     for (i in buffer.vals()) {
-                        MemoryQueue.add(mem_queue, Blobify.Nat, i);
+                        mem_queue.add(i);
                     };
                 };
 
                 case ("MemoryQueue", "vals()") {
 
                     var i = 0;
-                    for ((a, b) in Itertools.zip(buffer.vals(), MemoryQueue.vals(mem_queue, Blobify.Nat))) {
+                    for ((a, b) in Itertools.zip(buffer.vals(), mem_queue.vals())) {
                         assert a == b;
                         i += 1;
                     };
@@ -59,8 +62,23 @@ module {
 
                 case ("MemoryQueue", "pop()") {
                     for (i in buffer.vals()) {
-                        assert ?i == MemoryQueue.pop(mem_queue, Blobify.Nat);
+                        assert ?i == mem_queue.pop();
                     };
+                };
+                case ("MemoryQueue", "random add()/pop()") {
+                    var i = 0;
+
+                    for (_ in Iter.range(0, limit - 1)) {
+                        let choice = if (mem_queue.isEmpty()) false else fuzz.nat.randomRange(0, 10) <= 5;
+
+                        if (choice) {
+                            ignore mem_queue.pop();
+                        } else {
+                            mem_queue.add(i);
+                            i += 1;
+                        };
+                    };
+
                 };
 
                 case (_) {

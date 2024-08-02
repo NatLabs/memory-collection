@@ -1,41 +1,39 @@
-/// A memory buffer is a data structure that stores a sequence of values in memory.
-
-import Debug "mo:base/Debug";
 import Array "mo:base/Array";
+import Debug "mo:base/Debug";
 import Iter "mo:base/Iter";
-import Int "mo:base/Int";
-import Nat "mo:base/Nat";
 import Nat8 "mo:base/Nat8";
 import Nat32 "mo:base/Nat32";
 import Nat64 "mo:base/Nat64";
-import Blob "mo:base/Blob";
-import Result "mo:base/Result";
-import Order "mo:base/Order";
 
 import MemoryRegion "mo:memory-region/MemoryRegion";
-import RevIter "mo:itertools/RevIter";
-import Itertools "mo:itertools/Iter";
 
-import Blobify "../../src/Blobify";
+import Blobify "../TypeUtils/Blobify";
+import TypeUtils "../TypeUtils";
 
 module MemoryQueue {
 
     type Blobify<A> = Blobify.Blobify<A>;
     type Iter<A> = Iter.Iter<A>;
-    type RevIter<A> = RevIter.RevIter<A>;
-    type Result<A, B> = Result.Result<A, B>;
     type MemoryRegion = MemoryRegion.MemoryRegion;
-    type MemoryBlock = MemoryRegion.MemoryBlock;
-    type Order = Order.Order;
 
+    //
     public type MemoryQueue = {
-        region: MemoryRegion;
+        region : MemoryRegion;
 
         var head : Nat;
         var tail : Nat;
         var count : Nat;
     };
 
+    public type MemoryQueueUtils<A> = {
+        blobify : TypeUtils.Blobify<A>;
+    };
+
+    public func createUtils<A>(queue_utils : MemoryQueueUtils<A>) : MemoryQueueUtils<A> {
+        queue_utils;
+    };
+
+    /// Create a new memory queue
     public func new<A>() : MemoryQueue {
         let mem_queue : MemoryQueue = {
             region = MemoryRegion.new();
@@ -47,7 +45,7 @@ module MemoryQueue {
 
         init_region_header(mem_queue);
 
-        mem_queue
+        mem_queue;
     };
 
     let C = {
@@ -71,19 +69,17 @@ module MemoryQueue {
         NODE_METADATA_SIZE = 12;
     };
 
-    /// Node layout 
-    /// | Next (8 bytes) | Size (4 bytes) | Value (?? bytes) | 
- 
+    /// Node layout
+    /// | Next (8 bytes) | Size (4 bytes) | Value (|Size| bytes) |
+
     func init_region_header<A>(mem_queue : MemoryQueue) {
-        // assert MemoryRegion.size(mem_queue.blobs) == 0;
-        assert MemoryRegion.size(mem_queue.region) == 0;
 
         ignore MemoryRegion.allocate(mem_queue.region, C.REGION_HEADER_SIZE); // Reserved Space for the Region Header
-        MemoryRegion.storeBlob(mem_queue.region, C.MAGIC_NUMBER_ADDRESS, "MQU"); // |3 bytes| MAGIC NUMBER (MQU -> Memory Queue)
-        MemoryRegion.storeNat8(mem_queue.region, C.LAYOUT_VERSION_ADDRESS, Nat8.fromNat(C.LAYOUT_VERSION)); // |1 byte | Layout Version (1)
-        MemoryRegion.storeNat64(mem_queue.region, C.COUNT_ADDRESS, 0); // |8 bytes| Count -> Number of elements in the buffer
-        MemoryRegion.storeNat64(mem_queue.region, C.HEAD_START, Nat64.fromNat(C.NULL_ADDRESS)); 
-        MemoryRegion.storeNat64(mem_queue.region, C.TAIL_START, Nat64.fromNat(C.NULL_ADDRESS)); 
+        MemoryRegion.storeBlob(mem_queue.region, C.MAGIC_NUMBER_ADDRESS, "MQU");
+        MemoryRegion.storeNat8(mem_queue.region, C.LAYOUT_VERSION_ADDRESS, Nat8.fromNat(C.LAYOUT_VERSION));
+        MemoryRegion.storeNat64(mem_queue.region, C.COUNT_ADDRESS, 0);
+        MemoryRegion.storeNat64(mem_queue.region, C.HEAD_START, Nat64.fromNat(C.NULL_ADDRESS));
+        MemoryRegion.storeNat64(mem_queue.region, C.TAIL_START, Nat64.fromNat(C.NULL_ADDRESS));
         assert MemoryRegion.size(mem_queue.region) == C.REGION_HEADER_SIZE;
     };
 
@@ -97,21 +93,30 @@ module MemoryQueue {
         MemoryRegion.storeNat64(mem_queue.region, C.HEAD_START, Nat64.fromNat(head));
     };
 
-    func update_tail(mem_queue: MemoryQueue, tail : Nat) {
+    func update_tail(mem_queue : MemoryQueue, tail : Nat) {
         mem_queue.tail := tail;
         MemoryRegion.storeNat64(mem_queue.region, C.TAIL_START, Nat64.fromNat(tail));
     };
 
-    public func isEmpty(mem_queue: MemoryQueue) : Bool {
+    /// Checks if the memory queue is empty
+    public func isEmpty(mem_queue : MemoryQueue) : Bool {
         mem_queue.count == 0;
     };
 
-    public func size(mem_queue: MemoryQueue) : Nat {
+    public type MemoryQueueStats = MemoryRegion.MemoryInfo;
+
+    public func stats(mem_queue : MemoryQueue) : MemoryQueueStats {
+        MemoryRegion.memoryInfo(mem_queue.region);
+    };
+
+    /// Returns the number of elements in the memory queue
+    public func size(mem_queue : MemoryQueue) : Nat {
         mem_queue.count;
     };
 
-    public func add<A>(mem_queue: MemoryQueue, blobify: Blobify<A>, value : A) {
-        let blob = blobify.to_blob(value);
+    /// Adds a value to the end of the memory queue
+    public func add<A>(mem_queue : MemoryQueue, queue_utils : MemoryQueueUtils<A>, value : A) {
+        let blob = queue_utils.blobify.to_blob(value);
 
         let node_address = MemoryRegion.allocate(mem_queue.region, C.NODE_METADATA_SIZE + blob.size());
         MemoryRegion.storeNat64(mem_queue.region, node_address + C.NODE_NEXT_OFFSET, Nat64.fromNat(C.NULL_ADDRESS));
@@ -128,14 +133,16 @@ module MemoryQueue {
         update_count(mem_queue, mem_queue.count + 1);
     };
 
-    public func pop<A>(mem_queue: MemoryQueue, blobify: Blobify<A>) : ?A {
+    /// Removes and returns the first element in the memory queue.
+    /// If the queue is empty, it returns `null`.
+    public func pop<A>(mem_queue : MemoryQueue, queue_utils : MemoryQueueUtils<A>) : ?A {
 
         let node_address = if (mem_queue.count > 0) mem_queue.head else return null;
 
         let next = MemoryRegion.loadNat64(mem_queue.region, node_address + C.NODE_NEXT_OFFSET)
-            |> Nat64.toNat(_);
+        |> Nat64.toNat(_);
         let size = MemoryRegion.loadNat32(mem_queue.region, node_address + C.NODE_SIZE_OFFSET)
-            |> Nat32.toNat(_);
+        |> Nat32.toNat(_);
 
         let blob = MemoryRegion.loadBlob(mem_queue.region, node_address + C.NODE_VALUE_OFFSET, size);
 
@@ -149,23 +156,25 @@ module MemoryQueue {
 
         MemoryRegion.deallocate(mem_queue.region, node_address, C.NODE_METADATA_SIZE + size);
 
-        let value = blobify.from_blob(blob);
+        let value = queue_utils.blobify.from_blob(blob);
         ?(value);
     };
 
-    public func peek<A>(mem_queue: MemoryQueue, blobify: Blobify<A>) : ?A {
+    /// Returns the first element at the front of the memory queue.
+    public func peek<A>(mem_queue : MemoryQueue, queue_utils : MemoryQueueUtils<A>) : ?A {
         let node_address = if (mem_queue.count > 0) mem_queue.head else return null;
 
         let size = MemoryRegion.loadNat32(mem_queue.region, node_address + C.NODE_SIZE_OFFSET)
-            |> Nat32.toNat(_);
+        |> Nat32.toNat(_);
 
         let blob = MemoryRegion.loadBlob(mem_queue.region, node_address + C.NODE_VALUE_OFFSET, size);
 
-        let value = blobify.from_blob(blob);
+        let value = queue_utils.blobify.from_blob(blob);
         ?(value);
     };
 
-    public func vals<A>(mem_queue: MemoryQueue, blobify: Blobify<A>) : Iter<A> {
+    /// Returns an iterator over the values in the memory queue, starting from the front.
+    public func vals<A>(mem_queue : MemoryQueue, queue_utils : MemoryQueueUtils<A>) : Iter<A> {
         var node = mem_queue.head;
 
         func next() : ?A {
@@ -174,14 +183,14 @@ module MemoryQueue {
             };
 
             let size = MemoryRegion.loadNat32(mem_queue.region, node + C.NODE_SIZE_OFFSET)
-                |> Nat32.toNat(_);
+            |> Nat32.toNat(_);
 
             let blob = MemoryRegion.loadBlob(mem_queue.region, node + C.NODE_VALUE_OFFSET, size);
 
-            let value = blobify.from_blob(blob);
+            let value = queue_utils.blobify.from_blob(blob);
 
             node := MemoryRegion.loadNat64(mem_queue.region, node + C.NODE_NEXT_OFFSET)
-                |> Nat64.toNat(_);
+            |> Nat64.toNat(_);
 
             ?(value);
         };
@@ -189,22 +198,23 @@ module MemoryQueue {
         { next };
     };
 
-    public func toArray<A>(mem_queue: MemoryQueue, blobify: Blobify<A>) :  [A] {
-        let vals_iter = vals(mem_queue, blobify);
+    /// Returns an array of the values in the queue, in the order they were added.
+    public func toArray<A>(mem_queue : MemoryQueue, queue_utils : MemoryQueueUtils<A>) : [A] {
+        let vals_iter = vals(mem_queue, queue_utils);
 
         Array.tabulate(
             mem_queue.count,
-            func(i: Nat): A{
-                let ?value = vals_iter.next();
+            func(i : Nat) : A {
+                let ?value = vals_iter.next() else Debug.trap("MemoryQueue.toArray: index out of bounds");
                 value;
-            }
-        )
+            },
+        );
     };
 
-    public func clear<A>(mem_queue: MemoryQueue) {
+    /// Removes all the elements from the memory queue.
+    public func clear<A>(mem_queue : MemoryQueue) {
         MemoryRegion.clear(mem_queue.region);
         init_region_header(mem_queue);
     };
-
 
 };

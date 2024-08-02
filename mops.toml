@@ -1,17 +1,16 @@
 [package]
 name = "memory-collection"
 version = "0.0.1"
-description = "A persistent buffer implementation in motoko."
-repository = "https://github.com/NatLabs/memory-buffer"
-keywords = [ "region", "buffer", "persistent", "collections", "encoding" ]
+description = "A collection of data structures that store their data in stable memory"
+repository = "https://github.com/NatLabs/memory-collection"
+keywords = ["region", "sorted", "persistent", "map", "encoding"]
 license = "MIT"
 
 [dependencies]
-base = "0.11.1"
+base = "0.12.0"
 itertools = "0.2.1"
-memory-region = "1.2.2"
+memory-region = "1.2.3"
 lru-cache = "1.0.0"
-MotokoStableBTree = "https://github.com/sardariuss/MotokoStableBTree#master@b590ede4489c2d4b2189299c3a2cc35dc4faa3fc"
 buffer-deque = "0.1.0"
 fuzz = "0.2.1"
 
@@ -19,6 +18,7 @@ fuzz = "0.2.1"
 test = "2.0.0"
 bench = "1.0.0"
 augmented-btrees = "0.5.1"
+MotokoStableBTree = "https://github.com/sardariuss/MotokoStableBTree#master@b590ede4489c2d4b2189299c3a2cc35dc4faa3fc"
 
 [toolchain]
 wasmtime = "14.0.4"

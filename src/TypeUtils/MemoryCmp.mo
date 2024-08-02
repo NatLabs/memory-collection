@@ -1,3 +1,7 @@
+/// ## MemoryCmp
+///
+/// A module that defines a variant with two different comparison functions.
+
 import Prim "mo:prim";
 
 import Blob "mo:base/Blob";
@@ -13,7 +17,7 @@ module {
 
     public module BigEndian {
         public let Nat = #BlobCmp(
-            func (a: Blob, b: Blob) : Int8 {
+            func(a : Blob, b : Blob) : Int8 {
                 if (a.size() > b.size()) return 1;
                 if (a.size() < b.size()) return -1;
 
@@ -25,6 +29,11 @@ module {
         public let Nat16 = #BlobCmp(Prim.blobCompare);
         public let Nat32 = #BlobCmp(Prim.blobCompare);
         public let Nat64 = #BlobCmp(Prim.blobCompare);
+
+        public let Int8 = #GenCmp(Int8Cmp.Int8);
+        public let Int16 = #GenCmp(Int8Cmp.Int16);
+        public let Int32 = #GenCmp(Int8Cmp.Int32);
+        public let Int64 = #GenCmp(Int8Cmp.Int64);
     };
 
     public let Nat = #GenCmp(Int8Cmp.Nat);
@@ -33,6 +42,13 @@ module {
     public let Nat16 = #GenCmp(Int8Cmp.Nat16);
     public let Nat32 = #GenCmp(Int8Cmp.Nat32);
     public let Nat64 = #GenCmp(Int8Cmp.Nat64);
+
+    public let Int = #GenCmp(Int8Cmp.Int);
+
+    public let Int8 = #GenCmp(Int8Cmp.Int8);
+    public let Int16 = #GenCmp(Int8Cmp.Int16);
+    public let Int32 = #GenCmp(Int8Cmp.Int32);
+    public let Int64 = #GenCmp(Int8Cmp.Int64);
 
     public let Blob = #BlobCmp(Prim.blobCompare);
 
@@ -44,4 +60,6 @@ module {
 
     public let Principal = #BlobCmp(Prim.blobCompare);
 
-}
+    public let Time = Int;
+
+};

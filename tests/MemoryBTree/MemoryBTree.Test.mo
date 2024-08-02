@@ -16,14 +16,11 @@ import MemoryRegion "mo:memory-region/MemoryRegion";
 
 import MemoryBTree "../../src/MemoryBTree/Base";
 import TypeUtils "../../src/TypeUtils";
-import Blobify "../../src/Blobify";
-import MemoryCmp "../../src/MemoryCmp";
 import Utils "../../src/Utils";
 import Branch "../../src/MemoryBTree/modules/Branch";
 import Leaf "../../src/MemoryBTree/modules/Leaf";
 import Methods "../../src/MemoryBTree/modules/Methods";
 
-type TypeUtils<K, V> = MemoryBTree.TypeUtils<K, V>;
 type Buffer<A> = Buffer.Buffer<A>;
 type Iter<A> = Iter.Iter<A>;
 type Order = Order.Order;
@@ -37,10 +34,11 @@ let limit = 10_000;
 let nat_gen_iter : Iter<Nat> = {
     next = func() : ?Nat = ?fuzz.nat.randomRange(1, limit ** 2);
 };
+
 let unique_iter = Itertools.unique<Nat>(
-    nat_gen_iter, 
-    func (n: Nat) : Nat32 = Nat64.toNat32(Nat64.fromNat(n) & 0xFFFF_FFFF), 
-    Nat.equal
+    nat_gen_iter,
+    func(n : Nat) : Nat32 = Nat64.toNat32(Nat64.fromNat(n) & 0xFFFF_FFFF),
+    Nat.equal,
 );
 let random = Itertools.toBuffer<(Nat, Nat)>(
     Iter.map<(Nat, Nat), (Nat, Nat)>(
@@ -52,24 +50,8 @@ let random = Itertools.toBuffer<(Nat, Nat)>(
 let sorted = Buffer.clone(random);
 sorted.sort(func(a : (Nat, Nat), b : (Nat, Nat)) : Order = Nat.compare(a.0, b.0));
 
-let candid_blobify : Blobify.Blobify<Nat> = {
-    from_blob = func(b : Blob) : Nat {
-        let ?n : ?Nat = from_candid (b) else {
-            Debug.trap("Failed to decode Nat from blob");
-        };
-        n;
-    };
-    to_blob = func(n : Nat) : Blob = to_candid (n);
-};
-
-
 let btree = MemoryBTree._new_with_options(?8, ?0, false);
 let btree_utils = MemoryBTree.createUtils(TypeUtils.BigEndian.Nat, TypeUtils.BigEndian.Nat);
-let candid_mem_utils = {
-    key = candid_blobify;
-    val =  candid_blobify;
-    cmp = MemoryCmp.Nat
-};
 
 suite(
     "MemoryBTree",
@@ -91,14 +73,14 @@ suite(
                     // Debug.print("keys " # debug_show MemoryBTree.toNodeKeys(btree, btree_utils));
                     // Debug.print("leafs " # debug_show MemoryBTree.toLeafNodes(btree, btree_utils));
 
-                    let subtree_size = Branch.get_node_subtree_size(btree, btree.root);
+                    let subtree_size = if (btree.is_root_a_leaf) Leaf.get_count(btree, btree.root) else Branch.get_subtree_size(btree, btree.root);
 
                     // Debug.print("subtree_size " # debug_show subtree_size);
                     assert subtree_size == MemoryBTree.size(btree);
 
                     // Debug.print("(i, k, v) -> " # debug_show (i, k, MemoryBTree.get(btree, btree_utils, k)));
                     if (?i != MemoryBTree.get(btree, btree_utils, k)) {
-                        Debug.print("mismatch: " # debug_show (k, (i, MemoryBTree.get(btree, btree_utils, k))) # " at index " # debug_show i);
+                        Debug.print("mismatch: " # debug_show (k, (?i, MemoryBTree.get(btree, btree_utils, k))) # " at index " # debug_show i);
                         assert false;
                     };
 
@@ -157,9 +139,7 @@ suite(
 
                 for (i in Itertools.range(0, sorted.size())) {
                     let (key, _) = sorted.get(i);
-                    // Debug.print("i = " # debug_show (i));
 
-                    // Debug.print("key: " # debug_show key);
                     let expected = i;
                     let rank = MemoryBTree.getIndex(btree, btree_utils, key);
                     if (not (rank == expected)) {
@@ -373,34 +353,38 @@ suite(
                 let size = MemoryBTree.size(btree);
                 let mem_blocks = Buffer.Buffer<(MemoryBlock, MemoryBlock)>(8);
                 let blobs = Buffer.Buffer<(Blob, Blob)>(8);
+                assert Methods.validate_memory(btree, btree_utils);
 
                 for ((key, i) in random.vals()) {
-                    // Debug.print("replacing " # debug_show key # " at index " # debug_show i # " with " # debug_show (i * 10));
 
                     let prev_val = i;
-                    let new_val = prev_val * 10;
+                    let new_val = 1 + prev_val * 10;
 
-                    let ?prev_id = MemoryBTree._getId(btree, btree_utils, key);
-                    assert ?(key, prev_val) == MemoryBTree._lookup(btree, btree_utils, prev_id);
-                    let ?mem_block = MemoryBTree._lookup_mem_block(btree,  prev_id);
-                    let prev_key_blob = MemoryRegion.loadBlob(btree.blocks, mem_block.0.0, mem_block.0.1);
-                    let prev_val_blob = MemoryRegion.loadBlob(btree.blocks, mem_block.1.0, mem_block.1.1);
+                    // Debug.print("replacing " # debug_show key # " at index " # debug_show i # " with " # debug_show new_val);
+                    // Debug.print("tree before insert: " # debug_show MemoryBTree.toNodeKeys(btree, btree_utils));
+                    // Debug.print("leaf nodes: " # debug_show MemoryBTree.toLeafNodes(btree, btree_utils));
+
+                    let ?prev_id = MemoryBTree.getId(btree, btree_utils, key);
+                    assert ?(key, prev_val) == MemoryBTree.lookup(btree, btree_utils, prev_id);
+                    let ?mem_block = MemoryBTree._lookup_mem_block(btree, prev_id);
+                    let prev_key_blob = MemoryRegion.loadBlob(btree.data, mem_block.0.0, mem_block.0.1);
+                    let prev_val_blob = MemoryRegion.loadBlob(btree.data, mem_block.1.0, mem_block.1.1);
                     // MemoryBTree._lookup_val_blob(btree,  prev_id);
 
                     assert ?prev_val == MemoryBTree.insert(btree, btree_utils, key, new_val);
 
-                    let ?id = MemoryBTree._getId(btree, btree_utils, key);
+                    let ?id = MemoryBTree.getId(btree, btree_utils, key);
 
                     assert ?new_val == MemoryBTree.get(btree, btree_utils, key);
-                    let ?new_mem_block = MemoryBTree._lookup_mem_block(btree,  id);
+                    let ?new_mem_block = MemoryBTree._lookup_mem_block(btree, id);
                     // Debug.print("id at test: " # debug_show id);
 
                     // Debug.print("new entry: " # debug_show (key, new_val));
-                    assert ?(key, new_val) == MemoryBTree._lookup(btree, btree_utils, id);
-                    assert prev_key_blob == MemoryRegion.loadBlob(btree.blocks, new_mem_block.0.0, new_mem_block.0.1);
-                    let new_val_blob = btree_utils.val.to_blob(new_val);
+                    assert ?(key, new_val) == MemoryBTree.lookup(btree, btree_utils, id);
+                    assert prev_key_blob == MemoryRegion.loadBlob(btree.data, new_mem_block.0.0, new_mem_block.0.1);
+                    let new_val_blob = btree_utils.value.blobify.to_blob(new_val);
 
-                    let recieved_val_blob = MemoryRegion.loadBlob(btree.blocks, new_mem_block.1.0, new_mem_block.1.1);
+                    let recieved_val_blob = MemoryRegion.loadBlob(btree.data, new_mem_block.1.0, new_mem_block.1.1);
                     // Debug.print("new_val_mem_block: " # debug_show new_mem_block.1);
                     // Debug.print("new_val_blob (recieved, expected) " # debug_show (recieved_val_blob, new_val_blob));
                     assert new_val_blob == recieved_val_blob;
@@ -408,12 +392,12 @@ suite(
                     mem_blocks.add(new_mem_block);
                     blobs.add((prev_key_blob, new_val_blob));
 
-                    if (i > 0){
-                        let ?left_id = MemoryBTree._getId(btree, btree_utils, random.get(i - 1).0);
-                        let ?left_key_blob = MemoryBTree._lookup_key_blob(btree,  left_id);
-                        let ?left_val_blob = MemoryBTree._lookup_val_blob(btree,  left_id);
+                    if (i > 0) {
+                        let ?left_id = MemoryBTree.getId(btree, btree_utils, random.get(i - 1).0);
+                        let ?left_key_blob = MemoryBTree._lookup_key_blob(btree, left_id);
+                        let ?left_val_blob = MemoryBTree._lookup_val_blob(btree, left_id);
 
-                        let ?left_mem_block = MemoryBTree._lookup_mem_block(btree,  left_id);
+                        let ?left_mem_block = MemoryBTree._lookup_mem_block(btree, left_id);
 
                         let left_blob_entry = (left_key_blob, left_val_blob);
                         let expected_blob_entry = blobs.get(i - 1);
@@ -426,6 +410,8 @@ suite(
                         };
                     };
 
+                    // Debug.print("tree after insert: " # debug_show MemoryBTree.toNodeKeys(btree, btree_utils));
+                    // Debug.print("leaf nodes: " # debug_show MemoryBTree.toLeafNodes(btree, btree_utils));
 
                     assert MemoryBTree.size(btree) == size;
                 };
@@ -434,21 +420,21 @@ suite(
 
                 var i = 0;
                 for ((key, _val) in random.vals()) {
-                    let val = _val * 10;
+                    let val = 1 + _val * 10;
                     let received = MemoryBTree.get(btree, btree_utils, key);
-                    let ?id = MemoryBTree._getId(btree, btree_utils, key);
-                    let ?mem_block = MemoryBTree._lookup_mem_block(btree,  id);
+                    let ?id = MemoryBTree.getId(btree, btree_utils, key);
+                    let ?mem_block = MemoryBTree._lookup_mem_block(btree, id);
                     let expected_mem_block = mem_blocks.get(i);
 
-                    let ?(received_key_blob) = MemoryBTree._lookup_key_blob(btree,  id);
-                    let ?(received_val_blob) = MemoryBTree._lookup_val_blob(btree,  id);
+                    let ?(received_key_blob) = MemoryBTree._lookup_key_blob(btree, id);
+                    let ?(received_val_blob) = MemoryBTree._lookup_val_blob(btree, id);
                     let recieved_blob_entry = (received_key_blob, received_val_blob);
 
                     let expected_blob_entry = blobs.get(i);
 
                     if (recieved_blob_entry != expected_blob_entry) {
                         Debug.print("blob entry mismatch: " # debug_show (recieved_blob_entry, expected_blob_entry) # " at index " # debug_show i);
-                        // Debug.print(debug_show Buffer.toArray(mem_blocks));
+                        Debug.print(debug_show Buffer.toArray(mem_blocks));
                         assert false;
                     };
 
@@ -473,7 +459,7 @@ suite(
                     // Debug.print("removing " # debug_show key);
                     let val = MemoryBTree.remove(btree, btree_utils, key);
                     // Debug.print("(i, val): " # debug_show (i, val));
-                    assert ?(i * 10) == val;
+                    assert ?(1 + i * 10) == val;
 
                     assert MemoryBTree.size(btree) == random.size() - i - 1;
                     // Debug.print("node keys: " # debug_show MemoryBTree.toNodeKeys(btree, btree_utils));
@@ -517,7 +503,7 @@ suite(
                     // Debug.print("keys " # debug_show MemoryBTree.toNodeKeys(btree));
                     // Debug.print("leafs " # debug_show MemoryBTree.toLeafNodes(btree));
 
-                    let subtree_size = Branch.get_node_subtree_size(btree, btree.root);
+                    let subtree_size = if (btree.is_root_a_leaf) Leaf.get_count(btree, btree.root) else Branch.get_subtree_size(btree, btree.root);
 
                     assert subtree_size == MemoryBTree.size(btree);
 
