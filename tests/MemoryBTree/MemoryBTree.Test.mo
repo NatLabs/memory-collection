@@ -8,7 +8,6 @@ import Nat64 "mo:base/Nat64";
 import Nat "mo:base/Nat";
 import Order "mo:base/Order";
 
-import LruCache "mo:lru-cache";
 import Fuzz "mo:fuzz";
 import Itertools "mo:itertools/Iter";
 import Map "mo:map/Map";

@@ -6,7 +6,6 @@ import Nat "mo:base/Nat";
 import Blob "mo:base/Blob";
 import Buffer "mo:base/Buffer";
 
-import LruCache "mo:lru-cache";
 import RevIter "mo:itertools/RevIter";
 import BufferDeque "mo:buffer-deque/BufferDeque";
 // import Branch "mo:augmented-btrees/BpTree/Branch";
@@ -22,7 +21,6 @@ module {
     type MemoryBlock = T.MemoryBlock;
 
     type Address = Nat;
-    type LruCache<K, V> = LruCache.LruCache<K, V>;
     type RevIter<A> = RevIter.RevIter<A>;
     type Node = Migrations.Node;
     public type BTreeUtils<K, V> = T.BTreeUtils<K, V>;
@@ -38,13 +36,10 @@ module {
             switch (is_address_a_leaf) {
                 case (true) {
                     assert Leaf.validate(btree, curr_address);
-                    Leaf.add_to_cache(btree, curr_address);
                     return curr_address;
                 };
                 case (false) {
                     // load breanch from stable memory
-                    // and add it to the cache
-                    Branch.add_to_cache(btree, curr_address);
 
                     assert Branch.get_magic(btree, curr_address) == Branch.MC.MAGIC;
 
@@ -88,14 +83,11 @@ module {
                 case (true) {
                     // Debug.print("leaf: " # debug_show curr_address);
                     assert Leaf.validate(btree, curr_address);
-                    Leaf.add_to_cache(btree, curr_address);
                     return curr_address;
                 };
                 case (false) {
                     // Debug.print("branch: " # debug_show curr_address);
                     // load breanch from stable memory
-                    // and add it to the cache
-                    Branch.add_to_cache(btree, curr_address);
                     assert Branch.get_magic(btree, curr_address) == Branch.MC.MAGIC;
 
                     let count = Branch.get_count(btree, curr_address);
@@ -583,7 +575,6 @@ module {
 
     // };
     public func validate_memory(btree : MemoryBTree, btree_utils : BTreeUtils<Nat, Nat>) : Bool {
-        // LruCache.clear(btree.nodes_cache);
 
         func _validate(address : Nat, is_address_a_leaf : Bool) : (index : Nat, subtree_size : Nat) {
 

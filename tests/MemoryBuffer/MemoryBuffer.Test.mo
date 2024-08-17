@@ -29,7 +29,8 @@ for (i in Iter.range(0, limit - 1)) {
 };
 
 let fuzz = Fuzz.fromSeed(0x7f7f);
-Utils.shuffle_buffer(fuzz, order);
+fuzz.buffer.shuffle(order);
+// Utils.shuffle_buffer(fuzz, order);
 
 type MemoryRegion = MemoryRegion.MemoryRegion;
 
@@ -76,6 +77,7 @@ suite(
                 );
             },
         );
+
         test(
             "put() (new == prev) in Buffer",
             func() {
@@ -118,7 +120,6 @@ suite(
                     // Debug.print("expected " # debug_show serialized);
                     assert new_blob == serialized;
                 };
-
             },
         );
 

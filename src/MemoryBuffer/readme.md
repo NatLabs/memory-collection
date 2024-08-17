@@ -4,34 +4,16 @@ A buffer that stores its elements in stable memory.
 
 ### Design
 
-The `MemoryBuffer` is built using two [MemoryRegion](https://github.com/NatLabs/memory-region).
-A blob region and a pointer region.
+The `MemoryBuffer` is built using two [MemoryRegions](https://github.com/NatLabs/memory-region).
+A blob region for storing the serialized values and a pointer region for storing the memory address and the size of the serialized values.
+The pointer region acts as a index to value map, connecting the index of the value to the memory address where it is located.
+Each entry has an overhead of 12 bytes.
+The memory address takes up 8 bytes, while the stored size takes up 4 bytes.
 
-In order to support variable sized elements, the pointer region stores the address and size of the memory blocks in the blob region.
+When the `MemoryBuffer` is filled, it doesn't need to be resized and have all its elements shifted to a new MemoryRegion.
+Instead it allocated more bytes in its current MemoryRegion and adds the new elements to the end of the MemoryRegion.
 
-- **Blob Region**:
-  - Stores all your elements as blobs in stable memory, re-allocating memory as needed. This region is not contiguous, as elements are stored in memory blocks of varying sizes and can be removed on demand, leaving gaps in memory that can be reused in the future.
-- **Pointer Region**:
-  - Keeps track of the memory blocks (address and size) of the elements in the Blob Region. This region is contiguous as it allocates a fixed size of 12 bytes for each memory block. The address takes 8 bytes, and the size takes 4 bytes. Allowing values of up to 4 GiB to be stored as a single element.
-  - This region acts as the buffer's index to value map. Once elements are accessed by the index, the buffer retrieves the memory block by multiplying the index by 12 to get the address and size, then retrieves the element from the Blob Region.
-
-### Characteristics
-
-The characteristics of the buffer are determined by how you decide to use it.
-This is built as a general purpose buffer that can be used in a variety of ways.
-Its internal structure allows users to interact with it as a list, queue or double-ended queue.
-he way these data-structures are represented in memory are very similar, which makes it possible to not only add all these features to create a general purpose buffer, but to also do it without affecting the performance of the buffer.
-However, there is one difference which concerns when the buffer grows.
-Using only buffer operations, when the array grows, it doesn't need to shift elements internally, it just allocates new pages and adds new elements to the end.
-Using it as a double ended queue, might require shifting of elements to either either ends of the buffer when the buffer grows.
-
-The buffer also benefits from the queue like structure to add and remove elements from either end.
-For example, remove() performs better than if it was just implemented as list.
-The worst case is divided by 2, because we can shift the minimum number of elements to the left or right to remove an element from anywhere in the buffer instead of just shifting all the elements to the left.
-
-Unlike the buffer in the heap that needs to allocate memory for a larger array and copy all the elements to the new array when it grows, the `MemoryBuffer` does not need to shift elements when it grows. It just allocates a new page and adds the new elements to the end. As a result adding elements to the `MemoryBuffer` is always a constant time operation.
-
-## Usage Example
+### Usage Example
 
 ```motoko
     import MemoryBuffer "mo:memory-collection/MemoryBuffer";
@@ -57,7 +39,7 @@ Unlike the buffer in the heap that needs to allocate memory for a larger array a
     assert mbuffer.removeLast() == ?9;
 ```
 
-### Create Custom Utilities
+### Create Custom TypeUtils
 
 To store more complex data types, you can create your own utilities to serialize and deserialize your data.
 The `MemoryBuffer` only requires that the data type implements the `Blobify` interface. This interface has two functions:
@@ -153,9 +135,9 @@ And finally we concatenate the resulting blobs.
   let mbuffer = MemoryBuffer.MemoryBuffer<User>(sstore, user_type_utils);
 ```
 
-## Memory Layout
+### Memory Layout
 
-### Pointer Region
+#### Pointer Region
 
 - Header
 
@@ -177,7 +159,7 @@ These pointers are stored contiguously in the pointer region immedialy after the
 | Address | 0      | 8    | Nat64 | -             | Address of the memory block |
 | Size    | 8      | 4    | Nat32 | -             | Size of the memory block    |
 
-### Blob Region
+#### Blob Region
 
 - Header
 
@@ -193,9 +175,9 @@ These pointers are stored contiguously in the pointer region immedialy after the
 A series of randomly sized elements stored as blobs at the address and size specified by the pointers in the Pointer Region.
 These blobs are stored immediately after the header with an offset of 64 bytes.
 
-## Benchmarks
+### Benchmarks
 
-### Buffer vs MemoryBuffer
+#### Buffer vs MemoryBuffer
 
 Benchmarking the performance with 10k `Nat` entries
 
@@ -204,7 +186,7 @@ Benchmarking the performance with 10k `Nat` entries
 - **sortUnstable() - #GenCmp** - quicksort - sorting elements by deserializing them to their original type before comparing them
 - **sortUnstable() - #BlobCmp** - sorting elements in their serialized form. Requires that the elements can be orderable in their serialized form.
 
-#### Instructions
+**Instructions**
 
 Benchmarking the performance with 10k `Nat` entries
 
@@ -224,7 +206,7 @@ Benchmarking the performance with 10k `Nat` entries
 | shuffle()               |         ----- |                 219_269_838 |                     219_265_425 |
 | sortUnstable() #BlobCmp |         ----- |                 988_375_542 |                          ------ |
 
-#### Heap
+**Heap**
 
 |                         |    Buffer | MemoryBuffer (with Blobify) | MemoryBuffer (encode to candid) |
 | :---------------------- | --------: | --------------------------: | ------------------------------: |

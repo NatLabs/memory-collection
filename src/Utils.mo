@@ -8,14 +8,11 @@ import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
 import Result "mo:base/Result";
 
-import Fuzz "mo:fuzz";
-
 module {
 
     type Buffer<A> = Buffer.Buffer<A>;
     type Iter<A> = Iter.Iter<A>;
     type Result<A, B> = Result.Result<A, B>;
-    type Fuzzer = Fuzz.Fuzzer;
 
     public let NULL_ADDRESS = 0x00;
 
@@ -35,15 +32,6 @@ module {
         switch (optional) {
             case (?v) return v;
             case (_) return Debug.trap(trap_msg);
-        };
-    };
-
-    public func shuffle_buffer<A>(fuzz : Fuzz.Fuzzer, buffer : Buffer.Buffer<A>) {
-        for (i in Iter.range(0, buffer.size() - 3)) {
-            let j = fuzz.nat.randomRange(i + 1, buffer.size() - 1);
-            let tmp = buffer.get(i);
-            buffer.put(i, buffer.get(j));
-            buffer.put(j, tmp);
         };
     };
 

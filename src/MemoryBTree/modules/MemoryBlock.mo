@@ -7,39 +7,33 @@ import Nat32 "mo:base/Nat32";
 import Debug "mo:base/Debug";
 
 import MemoryRegion "mo:memory-region/MemoryRegion";
-import LruCache "mo:lru-cache";
 import RevIter "mo:itertools/RevIter";
 
 import Migrations "../Migrations";
 import T "Types";
 
 module MemoryBlock {
-
-    /// blobs region
-    /// header - 64 bytes
-    /// each entry - 23 bytes
-
-    /// Memory Layout - (15 bytes)
-    ///
-    /// | Field           | Size (bytes) | Description |
-    /// |-----------------|--------------|-------------|
-    /// | reference count |  1           | reference count                         |
-    /// | value address   |  8           | address of value blob in current region | --------> value blob of 'value size' stored at this address
-    /// | value size      |  4           | size of value blob                      |
-    /// | key size        |  2           | size of key blob                        |
-    /// | key blob        |  key size    | serialized key                          |
+    
+    //      Memory Layout - (15 bytes)
+    //
+    //      | Field           | Size (bytes) | Description                             |
+    //      |-----------------|--------------|-----------------------------------------|
+    //      | reference count |  1           | reference count                         |
+    // ┌--- | value address   |  8           | address of value blob in current region |
+    // |    | value size      |  4           | size of value blob                      |
+    // |    | key size        |  2           | size of key blob                        |
+    // |    | key blob        |  key size    | serialized key                          |
+    // |
+    // └--> value blob of 'value size' stored at this address
 
     type Address = Nat;
     type MemoryRegion = MemoryRegion.MemoryRegion;
-    type LruCache<K, V> = LruCache.LruCache<K, V>;
     type RevIter<A> = RevIter.RevIter<A>;
 
     public type MemoryBTree = Migrations.MemoryBTree;
     public type Node = Migrations.Node;
     public type MemoryBlock = T.MemoryBlock;
     type UniqueId = T.UniqueId;
-
-    let { nhash } = LruCache;
 
     let BLOCK_ENTRY_SIZE = 15;
 

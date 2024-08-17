@@ -10,7 +10,6 @@ import Nat64 "mo:base/Nat64";
 import Blob "mo:base/Blob";
 
 import MemoryRegion "mo:memory-region/MemoryRegion";
-import LruCache "mo:lru-cache";
 import RevIter "mo:itertools/RevIter";
 
 import MemoryCmp "../TypeUtils/MemoryCmp";
@@ -27,7 +26,6 @@ import TypeUtils "../TypeUtils";
 module {
     type Address = Nat;
     type MemoryRegion = MemoryRegion.MemoryRegion;
-    type LruCache<K, V> = LruCache.LruCache<K, V>;
     type Blobify<A> = Blobify.Blobify<A>;
     type RevIter<A> = RevIter.RevIter<A>;
     type Iter<A> = Iter.Iter<A>;
@@ -70,8 +68,6 @@ module {
             branches = MemoryRegion.new();
             data = MemoryRegion.new();
 
-            nodes_cache = LruCache.new(0);
-            key_cache = LruCache.new<Nat, Blob>(cache_size);
         };
 
         init_region_header(btree);
@@ -572,8 +568,6 @@ module {
     };
 
     public func clear(btree : MemoryBTree) {
-        // clear cache
-        LruCache.clear(btree.nodes_cache);
 
         // the first leaf node should be at the address where the header ends
         let leaf_address = MC.REGION_HEADER_SIZE;
@@ -707,7 +701,6 @@ module {
         // merge leaf with neighbour
         Leaf.merge(btree, left, right);
         Branch.remove(btree, parent, right_index);
-        Branch.rm_from_cache(btree, right);
 
         // deallocate right leaf that was merged into left
         Leaf.deallocate(btree, right);
@@ -764,7 +757,6 @@ module {
             let merged_branch = Branch.merge(btree, branch, neighbour);
             let merged_branch_index = Branch.get_index(btree, merged_branch);
             Branch.remove(btree, parent, merged_branch_index);
-            Branch.rm_from_cache(btree, merged_branch);
             Branch.deallocate(btree, merged_branch);
             update_branch_count(btree, btree.branch_count - 1);
 
