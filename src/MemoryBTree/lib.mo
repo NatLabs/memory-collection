@@ -125,6 +125,9 @@ module {
         /// Returns an array of all the values in the BTree
         public func toVals() : [V] = BaseMemoryBTree.toVals(state, btree_utils);
 
+        /// Returns the start and end index of the range between the given keys
+        public func getInterval(start : ?K, end : ?K) : (Nat, Nat) = BaseMemoryBTree.getInterval(state, btree_utils, start, end);
+
         /// Returns a reversible iterator over the entries in the given range
         public func range(i : Nat, j : Nat) : RevIter<(K, V)> = BaseMemoryBTree.range(state, btree_utils, i, j);
 

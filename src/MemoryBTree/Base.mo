@@ -897,7 +897,7 @@ module {
         let (end_node, end_node_index) = Methods.get_leaf_node_by_index(btree, end);
 
         let start_index = start_node_index : Nat;
-        let end_index = end_node_index + 1 : Nat; // + 1 because the end index is exclusive
+        let end_index = end_node_index : Nat;
 
         RevIter.map<(Blob, Blob), (K, V)>(
             Methods.new_blobs_iterator(btree, start_node, start_index, end_node, end_index),
@@ -905,6 +905,20 @@ module {
                 Methods.deserialize_kv_blobs<K, V>(btree_utils, key_blob, val_blob);
             },
         );
+    };
+
+    public func getInterval<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, start : ?K, end : ?K) : (Nat, Nat) {
+        let start_rank = switch (start) {
+            case (?key) getIndex(btree, btree_utils, key);
+            case (null) 0;
+        };
+
+        let end_rank = switch (end) {
+            case (?key) getIndex(btree, btree_utils, key) + 1; // +1 because the end is exclusive
+            case (null) btree.count;
+        };
+
+        (start_rank, end_rank);
     };
 
     public func scan<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, start : ?K, end : ?K) : RevIter<(K, V)> {
