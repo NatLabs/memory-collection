@@ -28,7 +28,6 @@ module Branch {
     type BTreeUtils<K, V> = T.BTreeUtils<K, V>;
     type MemoryBTree = Migrations.MemoryBTree;
     type MemoryBlock = T.MemoryBlock;
-    type Node = Migrations.Node;
     type Address = T.Address;
     type NodeType = T.NodeType;
     type UniqueId = T.UniqueId;

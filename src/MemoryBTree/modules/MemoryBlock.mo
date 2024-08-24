@@ -31,7 +31,6 @@ module MemoryBlock {
     type RevIter<A> = RevIter.RevIter<A>;
 
     public type MemoryBTree = Migrations.MemoryBTree;
-    public type Node = Migrations.Node;
     public type MemoryBlock = T.MemoryBlock;
     type UniqueId = T.UniqueId;
 
@@ -50,7 +49,7 @@ module MemoryBlock {
     public func store(btree : MemoryBTree, key : Blob, val : Blob) : UniqueId {
         let block_address = MemoryRegion.allocate(btree.data, KEY_BLOB_START + key.size());
 
-        let val_address = MemoryRegion.addBlob(btree.data, val);
+        let val_address = MemoryRegion.addBlob(btree.values, val);
 
         MemoryRegion.storeNat8(btree.data, block_address, 0); // reference count
         MemoryRegion.storeNat64(btree.data, block_address + VAL_POINTER_START, Nat64.fromNat(val_address)); // value mem block address
@@ -93,16 +92,16 @@ module MemoryBlock {
 
         let prev_val_address = MemoryRegion.loadNat64(btree.data, block_address + VAL_POINTER_START) |> Nat64.toNat(_);
         let prev_val_size = MemoryRegion.loadNat16(btree.data, block_address + VAL_SIZE_START) |> Nat16.toNat(_);
-        let prev_val_blob = MemoryRegion.loadBlob(btree.data, prev_val_address, prev_val_size);
+        let prev_val_blob = MemoryRegion.loadBlob(btree.values, prev_val_address, prev_val_size);
 
         if (prev_val_size == new_val.size()) {
-            MemoryRegion.storeBlob(btree.data, prev_val_address, new_val);
+            MemoryRegion.storeBlob(btree.values, prev_val_address, new_val);
             return prev_val_blob;
         };
 
-        let new_val_address = MemoryRegion.resize(btree.data, prev_val_address, prev_val_size, new_val.size());
+        let new_val_address = MemoryRegion.resize(btree.values, prev_val_address, prev_val_size, new_val.size());
 
-        MemoryRegion.storeBlob(btree.data, new_val_address, new_val);
+        MemoryRegion.storeBlob(btree.values, new_val_address, new_val);
         MemoryRegion.storeNat32(btree.data, block_address + VAL_SIZE_START, Nat32.fromNat(new_val.size()));
 
         if (new_val_address == prev_val_address) return prev_val_blob;
@@ -138,7 +137,7 @@ module MemoryBlock {
         let val_address = MemoryRegion.loadNat64(btree.data, block_address + VAL_POINTER_START) |> Nat64.toNat(_);
         let val_size = MemoryRegion.loadNat32(btree.data, block_address + VAL_SIZE_START) |> Nat32.toNat(_);
 
-        let blob = MemoryRegion.loadBlob(btree.data, val_address, val_size);
+        let blob = MemoryRegion.loadBlob(btree.values, val_address, val_size);
 
         blob;
     };
@@ -151,7 +150,7 @@ module MemoryBlock {
         let key_size = MemoryRegion.loadNat16(btree.data, block_address + KEY_SIZE_START) |> Nat16.toNat(_);
         let val_size = MemoryRegion.loadNat16(btree.data, block_address + VAL_SIZE_START) |> Nat16.toNat(_);
 
-        MemoryRegion.deallocate(btree.data, val_address, val_size);
+        MemoryRegion.deallocate(btree.values, val_address, val_size);
         MemoryRegion.deallocate(btree.data, block_address, KEY_BLOB_START + key_size);
     };
 

@@ -16,16 +16,12 @@ import Branch "Branch";
 import Migrations "../Migrations";
 
 module {
-    public type Leaf = Migrations.Leaf;
     type MemoryBTree = Migrations.MemoryBTree;
     type MemoryBlock = T.MemoryBlock;
 
     type Address = Nat;
     type RevIter<A> = RevIter.RevIter<A>;
-    type Node = Migrations.Node;
     public type BTreeUtils<K, V> = T.BTreeUtils<K, V>;
-
-    public type Branch = Migrations.Branch;
 
     public func get_leaf_address<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, key : K, _opt_key_blob : ?Blob) : Nat {
         var curr_address = btree.root;
@@ -394,6 +390,38 @@ module {
         let max_leaf_count = Leaf.get_count(btree, max_leaf);
 
         new_blobs_iterator(btree, min_leaf, 0, max_leaf, max_leaf_count);
+    };
+
+    public func kv_block_addresses(btree : MemoryBTree) : Iter.Iter<Address> {
+
+        let min_leaf = get_min_leaf_address(btree);
+        var i = 0;
+        var leaf_count = Leaf.get_count(btree, min_leaf);
+        var var_leaf = ?min_leaf;
+
+        object {
+            public func next() : ?Address {
+                let ?leaf = var_leaf else return null;
+
+                if (i >= leaf_count) {
+                    switch (Leaf.get_next(btree, leaf)) {
+                        case (null) var_leaf := null;
+                        case (?next_address) {
+                            var_leaf := ?next_address;
+                            leaf_count := Leaf.get_count(btree, leaf);
+                        };
+                    };
+
+                    i := 0;
+                    return next();
+                };
+
+                let address = Leaf.get_kv_address(btree, leaf, i);
+                i += 1;
+                return address;
+            };
+        };
+
     };
 
     public func deserialize_kv_blobs<K, V>(btree_utils : BTreeUtils<K, V>, key_blob : Blob, val_blob : Blob) : (K, V) {

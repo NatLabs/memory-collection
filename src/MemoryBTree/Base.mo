@@ -34,9 +34,6 @@ module {
     public type MemoryCmp<A> = MemoryCmp.MemoryCmp<A>;
 
     public type MemoryBTree = Migrations.MemoryBTree;
-    public type Node = Migrations.Node;
-    public type Leaf = Migrations.Leaf;
-    public type Branch = Migrations.Branch;
     public type VersionedMemoryBTree = Migrations.VersionedMemoryBTree;
 
     public type MemoryBlock = T.MemoryBlock;
@@ -60,13 +57,10 @@ module {
             var depth = 0;
             var is_root_a_leaf = true;
 
-            metadata = MemoryRegion.new();
-            blocks = MemoryRegion.new();
-            blobs = MemoryRegion.new();
-
             leaves = MemoryRegion.new();
             branches = MemoryRegion.new();
             data = MemoryRegion.new();
+            values = MemoryRegion.new();
 
         };
 
@@ -95,7 +89,7 @@ module {
     public let POINTER_SIZE = 12;
     public let LAYOUT_VERSION = 0;
 
-    let MC = {
+    public let MC = {
 
         REGION_HEADER_SIZE = 64;
 
@@ -110,9 +104,21 @@ module {
             COUNT_ADDRESS = 22; // 8 bytes
             DEPTH_ADDRESS = 30; // 1 byte
             IS_ROOT_A_LEAF_ADDRESS = 31; // 1 byte
+            VALUES_REGION_ID_ADDRESS = 32; // 4 bytes
 
             // values
             MAGIC : Blob = "BTR";
+            LAYOUT_VERSION : Nat8 = 0;
+        };
+
+        VALUES = {
+            // addresses
+            MAGIC_ADDRESS = 0;
+            LAYOUT_VERSION_ADDRESS = 3;
+            DATA_REGION_ID_ADDRESS = 4; // 4 bytes
+
+            // values
+            MAGIC : Blob = "VLS";
             LAYOUT_VERSION : Nat8 = 0;
         };
 
@@ -154,7 +160,15 @@ module {
         MemoryRegion.storeNat64(btree.data, MC.DATA.ROOT_ADDRESS, 0); // set to default value, will be updated once a node is created
         MemoryRegion.storeNat64(btree.data, MC.DATA.COUNT_ADDRESS, 0);
         MemoryRegion.storeNat8(btree.data, MC.DATA.DEPTH_ADDRESS, 0);
+        MemoryRegion.storeNat8(btree.data, MC.DATA.IS_ROOT_A_LEAF_ADDRESS, 0);
+        MemoryRegion.storeNat32(btree.data, MC.DATA.VALUES_REGION_ID_ADDRESS, Nat32.fromNat(MemoryRegion.id(btree.values)));
         assert MemoryRegion.allocated(btree.data) == MC.REGION_HEADER_SIZE;
+
+        ignore MemoryRegion.allocate(btree.values, MC.REGION_HEADER_SIZE);
+        MemoryRegion.storeBlob(btree.values, MC.VALUES.MAGIC_ADDRESS, MC.VALUES.MAGIC);
+        MemoryRegion.storeNat8(btree.values, MC.VALUES.LAYOUT_VERSION_ADDRESS, MC.VALUES.LAYOUT_VERSION);
+        MemoryRegion.storeNat32(btree.values, MC.VALUES.DATA_REGION_ID_ADDRESS, Nat32.fromNat(MemoryRegion.id(btree.data)));
+        assert MemoryRegion.allocated(btree.values) == MC.REGION_HEADER_SIZE;
 
         ignore MemoryRegion.allocate(btree.branches, MC.REGION_HEADER_SIZE);
         MemoryRegion.storeBlob(btree.branches, MC.BRANCHES.MAGIC_ADDRESS, MC.BRANCHES.MAGIC);
@@ -187,7 +201,7 @@ module {
     };
 
     public func toVersioned(btree : MemoryBTree) : VersionedMemoryBTree {
-        #v0(btree);
+        Migrations.addVersion(btree);
     };
 
     public func bytes(btree : MemoryBTree) : Nat {

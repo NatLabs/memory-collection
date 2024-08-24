@@ -333,13 +333,13 @@ suite(
                     if (
                         not Itertools.equal<(Nat, Nat)>(
                             MemoryBTree.range(btree, btree_utils, i, j),
-                            Itertools.fromArraySlice<(Nat, Nat)>(sorted_array, i, j + 1),
+                            Itertools.fromArraySlice<(Nat, Nat)>(sorted_array, i, j),
                             func(a : (Nat, Nat), b : (Nat, Nat)) : Bool = a == b,
                         )
                     ) {
                         Debug.print("mismatch: " # debug_show (i, j));
                         Debug.print("range " # debug_show Iter.toArray(MemoryBTree.range(btree, btree_utils, i, j)));
-                        Debug.print("expected " # debug_show Iter.toArray(Itertools.fromArraySlice(sorted_array, i, j + 1)));
+                        Debug.print("expected " # debug_show Iter.toArray(Itertools.fromArraySlice(sorted_array, i, j)));
                         assert false;
                     };
                 };
@@ -375,6 +375,7 @@ suite(
                     let ?id = MemoryBTree.getId(btree, btree_utils, key);
 
                     assert ?new_val == MemoryBTree.get(btree, btree_utils, key);
+
                     let ?new_mem_block = MemoryBTree._lookup_mem_block(btree, id);
                     // Debug.print("id at test: " # debug_show id);
 
@@ -383,7 +384,7 @@ suite(
                     assert prev_key_blob == MemoryRegion.loadBlob(btree.data, new_mem_block.0.0, new_mem_block.0.1);
                     let new_val_blob = btree_utils.value.blobify.to_blob(new_val);
 
-                    let recieved_val_blob = MemoryRegion.loadBlob(btree.data, new_mem_block.1.0, new_mem_block.1.1);
+                    let recieved_val_blob = MemoryRegion.loadBlob(btree.values, new_mem_block.1.0, new_mem_block.1.1);
                     // Debug.print("new_val_mem_block: " # debug_show new_mem_block.1);
                     // Debug.print("new_val_blob (recieved, expected) " # debug_show (recieved_val_blob, new_val_blob));
                     assert new_val_blob == recieved_val_blob;

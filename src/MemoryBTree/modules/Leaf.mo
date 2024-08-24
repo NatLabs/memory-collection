@@ -23,7 +23,6 @@ module Leaf {
     type MemoryBTree = Migrations.MemoryBTree;
     type MemoryBlock = T.MemoryBlock;
     type BTreeUtils<K, V> = T.BTreeUtils<K, V>;
-    type NodeType = Migrations.Node;
     type UniqueId = T.UniqueId;
 
     public let HEADER_SIZE = 64;
