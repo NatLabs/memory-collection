@@ -11,6 +11,13 @@ module StableMemoryBTree {
     public type BTreeUtils<K, V> = T.BTreeUtils<K, V>;
     type RevIter<A> = RevIter.RevIter<A>;
 
+    public func createUtils<K, V>(key_utils : T.KeyUtils<K>, value_utils : T.ValueUtils<V>) : BTreeUtils<K, V> {
+        return {
+            key = key_utils;
+            value = value_utils;
+        };
+    };
+
     public func new(order : ?Nat) : StableMemoryBTree {
         let btree = MemoryBTree.new(order);
         MemoryBTree.toVersioned(btree);

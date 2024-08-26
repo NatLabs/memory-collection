@@ -900,10 +900,11 @@ module {
         };
 
         if (int_index < 0) {
-            Debug.trap("getIndex(): key does not exist in the tree. Try using getCeiling() or getFloor() to get the closest key");
+            index_pos + Int.abs(int_index + 1);
+        } else {
+            index_pos + Int.abs(int_index);
         };
 
-        index_pos + Int.abs(int_index);
     };
 
     public func range<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, start : Nat, end : Nat) : RevIter<(K, V)> {

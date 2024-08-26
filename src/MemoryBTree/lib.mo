@@ -90,6 +90,7 @@ module {
         public func getFromIndex(i : Nat) : (K, V) = BaseMemoryBTree.getFromIndex<K, V>(state, btree_utils, i);
 
         /// Get the index (sorted position) of the given key in the btree
+        /// If the key is not in the BTree, the expected index is returned
         public func getIndex(key : K) : Nat = BaseMemoryBTree.getIndex<K, V>(state, btree_utils, key);
 
         /// Insert a new key-value pair into the BTree

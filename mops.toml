@@ -1,6 +1,6 @@
 [package]
 name = "memory-collection"
-version = "0.0.2"
+version = "0.0.3"
 description = "A collection of data structures that store their data in stable memory"
 repository = "https://github.com/NatLabs/memory-collection"
 keywords = ["region", "sorted", "persistent", "map", "encoding"]
