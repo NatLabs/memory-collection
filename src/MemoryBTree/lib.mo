@@ -21,6 +21,8 @@ module {
     public type ValueUtils<V> = T.ValueUtils<V>;
     public type MemoryBTreeStats = BaseMemoryBTree.MemoryBTreeStats;
 
+    public type ExpectedIndex = BaseMemoryBTree.ExpectedIndex;
+
     /// Create a new stable store
     public func newStableStore(order : ?Nat) : StableStore = StableMemoryBTree.new(order);
 
@@ -90,8 +92,13 @@ module {
         public func getFromIndex(i : Nat) : (K, V) = BaseMemoryBTree.getFromIndex<K, V>(state, btree_utils, i);
 
         /// Get the index (sorted position) of the given key in the btree
-        /// If the key is not in the BTree, the expected index is returned
+        /// > Throws an error if the key is not found.
+        /// > Use `getExpectedIndex()` if you want to get the index without throwing an error.
         public func getIndex(key : K) : Nat = BaseMemoryBTree.getIndex<K, V>(state, btree_utils, key);
+
+        /// Get the index (sorted position) of the given key in the btree
+        /// Returns a `ExpectedIndex` variant that returns `#Found(index)` if the key exists or `#NotFound(index)` if it does not.
+        public func getExpectedIndex(key : K) : BaseMemoryBTree.ExpectedIndex = BaseMemoryBTree.getExpectedIndex<K, V>(state, btree_utils, key);
 
         /// Insert a new key-value pair into the BTree
         public func insert(key : K, val : V) : ?V = BaseMemoryBTree.insert<K, V>(state, btree_utils, key, val);

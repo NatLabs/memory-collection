@@ -106,6 +106,13 @@ module StableMemoryBTree {
         MemoryBTree.getIndex(state, btree_utils, key);
     };
 
+    public type ExpectedIndex = MemoryBTree.ExpectedIndex;
+
+    public func getExpectedIndex<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>, key : K) : ExpectedIndex {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.getExpectedIndex(state, btree_utils, key);
+    };
+
     public func clear(btree : StableMemoryBTree) {
         let state = Migrations.getCurrentVersion(btree);
         MemoryBTree.clear(state);

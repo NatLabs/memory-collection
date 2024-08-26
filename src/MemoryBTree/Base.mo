@@ -11,6 +11,7 @@ import Blob "mo:base/Blob";
 
 import MemoryRegion "mo:memory-region/MemoryRegion";
 import RevIter "mo:itertools/RevIter";
+import Find "mo:map/Map/modules/find";
 
 import MemoryCmp "../TypeUtils/MemoryCmp";
 import Blobify "../TypeUtils/Blobify";
@@ -900,9 +901,35 @@ module {
         };
 
         if (int_index < 0) {
-            index_pos + Int.abs(int_index + 1);
+            Debug.trap("getIndex(): Key not found. Use getExpectedIndex() instead to get keys that might not be in the tree");
+        };
+
+        index_pos + Int.abs(int_index);
+    };
+
+    /// Returns the index of the given key in the tree.
+    /// Used to indicate whether the key is in the tree or not.
+    public type ExpectedIndex = {
+        #Found : Nat;
+        #NotFound : Nat;
+    };
+
+    public func getExpectedIndex<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, key : K) : ExpectedIndex {
+        let key_blob = btree_utils.key.blobify.to_blob(key);
+        let (leaf_address, index_pos) = Methods.get_leaf_node_and_index(btree, btree_utils, key_blob);
+
+        let count = Leaf.get_count(btree, leaf_address);
+        let int_index = switch (btree_utils.key.cmp) {
+            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
+            case (#BlobCmp(cmp)) {
+                Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
+            };
+        };
+
+        if (int_index < 0) {
+            #NotFound(index_pos + Int.abs(int_index + 1));
         } else {
-            index_pos + Int.abs(int_index);
+            #Found(index_pos + Int.abs(int_index));
         };
 
     };
