@@ -934,17 +934,60 @@ module {
 
     };
 
-    public func range<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, start : Nat, end : Nat) : RevIter<(K, V)> {
+    func process_range_request<ReturnValue>(
+        btree : MemoryBTree,
+        start : Nat,
+        end : Nat,
+        kv_address_to_result_mapper : (Address) -> ReturnValue,
+    ) : RevIter<ReturnValue> {
+
         let (start_node, start_node_index) = Methods.get_leaf_node_by_index(btree, start);
         let (end_node, end_node_index) = Methods.get_leaf_node_by_index(btree, end);
 
         let start_index = start_node_index : Nat;
         let end_index = end_node_index : Nat;
 
-        RevIter.map<(Blob, Blob), (K, V)>(
-            Methods.new_blobs_iterator(btree, start_node, start_index, end_node, end_index),
-            func((key_blob, val_blob) : (Blob, Blob)) : (K, V) {
+        RevIter.map<Address, ReturnValue>(
+            Methods.new_kv_block_address_iterator(btree, start_node, start_index, end_node, end_index),
+            kv_address_to_result_mapper,
+        );
+    };
+
+    public func range<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, start : Nat, end : Nat) : RevIter<(K, V)> {
+        process_range_request<(K, V)>(
+            btree,
+            start,
+            end,
+            func(kv_address : Address) : (K, V) {
+                let key_blob = MemoryBlock.get_key_blob(btree, kv_address);
+                let val_blob = MemoryBlock.get_val_blob(btree, kv_address);
                 Methods.deserialize_kv_blobs<K, V>(btree_utils, key_blob, val_blob);
+            },
+        );
+    };
+
+    public func rangeKeys<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, start : Nat, end : Nat) : RevIter<K> {
+
+        process_range_request(
+            btree,
+            start,
+            end,
+            func(kv_address : Address) : K {
+                let key_blob = MemoryBlock.get_key_blob(btree, kv_address);
+                btree_utils.key.blobify.from_blob(key_blob);
+            },
+        );
+
+    };
+
+    public func rangeVals<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, start : Nat, end : Nat) : RevIter<V> {
+        process_range_request(
+            btree,
+            start,
+            end,
+            func(kv_address : Address) : V {
+                let val_blob = MemoryBlock.get_val_blob(btree, kv_address);
+                btree_utils.value.blobify.from_blob(val_blob);
             },
         );
     };
@@ -963,7 +1006,14 @@ module {
         (start_rank, end_rank);
     };
 
-    public func scan<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, start : ?K, end : ?K) : RevIter<(K, V)> {
+    func process_scan_request<K, V, ReturnValue>(
+        btree : MemoryBTree,
+        btree_utils : BTreeUtils<K, V>,
+        start : ?K,
+        end : ?K,
+        kv_address_to_result_mapper : (Address) -> ReturnValue,
+    ) : RevIter<ReturnValue> {
+
         let start_address = switch (start) {
             case (?key) {
                 let key_blob = btree_utils.key.blobify.to_blob(key);
@@ -1008,10 +1058,50 @@ module {
 
         var j = if (end_index >= 0) Int.abs(end_index) + 1 else Int.abs(end_index) - 1 : Nat;
 
-        RevIter.map<(Blob, Blob), (K, V)>(
-            Methods.new_blobs_iterator(btree, start_address, i, end_address, j),
-            func((key_blob, val_blob) : (Blob, Blob)) : (K, V) {
+        RevIter.map<Address, ReturnValue>(
+            Methods.new_kv_block_address_iterator(btree, start_address, i, end_address, j),
+            kv_address_to_result_mapper,
+        );
+
+    };
+
+    public func scan<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, start : ?K, end : ?K) : RevIter<(K, V)> {
+        process_scan_request<K, V, (K, V)>(
+            btree,
+            btree_utils,
+            start,
+            end,
+            func(kv_block_address : Address) : (K, V) {
+                let key_blob = MemoryBlock.get_key_blob(btree, kv_block_address);
+                let val_blob = MemoryBlock.get_val_blob(btree, kv_block_address);
+
                 Methods.deserialize_kv_blobs<K, V>(btree_utils, key_blob, val_blob);
+            },
+        );
+    };
+
+    public func scanKeys<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, start : ?K, end : ?K) : RevIter<K> {
+        process_scan_request<K, V, K>(
+            btree,
+            btree_utils,
+            start,
+            end,
+            func(kv_block_address : Address) : K {
+                let key_blob = MemoryBlock.get_key_blob(btree, kv_block_address);
+                btree_utils.key.blobify.from_blob(key_blob);
+            },
+        );
+    };
+
+    public func scanVals<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, start : ?K, end : ?K) : RevIter<V> {
+        process_scan_request<K, V, V>(
+            btree,
+            btree_utils,
+            start,
+            end,
+            func(kv_block_address : Address) : V {
+                let val_blob = MemoryBlock.get_val_blob(btree, kv_block_address);
+                btree_utils.value.blobify.from_blob(val_blob);
             },
         );
     };

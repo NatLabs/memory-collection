@@ -139,8 +139,20 @@ module {
         /// Returns a reversible iterator over the entries in the given range
         public func range(i : Nat, j : Nat) : RevIter<(K, V)> = BaseMemoryBTree.range(state, btree_utils, i, j);
 
-        /// Returns a reversible iterator over the entries in the given range
+        /// Returns a reversible iterator over the keys in the given range
+        public func rangeKeys(i : Nat, j : Nat) : RevIter<K> = BaseMemoryBTree.rangeKeys(state, btree_utils, i, j);
+
+        /// Returns a reversible iterator over the values in the given range
+        public func rangeVals(i : Nat, j : Nat) : RevIter<V> = BaseMemoryBTree.rangeVals(state, btree_utils, i, j);
+
+        /// Returns a reversible iterator over the entries between the given keys
         public func scan(start : ?K, end : ?K) : RevIter<(K, V)> = BaseMemoryBTree.scan(state, btree_utils, start, end);
+
+        /// Returns a reversible iterator over the keys between the given ones
+        public func scanKeys(start : ?K, end : ?K) : RevIter<K> = BaseMemoryBTree.scanKeys(state, btree_utils, start, end);
+
+        /// Returns a reversible iterator over the values between the given keys
+        public func scanVals(start : ?K, end : ?K) : RevIter<V> = BaseMemoryBTree.scanVals(state, btree_utils, start, end);
 
         /// Returns the number of entries in the BTree
         public func size() : Nat = BaseMemoryBTree.size(state);

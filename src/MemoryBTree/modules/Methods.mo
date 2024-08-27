@@ -14,8 +14,9 @@ import T "Types";
 import Leaf "Leaf";
 import Branch "Branch";
 import Migrations "../Migrations";
+import MemoryBlock "MemoryBlock";
 
-module {
+module Methods {
     type MemoryBTree = Migrations.MemoryBTree;
     type MemoryBlock = T.MemoryBlock;
 
@@ -312,6 +313,110 @@ module {
         (get_node(root), search_index);
     };
 
+    public func new_kv_block_address_iterator(
+        btree : MemoryBTree,
+        start_leaf : Nat,
+        start_index : Nat,
+        end_leaf : Nat,
+        end_index : Nat // exclusive
+    ) : RevIter<Address> {
+
+        var start = start_leaf;
+        var i = start_index;
+        var start_count = Leaf.get_count(btree, start_leaf);
+
+        var end = end_leaf;
+        var j = end_index;
+
+        var terminate = false;
+
+        func next() : ?Address {
+            if (terminate) return null;
+
+            if (start == end and i >= j) {
+                return null;
+            };
+
+            if (i >= start_count) {
+                switch (Leaf.get_next(btree, start)) {
+                    case (null) {
+                        terminate := true;
+                    };
+                    case (?next_address) {
+                        start := next_address;
+                        start_count := Leaf.get_count(btree, next_address);
+                    };
+                };
+
+                i := 0;
+                return next();
+            };
+
+            let opt_kv_block_address = Leaf.get_kv_address(btree, start, i);
+
+            i += 1;
+            return opt_kv_block_address;
+        };
+
+        func nextFromEnd() : ?Address {
+            if (terminate) return null;
+
+            if (start == end and i >= j) return null;
+
+            if (j == 0) {
+                switch (Leaf.get_prev(btree, end)) {
+                    case (null) terminate := true;
+                    case (?prev_address) {
+                        end := prev_address;
+                        j := Leaf.get_count(btree, prev_address);
+                    };
+                };
+
+                return nextFromEnd();
+            };
+
+            let opt_kv_block_address = Leaf.get_kv_address(btree, end, j - 1);
+
+            j -= 1;
+
+            return opt_kv_block_address;
+        };
+
+        RevIter.new(next, nextFromEnd);
+    };
+
+    public func KeyBlobIterator(
+        btree : MemoryBTree,
+        start_leaf : Nat,
+        start_index : Nat,
+        end_leaf : Nat,
+        end_index : Nat,
+    ) : RevIter<Blob> {
+        RevIter.map(
+            new_kv_block_address_iterator(btree, start_leaf, start_index, end_leaf, end_index),
+            func(kv_block_address : Address) : Blob {
+                MemoryBlock.get_key_blob(btree, kv_block_address);
+            },
+        );
+    };
+
+    public func ValueBlobIterator(
+        btree : MemoryBTree,
+        start_leaf : Nat,
+        start_index : Nat,
+        end_leaf : Nat,
+        end_index : Nat,
+    ) : RevIter<Blob> {
+
+        RevIter.map(
+            Methods.new_kv_block_address_iterator(btree, start_leaf, start_index, end_leaf, end_index),
+            func(kv_block_address : Address) : Blob {
+                MemoryBlock.get_val_blob(btree, kv_block_address);
+            },
+        )
+
+    };
+
     public func new_blobs_iterator(
         btree : MemoryBTree,
         start_leaf : Nat,
@@ -422,6 +527,14 @@ module {
             };
         };
 
+    };
+
+    public func deserialize_key_blob<K>(btree_utils : BTreeUtils<K, Nat>, key_blob : Blob) : K {
+        btree_utils.key.blobify.from_blob(key_blob);
+    };
+
+    public func deserialize_val_blob<V>(btree_utils : BTreeUtils<Nat, V>, val_blob : Blob) : V {
+        btree_utils.value.blobify.from_blob(val_blob);
     };
 
     public func deserialize_kv_blobs<K, V>(btree_utils : BTreeUtils<K, V>, key_blob : Blob, val_blob : Blob) : (K, V) {

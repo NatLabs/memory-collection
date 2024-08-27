@@ -138,9 +138,29 @@ module StableMemoryBTree {
         MemoryBTree.scan(state, btree_utils, start, end);
     };
 
+    public func scanKeys<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>, start : ?K, end : ?K) : RevIter<K> {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.scanKeys(state, btree_utils, start, end);
+    };
+
+    public func scanVals<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>, start : ?K, end : ?K) : RevIter<V> {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.scanVals(state, btree_utils, start, end);
+    };
+
     public func range<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>, start : Nat, end : Nat) : RevIter<(K, V)> {
         let state = Migrations.getCurrentVersion(btree);
         MemoryBTree.range(state, btree_utils, start, end);
+    };
+
+    public func rangeKeys<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>, start : Nat, end : Nat) : RevIter<K> {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.rangeKeys(state, btree_utils, start, end);
+    };
+
+    public func rangeVals<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>, start : Nat, end : Nat) : RevIter<V> {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.rangeVals(state, btree_utils, start, end);
     };
 
     public func size(btree : StableMemoryBTree) : Nat {
