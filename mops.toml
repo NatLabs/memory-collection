@@ -11,7 +11,6 @@ base = "0.12.1"
 itertools = "0.2.1"
 memory-region = "1.2.4"
 buffer-deque = "0.1.0"
-memory-collection = "0.0.1"
 
 [dev-dependencies]
 test = "2.0.0"

@@ -24,7 +24,7 @@ module {
     public type ExpectedIndex = BaseMemoryBTree.ExpectedIndex;
 
     /// Create a new stable store
-    public func newStableStore(order : ?Nat) : StableStore = StableMemoryBTree.new(order);
+    public func newStableStore(opt_options : ?T.InitOptions) : StableStore = StableMemoryBTree.new(opt_options);
 
     /// Upgrade an older version of the BTree to the latest version
     public func upgrade<K, V>(sstore : StableStore) : StableStore {

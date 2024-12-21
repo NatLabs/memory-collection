@@ -28,6 +28,7 @@ module Methods {
         var curr_address = btree.root;
         var is_address_a_leaf = btree.is_root_a_leaf;
         var opt_key_blob : ?Blob = _opt_key_blob;
+        var opt_key_bytes : ?[Nat8] = null;
 
         loop {
             switch (is_address_a_leaf) {
@@ -55,7 +56,30 @@ module Methods {
                                 case (?key_blob) key_blob;
                             };
 
-                            Branch.binary_search_blob_seq(btree, curr_address, cmp, key_blob, count - 1);
+                            if (btree.supports_key_compression) {
+                                let leaf_prefix_key_size : Nat = Branch.get_prefix_key_size(btree, curr_address);
+
+                                if (leaf_prefix_key_size > 0) {
+                                    let key_bytes = switch (opt_key_bytes) {
+                                        case (null) {
+                                            let key_bytes = Blob.toArray(key_blob);
+                                            opt_key_bytes := ?key_bytes;
+                                            key_bytes;
+                                        };
+                                        case (?key_bytes) key_bytes;
+                                    };
+
+                                    let key_suffix_bytes : [Nat8] = Array.subArray(key_bytes, leaf_prefix_key_size, key_bytes.size() - leaf_prefix_key_size : Nat);
+                                    let key_suffix_blob = Blob.fromArray(key_suffix_bytes);
+
+                                    Branch.binary_search_blob_seq(btree, curr_address, cmp, key_suffix_blob, count - 1);
+                                } else {
+                                    Branch.binary_search_blob_seq(btree, curr_address, cmp, key_blob, count - 1);
+                                };
+                            } else {
+                                Branch.binary_search_blob_seq(btree, curr_address, cmp, key_blob, count - 1);
+                            };
+
                         };
                     };
 

@@ -1,3 +1,4 @@
+import Array "mo:base/Array";
 import Debug "mo:base/Debug";
 import Iter "mo:base/Iter";
 import Int "mo:base/Int";
@@ -11,7 +12,7 @@ import Blob "mo:base/Blob";
 
 import MemoryRegion "mo:memory-region/MemoryRegion";
 import RevIter "mo:itertools/RevIter";
-import Find "mo:map/Map/modules/find";
+import Itertools "mo:itertools/Iter";
 
 import MemoryCmp "../TypeUtils/MemoryCmp";
 import Blobify "../TypeUtils/Blobify";
@@ -43,9 +44,9 @@ module {
     public type BTreeUtils<K, V> = T.BTreeUtils<K, V>;
 
     let CACHE_LIMIT = 50_000;
-    let DEFAULT_ORDER = 256;
+    let DEFAULT_ORDER = 32;
 
-    public func _new_with_options(node_capacity : ?Nat, opt_cache_size : ?Nat, is_set : Bool) : MemoryBTree {
+    public func _new_with_options(node_capacity : ?Nat, opt_cache_size : ?Nat, is_set : Bool, enable_key_compression : Bool) : MemoryBTree {
         let cache_size = Option.get(opt_cache_size, CACHE_LIMIT);
         let btree : MemoryBTree = {
             is_set;
@@ -57,6 +58,7 @@ module {
             var leaf_count = 0;
             var depth = 0;
             var is_root_a_leaf = true;
+            var supports_key_compression = enable_key_compression;
 
             leaves = MemoryRegion.new();
             branches = MemoryRegion.new();
@@ -83,8 +85,11 @@ module {
     //     _new_with_options(node_capacity, cache_size, true);
     // };
 
-    public func new(node_capacity : ?Nat) : MemoryBTree {
-        _new_with_options(node_capacity, ?0, false);
+    public func new(opt_options : ?T.InitOptions) : MemoryBTree {
+        let options = Option.get(opt_options, { node_capacity = null; enable_key_compression = null });
+        let support_key_compression = Option.get(options.enable_key_compression, false);
+
+        _new_with_options(options.node_capacity, null, false, support_key_compression);
     };
 
     public let POINTER_SIZE = 12;
@@ -265,8 +270,38 @@ module {
     };
 
     func update_is_root_a_leaf(btree : MemoryBTree, is_leaf : Bool) {
+
+        let flags = MemoryRegion.loadNat8(btree.data, MC.DATA.IS_ROOT_A_LEAF_ADDRESS);
+
+        let is_root_a_leaf_position : Nat8 = 0;
+        let is_root_a_leaf_flag : Nat8 = 1 << is_root_a_leaf_position;
+
+        let flags_with_is_root_a_leaf = if (is_leaf) {
+            flags | is_root_a_leaf_flag;
+        } else {
+            flags & (^is_root_a_leaf_flag);
+        };
+
+        MemoryRegion.storeNat8(btree.data, MC.DATA.IS_ROOT_A_LEAF_ADDRESS, flags_with_is_root_a_leaf);
+
         btree.is_root_a_leaf := is_leaf;
-        MemoryRegion.storeNat8(btree.data, MC.DATA.IS_ROOT_A_LEAF_ADDRESS, if (is_leaf) 1 else 0);
+    };
+
+    func update_is_support_for_key_compression(btree : MemoryBTree, support : Bool) {
+        let flags = MemoryRegion.loadNat8(btree.data, MC.DATA.IS_ROOT_A_LEAF_ADDRESS);
+
+        let key_compression_flag_position : Nat8 = 1;
+        let key_compression_flag : Nat8 = 1 << key_compression_flag_position;
+
+        let flags_with_key_compression = if (support) {
+            flags | key_compression_flag;
+        } else {
+            flags & (^key_compression_flag);
+        };
+
+        MemoryRegion.storeNat8(btree.data, MC.DATA.IS_ROOT_A_LEAF_ADDRESS, flags_with_key_compression);
+
+        btree.supports_key_compression := support;
     };
 
     func inc_subtree_size(btree : MemoryBTree, branch_address : Nat, _child_index : Nat) {
@@ -274,18 +309,53 @@ module {
         Branch.update_subtree_size(btree, branch_address, subtree_size + 1);
     };
 
+    func binary_search_in_leaf<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, leaf_address : Nat, key : K, opt_key_blob : ?Blob) : Int {
+        let count = Leaf.get_count(btree, leaf_address);
+        let key_blob = switch (opt_key_blob) {
+            case (null) btree_utils.key.blobify.to_blob(key);
+            case (?key_blob) key_blob;
+        };
+
+        let int_index = switch (btree_utils.key.cmp) {
+            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
+            case (#BlobCmp(cmp)) {
+
+                if (btree.supports_key_compression) {
+                    let leaf_prefix_key_size : Nat = Leaf.get_prefix_key_size(btree, leaf_address);
+
+                    if (leaf_prefix_key_size > 0) {
+                        let key_bytes = Blob.toArray(key_blob);
+                        let key_suffix_bytes : [Nat8] = Array.subArray(key_bytes, leaf_prefix_key_size, key_bytes.size() - leaf_prefix_key_size : Nat);
+                        let key_suffix_blob = Blob.fromArray(key_suffix_bytes);
+
+                        // this check is only true in leaf nodes because we store the key for the 0th element in the leaf node
+                        // and is not true for branch because we store the key starting from the 1st element in the branch node
+                        if (cmp(key_suffix_blob, key_blob) == 1) return -1;
+
+                        Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_suffix_blob, count);
+                    } else {
+                        Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
+                    };
+                } else {
+                    Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
+                };
+            };
+        };
+
+        int_index;
+    };
+
     public func insert<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, key : K, value : V) : ?V {
+        if (btree.supports_key_compression) {
+            let #BlobCmp(_) = btree_utils.key.cmp else Debug.trap("MemoryBTree: key compression can only be used if the comparator is set to #BlobCmp");
+        };
+
         let key_blob = btree_utils.key.blobify.to_blob(key);
 
         let leaf_address = Methods.get_leaf_address_and_update_path(btree, btree_utils, key, ?key_blob, inc_subtree_size);
         let count = Leaf.get_count(btree, leaf_address);
 
-        let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
-            case (#BlobCmp(cmp)) {
-                Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
-            };
-        };
+        let int_index = binary_search_in_leaf(btree, btree_utils, leaf_address, key, ?key_blob);
 
         let elem_index = if (int_index >= 0) Int.abs(int_index) else Int.abs(int_index + 1);
 
@@ -301,15 +371,66 @@ module {
             return ?btree_utils.value.blobify.from_blob(prev_val_blob);
         };
 
-        let kv_address = MemoryBlock.store(btree, key_blob, val_blob);
+        var key_suffix_blob = key_blob;
+        var needs_to_update_median_key = false;
+
+        if (btree.supports_key_compression) {
+            needs_to_update_median_key := elem_index == 0;
+
+            var leaf_prefix_key : Blob = switch (Leaf.get_prefix_key(btree, leaf_address)) {
+                case (null) "";
+                case (?prefix) prefix;
+            };
+
+            var leaf_prefix_key_bytes = Blob.toArray(leaf_prefix_key);
+            let key_bytes = Blob.toArray(key_blob);
+
+            key_suffix_blob := if (Utils.is_prefix(leaf_prefix_key_bytes, key_bytes)) {
+                let key_suffix_bytes = Array.subArray(key_bytes, leaf_prefix_key_bytes.size(), key_bytes.size() - leaf_prefix_key_bytes.size() : Nat);
+                Blob.fromArray(key_suffix_bytes);
+            } else {
+
+                let new_prefix_size = Utils.get_prefix_size(leaf_prefix_key_bytes, key_bytes);
+                leaf_prefix_key_bytes := Array.subArray(key_bytes, 0, new_prefix_size);
+                leaf_prefix_key := Blob.fromArray(leaf_prefix_key_bytes);
+
+                Leaf.update_prefix_key(btree, leaf_address, ?leaf_prefix_key);
+
+                let prefix_tail_to_return = Array.subArray(leaf_prefix_key_bytes, new_prefix_size, leaf_prefix_key_bytes.size() - new_prefix_size : Nat);
+
+                needs_to_update_median_key := count > 0 or needs_to_update_median_key;
+
+                Leaf.add_prefix_to_keys(btree, leaf_address, count, Blob.fromArray(prefix_tail_to_return));
+
+                let key_suffix_bytes = Array.subArray(key_bytes, new_prefix_size, key_bytes.size() - new_prefix_size : Nat);
+                let key_suffix_blob = Blob.fromArray(key_suffix_bytes);
+                key_suffix_blob;
+            };
+        };
+
+        let kv_address = MemoryBlock.store(btree, key_suffix_blob, val_blob);
         // Debug.print("kv_address: " # debug_show kv_address);
         // Debug.print("kv_blobs: " # debug_show (MemoryBlock.get_key_blob(btree, kv_address), MemoryBlock.get_val_blob(btree, kv_address)));
-        // Debug.print("actual kv_blobs: " # debug_show (key_blob, val_blob));
+        // Debug.print("actual kv_blobs: " # debug_show (key_suffix_blob, val_blob));
 
         if (count < btree.node_capacity) {
             // Debug.print("found leaf with enough space");
             Leaf.insert_with_count(btree, leaf_address, elem_index, kv_address, count);
             update_count(btree, btree.count + 1);
+
+            if (needs_to_update_median_key) {
+                let ?first_key_blob = Leaf.get_key_blob(btree, leaf_address, 0) else Debug.trap("insert: first_key_address accessed a null value");
+
+                let leaf_index = Leaf.get_index(btree, leaf_address);
+
+                switch (Leaf.get_parent(btree, leaf_address)) {
+                    case (null) {};
+                    case (?parent) {
+                        Branch.update_median_key(btree, parent, leaf_index, first_key_blob);
+                    };
+                };
+
+            };
 
             return null;
         };
@@ -524,12 +645,7 @@ module {
         let leaf_address = Methods.get_leaf_address(btree, btree_utils, key, ?key_blob);
         let count = Leaf.get_count(btree, leaf_address);
 
-        let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
-            case (#BlobCmp(cmp)) {
-                Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
-            };
-        };
+        let int_index = binary_search_in_leaf(btree, btree_utils, leaf_address, key, ?key_blob);
 
         if (int_index < 0) return null;
 
@@ -546,12 +662,7 @@ module {
         let leaf_address = Methods.get_leaf_address(btree, btree_utils, key, ?key_blob);
         let count = Leaf.get_count(btree, leaf_address);
 
-        let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
-            case (#BlobCmp(cmp)) {
-                Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
-            };
-        };
+        let int_index = binary_search_in_leaf(btree, btree_utils, leaf_address, key, ?key_blob);
 
         if (int_index < 0) return false;
 
@@ -633,14 +744,9 @@ module {
         let key_blob = btree_utils.key.blobify.to_blob(key);
 
         let leaf_address = Methods.get_leaf_address_and_update_path(btree, btree_utils, key, ?key_blob, decrement_subtree_size);
-        let count = Leaf.get_count(btree, leaf_address);
+        var leaf_count = Leaf.get_count(btree, leaf_address);
 
-        let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search(btree, btree_utils, leaf_address, cmp, key, count);
-            case (#BlobCmp(cmp)) {
-                Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
-            };
-        };
+        let int_index = binary_search_in_leaf(btree, btree_utils, leaf_address, key, ?key_blob);
 
         if (int_index < 0) {
             // key not found, so revert the path to its original state by incrementing the subtree size
@@ -675,8 +781,24 @@ module {
             Branch.update_median_key_address(btree, parent, leaf_index, next_key_address);
         };
 
+        let prev_leaf_count = leaf_count;
+        leaf_count -= 1;
+
+        if (btree.supports_key_compression) {
+            if (leaf_count > 1) {
+
+                if (elem_index == 0 or elem_index == prev_leaf_count - 1) {
+                    Leaf.compress_similar_keys(btree, leaf_address, leaf_count);
+                }
+
+            } else if (leaf_count == 0) {
+                Leaf.update_prefix_key(btree, leaf_address, null);
+            };
+
+        };
+
         let min_count = btree.node_capacity / 2;
-        let leaf_count = Leaf.get_count(btree, leaf_address);
+        leaf_count := Leaf.get_count(btree, leaf_address);
 
         if (leaf_count >= min_count) return ?prev_val;
 
@@ -732,8 +854,10 @@ module {
 
                 if (child_is_leaf) {
                     Leaf.update_parent(btree, child, null);
+                    Leaf.update_prefix_key(btree, child, null);
                 } else {
                     Branch.update_parent(btree, child, null);
+                    Branch.update_prefix_key(btree, child, null);
                 };
 
                 update_root(btree, child);
@@ -750,6 +874,7 @@ module {
         let ?branch_parent = Branch.get_parent(btree, branch) else return set_only_child_to_root(parent);
 
         parent := branch_parent;
+        var branch_count = Branch.get_count(btree, branch);
 
         while (Branch.get_count(btree, branch) < min_count) {
             // Debug.print("redistribute branch");
@@ -774,6 +899,22 @@ module {
             Branch.remove(btree, parent, merged_branch_index);
             Branch.deallocate(btree, merged_branch);
             update_branch_count(btree, btree.branch_count - 1);
+
+            let prev_branch_count = branch_count;
+            branch_count := Branch.get_count(btree, branch);
+
+            if (btree.supports_key_compression) {
+                if (branch_count > 1) {
+
+                    if (elem_index == 0 or elem_index == prev_branch_count - 1) {
+                        Branch.compress_similar_keys(btree, branch, branch_count);
+                    }
+
+                } else if (branch_count == 0) {
+                    Branch.update_prefix_key(btree, branch, null);
+                };
+
+            };
 
             // Debug.print("parent after merge: " # debug_show Branch.from_memory(btree, parent));
             // Debug.print("leaf_nodes: " # debug_show Iter.toArray(Methods.leaf_addresses(btree)));
@@ -803,12 +944,12 @@ module {
         ?max;
     };
 
-    public func fromArray<K, V>(btree_utils : BTreeUtils<K, V>, arr : [(K, V)], order : ?Nat) : MemoryBTree {
-        fromEntries(btree_utils, arr.vals(), order);
+    public func fromArray<K, V>(btree_utils : BTreeUtils<K, V>, arr : [(K, V)], opt_options : ?T.InitOptions) : MemoryBTree {
+        fromEntries(btree_utils, arr.vals(), opt_options);
     };
 
-    public func fromEntries<K, V>(btree_utils : BTreeUtils<K, V>, entries : Iter<(K, V)>, order : ?Nat) : MemoryBTree {
-        let btree = new(order);
+    public func fromEntries<K, V>(btree_utils : BTreeUtils<K, V>, entries : Iter<(K, V)>, opt_options : ?T.InitOptions) : MemoryBTree {
+        let btree = new(opt_options);
 
         for ((k, v) in entries) {
             ignore insert(btree, btree_utils, k, v);
@@ -893,12 +1034,7 @@ module {
         let (leaf_address, index_pos) = Methods.get_leaf_node_and_index(btree, btree_utils, key_blob);
 
         let count = Leaf.get_count(btree, leaf_address);
-        let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
-            case (#BlobCmp(cmp)) {
-                Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
-            };
-        };
+        let int_index = binary_search_in_leaf(btree, btree_utils, leaf_address, key, ?key_blob);
 
         if (int_index < 0) {
             Debug.trap("getIndex(): Key not found. Use getExpectedIndex() instead to get keys that might not be in the tree");
@@ -919,12 +1055,7 @@ module {
         let (leaf_address, index_pos) = Methods.get_leaf_node_and_index(btree, btree_utils, key_blob);
 
         let count = Leaf.get_count(btree, leaf_address);
-        let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
-            case (#BlobCmp(cmp)) {
-                Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
-            };
-        };
+        let int_index = binary_search_in_leaf(btree, btree_utils, leaf_address, key, ?key_blob);
 
         if (int_index < 0) {
             #NotFound(index_pos + Int.abs(int_index + 1));

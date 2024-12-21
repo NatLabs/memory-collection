@@ -18,17 +18,17 @@ module StableMemoryBTree {
         };
     };
 
-    public func new(order : ?Nat) : StableMemoryBTree {
-        let btree = MemoryBTree.new(order);
+    public func new(opt_options : ?T.InitOptions) : StableMemoryBTree {
+        let btree = MemoryBTree.new(opt_options);
         MemoryBTree.toVersioned(btree);
     };
 
     public func fromArray<K, V>(
         btree_utils : BTreeUtils<K, V>,
         arr : [(K, V)],
-        order : ?Nat,
+        opt_options : ?T.InitOptions,
     ) : StableMemoryBTree {
-        let btree = MemoryBTree.fromArray(btree_utils, arr, order);
+        let btree = MemoryBTree.fromArray(btree_utils, arr, opt_options);
         MemoryBTree.toVersioned(btree);
     };
 

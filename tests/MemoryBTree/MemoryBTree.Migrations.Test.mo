@@ -12,10 +12,10 @@ suite(
         test(
             "deploys current version",
             func() {
-                let vs_memory_btree = StableMemoryBTree.new(?32);
+                let vs_memory_btree = StableMemoryBTree.new(null);
                 ignore Migrations.getCurrentVersion(vs_memory_btree); // should not trap
 
-                let memory_btree = MemoryBTree.new(?32);
+                let memory_btree = MemoryBTree.new(null);
                 let version = MemoryBTree.toVersioned(memory_btree);
                 ignore Migrations.getCurrentVersion(version); // should not trap
             },

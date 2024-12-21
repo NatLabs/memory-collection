@@ -13,13 +13,14 @@ import Float "mo:base/Float";
 
 import MemoryRegion "mo:memory-region/MemoryRegion";
 import RevIter "mo:itertools/RevIter";
-// import Branch "mo:augmented-btrees/BpTree/Branch";
+import Itertools "mo:itertools/Iter";
 
 import MemoryFns "MemoryFns";
 import T "Types";
 import Leaf "Leaf";
 import MemoryBlock "MemoryBlock";
 import Migrations "../Migrations";
+import Utils "../../Utils";
 
 module Branch {
 
@@ -65,6 +66,9 @@ module Branch {
         PARENT_START = 16;
         ADDRESS_SIZE = 8;
 
+        KEY_PREFIX_START = 24;
+        KEY_PREFIX_SIZE_START = 30;
+
         KEYS_START = 64;
 
         NULL_ADDRESS : Nat64 = 0x00;
@@ -100,13 +104,14 @@ module Branch {
 
         MemoryRegion.storeBlob(btree.branches, branch_address, MC.MAGIC);
         MemoryRegion.storeNat8(btree.branches, branch_address + MC.DEPTH_START, 0);
-        // MemoryRegion.storeNat8(btree.branches, branch_address + MC.LAYOUT_VERSION_START, MC.LAYOUT_VERSION);
 
         MemoryRegion.storeNat16(btree.branches, branch_address + MC.INDEX_START, 0);
         MemoryRegion.storeNat16(btree.branches, branch_address + MC.COUNT_START, 0);
         MemoryRegion.storeNat64(btree.branches, branch_address + MC.SUBTREE_COUNT_START, 0);
 
         MemoryRegion.storeNat64(btree.branches, branch_address + MC.PARENT_START, MC.NULL_ADDRESS);
+        MemoryRegion.storeNat64(btree.branches, branch_address + MC.KEY_PREFIX_START, MC.NULL_ADDRESS);
+        MemoryRegion.storeNat16(btree.branches, branch_address + MC.KEY_PREFIX_SIZE_START, 0);
 
         var i = 0;
 
@@ -457,7 +462,11 @@ module Branch {
     public func get_key_blob(btree : MemoryBTree, branch_address : Nat, i : Nat) : ?(Blob) {
 
         let ?kv_address = Branch.get_key_address(btree, branch_address, i) else return null;
-        ?MemoryBlock.get_key_blob(btree, kv_address);
+        let key_blob = MemoryBlock.get_key_blob(btree, kv_address);
+
+        let ?prefix_key = Branch.get_prefix_key(btree, branch_address) else return ?key_blob;
+
+        ?Utils.append_blob(prefix_key, key_blob);
     };
 
     public func set_key_address_to_null(btree : MemoryBTree, branch_address : Nat, i : Nat) {
@@ -480,6 +489,29 @@ module Branch {
     public func get_subtree_size(btree : MemoryBTree, branch_address : Nat) : Nat {
 
         MemoryRegion.loadNat64(btree.branches, branch_address + MC.SUBTREE_COUNT_START) |> Nat64.toNat(_);
+    };
+
+    public func get_prefix_key_block(btree : MemoryBTree, address : Nat) : ?MemoryBlock {
+        let prefix_key = MemoryRegion.loadNat64(btree.branches, address + MC.KEY_PREFIX_START);
+        if (prefix_key == MC.NULL_ADDRESS) return null;
+
+        let prefix_key_nat = Nat64.toNat(prefix_key);
+        let prefix_key_size = MemoryRegion.loadNat16(btree.branches, address + MC.KEY_PREFIX_SIZE_START) |> Nat16.toNat(_);
+
+        ?(prefix_key_nat, prefix_key_size);
+    };
+
+    public func get_prefix_key_size(btree : MemoryBTree, address : Nat) : Nat {
+        let prefix_key = MemoryRegion.loadNat16(btree.branches, address + MC.KEY_PREFIX_SIZE_START) |> Nat16.toNat(_);
+        prefix_key;
+    };
+
+    public func get_prefix_key(btree : MemoryBTree, address : Nat) : ?Blob {
+        let ?prefix_key_block = get_prefix_key_block(btree, address) else return null;
+
+        let prefix_key = MemoryRegion.loadBlob(btree.data, prefix_key_block.0, prefix_key_block.1);
+
+        ?prefix_key;
     };
 
     public func binary_search<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, address : Nat, cmp : (K, K) -> Int8, search_key : K, arr_len : Nat) : Int {
@@ -601,6 +633,28 @@ module Branch {
         MemoryRegion.storeNat64(btree.branches, branch_address + MC.PARENT_START, parent);
     };
 
+    public func update_prefix_key(btree : MemoryBTree, address : Nat, opt_prefix_key_blob : ?Blob) {
+        let (new_prefix_key_address, new_size) : (Nat64, Nat) = switch (opt_prefix_key_blob) {
+            case (null) (MC.NULL_ADDRESS, 0);
+            case (?prefix_key_blob) {
+
+                let new_prefix_key_address = switch (get_prefix_key_block(btree, address)) {
+                    case (?(prev_address, prev_size)) {
+                        MemoryRegion.replaceBlob(btree.data, prev_address, prev_size, prefix_key_blob);
+                    };
+                    case (_) {
+                        MemoryRegion.addBlob(btree.data, prefix_key_blob);
+                    };
+                };
+
+                (Nat64.fromNat(new_prefix_key_address), prefix_key_blob.size());
+            };
+        };
+
+        MemoryRegion.storeNat64(btree.leaves, address + MC.KEY_PREFIX_START, new_prefix_key_address);
+        MemoryRegion.storeNat16(btree.leaves, address + MC.KEY_PREFIX_SIZE_START, Nat16.fromNat(new_size));
+    };
+
     public func update_median_key_address(btree : MemoryBTree, parent_address : Nat, child_index : Nat, new_key_address : UniqueId) {
         var curr_address = parent_address;
         var i = child_index;
@@ -612,6 +666,32 @@ module Branch {
         };
 
         Branch.put_key_address(btree, curr_address, i - 1, new_key_address);
+    };
+
+    public func update_median_key(btree : MemoryBTree, parent_address : Nat, child_index : Nat, new_key : Blob) {
+
+        var curr_address = parent_address;
+        var i = child_index;
+
+        while (i == 0) {
+            i := Branch.get_index(btree, curr_address);
+            let ?parent_address = Branch.get_parent(btree, curr_address) else return; // occurs when key is the first key in the tree
+            curr_address := parent_address;
+        };
+
+        let ?prefix_key = Branch.get_prefix_key(btree, curr_address) else return Debug.trap("Branch.update_median_key: prefix key is null");
+        let prefix_key_bytes = Blob.toArray(prefix_key);
+        let new_key_bytes = Blob.toArray(new_key);
+
+        assert Utils.get_prefix_size(prefix_key_bytes, new_key_bytes) == prefix_key.size();
+
+        let key_suffix_bytes = Array.subArray(new_key_bytes, prefix_key.size(), new_key.size() - prefix_key.size() : Nat);
+        let key_suffix = Blob.fromArray(key_suffix_bytes);
+
+        let key_address = MemoryBlock.store(btree, key_suffix, "");
+
+        Branch.put_key_address(btree, curr_address, i - 1, key_address);
+
     };
 
     // inserts node but does not update the subtree size with the node's subtree size
@@ -802,7 +882,86 @@ module Branch {
         let ?_median_key_address = median_key_address else Debug.trap("Branch.split: median key_block is null");
         Branch.put_key_address(btree, right_address, btree.node_capacity - 2, _median_key_address);
 
+        if (btree.supports_key_compression) {
+            compress_similar_keys(btree, branch_address, median);
+            compress_similar_keys(btree, right_address, right_cnt);
+        };
+
         right_address;
+    };
+
+    public func compress_similar_keys(btree : MemoryBTree, branch_address : Nat, count : Nat) {
+        if (count == 0) return;
+
+        let ?smallest_key = Branch.get_key_blob(btree, branch_address, 0) else Debug.trap("Branch.split: smallest_key is null");
+        let ?largest_key = Branch.get_key_blob(btree, branch_address, count - 1) else Debug.trap("Branch.split: largest_key is null");
+
+        let smallest_key_bytes = Blob.toArray(smallest_key);
+        let largest_key_bytes = Blob.toArray(largest_key);
+
+        let prefix_key_size = Utils.get_prefix_size(smallest_key_bytes, largest_key_bytes);
+
+        let prev_prefix_key_size = Branch.get_prefix_key_size(btree, branch_address);
+
+        if (prefix_key_size > prev_prefix_key_size) {
+            let prev_prefix_key : Blob = switch (Branch.get_prefix_key(btree, branch_address)) {
+                case (?prefix_key) prefix_key;
+                case (_) "";
+            };
+
+            let additional_prefix_key = Array.subArray(smallest_key_bytes, 0, prefix_key_size);
+
+            let new_prefix_key = Blob.fromArray(Array.append(Blob.toArray(prev_prefix_key), additional_prefix_key));
+
+            update_prefix_key(btree, branch_address, ?new_prefix_key);
+
+            remove_prefix_from_keys(btree, branch_address, count, prefix_key_size - prev_prefix_key_size);
+
+        } else if (prefix_key_size < prev_prefix_key_size) {
+            let new_prefix_key = Blob.fromArray(Array.subArray(smallest_key_bytes, 0, prefix_key_size));
+            update_prefix_key(btree, branch_address, ?new_prefix_key);
+
+            let additional_prefix_key = Array.subArray(smallest_key_bytes, 0, prefix_key_size) |> Blob.fromArray(_);
+
+            add_prefix_to_keys(btree, branch_address, count, additional_prefix_key);
+        };
+
+    };
+
+    public func remove_prefix_from_keys(btree : MemoryBTree, branch_address : Nat, count : Nat, remove_size : Nat) {
+
+        for (i in Itertools.range(0, count)) {
+            let ?branch_key_address = Branch.get_key_address(btree, branch_address, i) else Debug.trap("Branch.add_prefix_to_keys: branch_key_address is null");
+            let branch_key = MemoryBlock.get_key_blob(btree, branch_key_address);
+            let branch_key_bytes = Blob.toArray(branch_key);
+            let new_branch_key_bytes = Array.subArray(branch_key_bytes, remove_size, branch_key_bytes.size() - remove_size : Nat);
+
+            let new_branch_key = Blob.fromArray(new_branch_key_bytes);
+
+            let new_branch_key_address = MemoryBlock.replace_key(btree, branch_key_address, new_branch_key);
+
+            Branch.put_key_address(btree, branch_address, i, new_branch_key_address);
+
+        };
+
+    };
+
+    public func add_prefix_to_keys(btree : MemoryBTree, branch_address : Nat, count : Nat, prefix_key : Blob) {
+
+        for (i in Itertools.range(0, count)) {
+            let ?branch_key_address = Branch.get_key_address(btree, branch_address, i) else Debug.trap("Branch.add_prefix_to_keys: branch_key_address is null");
+            let branch_key = MemoryBlock.get_key_blob(btree, branch_key_address);
+            let branch_key_bytes = Blob.toArray(branch_key);
+            let new_branch_key_bytes = Array.append(Blob.toArray(prefix_key), branch_key_bytes);
+
+            let new_branch_key = Blob.fromArray(new_branch_key_bytes);
+
+            let new_branch_key_address = MemoryBlock.replace_key(btree, branch_key_address, new_branch_key);
+
+            Branch.put_key_address(btree, branch_address, i, new_branch_key_address);
+
+        };
+
     };
 
     public func get_larger_neighbour(btree : MemoryBTree, parent_address : Address, index : Nat) : ?Address {
@@ -1004,14 +1163,20 @@ module Branch {
             Branch.put_key_address(btree, parent, branch_index, median_key_address);
         };
 
-        Branch.update_count(btree, branch, branch_count + data_to_move);
-        Branch.update_count(btree, neighbour, neighbour_count - data_to_move);
+        let new_branch_count = branch_count + data_to_move;
+        let new_neighbour_count = neighbour_count - data_to_move : Nat;
+
+        Branch.update_count(btree, branch, new_branch_count);
+        Branch.update_count(btree, neighbour, new_neighbour_count);
 
         let branch_subtree_size = Branch.get_subtree_size(btree, branch);
         Branch.update_subtree_size(btree, branch, branch_subtree_size + moved_subtree_size);
 
         let neighbour_subtree_size = Branch.get_subtree_size(btree, neighbour);
         Branch.update_subtree_size(btree, neighbour, neighbour_subtree_size - moved_subtree_size);
+
+        compress_similar_keys(btree, branch, new_branch_count);
+        compress_similar_keys(btree, neighbour, new_neighbour_count);
 
         true;
     };
@@ -1066,6 +1231,8 @@ module Branch {
         // Debug.print("right branch after merge: " # debug_show Branch.from_memory(btree, right));
 
         // Branch.remove(btree, parent, right_index);
+
+        compress_similar_keys(btree, left, left_count + right_count);
 
         right;
     };

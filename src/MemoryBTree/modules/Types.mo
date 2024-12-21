@@ -39,4 +39,9 @@ module {
         #leaf;
     };
 
+    public type InitOptions = {
+        node_capacity : ?Nat;
+        enable_key_compression : ?Bool;
+    };
+
 };

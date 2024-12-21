@@ -46,21 +46,7 @@ module MemoryBlock {
         MemoryRegion.isAllocated(btree.data, block_address);
     };
 
-    public func store(btree : MemoryBTree, key : Blob, val : Blob) : UniqueId {
-        let block_address = MemoryRegion.allocate(btree.data, KEY_BLOB_START + key.size());
-
-        let val_address = MemoryRegion.addBlob(btree.values, val);
-
-        MemoryRegion.storeNat8(btree.data, block_address, 0); // reference count
-        MemoryRegion.storeNat64(btree.data, block_address + VAL_POINTER_START, Nat64.fromNat(val_address)); // value mem block address
-        MemoryRegion.storeNat32(btree.data, block_address + VAL_SIZE_START, Nat32.fromNat(val.size())); // value mem block size
-
-        MemoryRegion.storeNat16(btree.data, block_address + KEY_SIZE_START, Nat16.fromNat(key.size())); // key mem block size
-        MemoryRegion.storeBlob(btree.data, block_address + KEY_BLOB_START, key);
-
-        block_address;
-    };
-
+  
     public func next_id(btree : MemoryBTree) : UniqueId {
         let block_address = MemoryRegion.allocate(btree.data, BLOCK_ENTRY_SIZE);
 
@@ -88,6 +74,65 @@ module MemoryBlock {
         Nat8.toNat(ref_count - 1);
     };
 
+      public func store(btree : MemoryBTree, key : Blob, val : Blob) : UniqueId {
+        let block_address = MemoryRegion.allocate(btree.data, KEY_BLOB_START + key.size());
+
+        let val_address = MemoryRegion.addBlob(btree.values, val);
+
+        MemoryRegion.storeNat8(btree.data, block_address, 0); // reference count
+        MemoryRegion.storeNat64(btree.data, block_address + VAL_POINTER_START, Nat64.fromNat(val_address)); // value mem block address
+        MemoryRegion.storeNat32(btree.data, block_address + VAL_SIZE_START, Nat32.fromNat(val.size())); // value mem block size
+
+        MemoryRegion.storeNat16(btree.data, block_address + KEY_SIZE_START, Nat16.fromNat(key.size())); // key mem block size
+        MemoryRegion.storeBlob(btree.data, block_address + KEY_BLOB_START, key);
+
+        block_address;
+    };
+
+
+    public func get_key_blob(btree : MemoryBTree, block_address : UniqueId) : Blob {
+        let key_size = MemoryRegion.loadNat16(btree.data, block_address + KEY_SIZE_START) |> Nat16.toNat(_);
+        let blob = MemoryRegion.loadBlob(btree.data, block_address + KEY_BLOB_START, key_size);
+
+        blob;
+    };
+
+    public func get_key_block(btree : MemoryBTree, block_address : UniqueId) : MemoryBlock {
+        let key_size = MemoryRegion.loadNat16(btree.data, block_address + KEY_SIZE_START) |> Nat16.toNat(_);
+
+        (block_address + KEY_BLOB_START, key_size);
+    };
+
+    // the unique id might be different after resizing
+    public func replace_key(btree: MemoryBTree, block_address : UniqueId, new_key: Blob) : UniqueId {
+
+        let prev_size = MemoryRegion.loadNat16(btree.data, block_address + KEY_SIZE_START) |> Nat16.toNat(_);
+        let prev_address = block_address + KEY_BLOB_START;
+
+        let new_address = MemoryRegion.replaceBlob(btree.data, prev_address, prev_size, new_key);
+
+        new_address;
+    };
+
+    public func get_val_block(btree : MemoryBTree, block_address : UniqueId) : MemoryBlock {
+
+        let val_address = MemoryRegion.loadNat64(btree.data, block_address + VAL_POINTER_START) |> Nat64.toNat(_);
+        let val_size = MemoryRegion.loadNat32(btree.data, block_address + VAL_SIZE_START) |> Nat32.toNat(_);
+
+        (val_address, val_size);
+    };
+
+    public func get_val_blob(btree : MemoryBTree, block_address : UniqueId) : Blob {
+
+        let val_address = MemoryRegion.loadNat64(btree.data, block_address + VAL_POINTER_START) |> Nat64.toNat(_);
+        let val_size = MemoryRegion.loadNat32(btree.data, block_address + VAL_SIZE_START) |> Nat32.toNat(_);
+
+        let blob = MemoryRegion.loadBlob(btree.values, val_address, val_size);
+
+        blob;
+    };
+
+
     public func replace_val(btree : MemoryBTree, block_address : UniqueId, new_val : Blob) : Blob {
 
         let prev_val_address = MemoryRegion.loadNat64(btree.data, block_address + VAL_POINTER_START) |> Nat64.toNat(_);
@@ -109,37 +154,6 @@ module MemoryBlock {
         MemoryRegion.storeNat64(btree.data, block_address + VAL_POINTER_START, Nat64.fromNat(new_val_address));
 
         prev_val_blob;
-    };
-
-    public func get_key_blob(btree : MemoryBTree, block_address : UniqueId) : Blob {
-        let key_size = MemoryRegion.loadNat16(btree.data, block_address + KEY_SIZE_START) |> Nat16.toNat(_);
-        let blob = MemoryRegion.loadBlob(btree.data, block_address + KEY_BLOB_START, key_size);
-
-        blob;
-    };
-
-    public func get_key_block(btree : MemoryBTree, block_address : UniqueId) : MemoryBlock {
-        let key_size = MemoryRegion.loadNat16(btree.data, block_address + KEY_SIZE_START) |> Nat16.toNat(_);
-
-        (block_address + KEY_BLOB_START, key_size);
-    };
-
-    public func get_val_block(btree : MemoryBTree, block_address : UniqueId) : MemoryBlock {
-
-        let val_address = MemoryRegion.loadNat64(btree.data, block_address + VAL_POINTER_START) |> Nat64.toNat(_);
-        let val_size = MemoryRegion.loadNat32(btree.data, block_address + VAL_SIZE_START) |> Nat32.toNat(_);
-
-        (val_address, val_size);
-    };
-
-    public func get_val_blob(btree : MemoryBTree, block_address : UniqueId) : Blob {
-
-        let val_address = MemoryRegion.loadNat64(btree.data, block_address + VAL_POINTER_START) |> Nat64.toNat(_);
-        let val_size = MemoryRegion.loadNat32(btree.data, block_address + VAL_SIZE_START) |> Nat32.toNat(_);
-
-        let blob = MemoryRegion.loadBlob(btree.values, val_address, val_size);
-
-        blob;
     };
 
     public func remove(btree : MemoryBTree, block_address : UniqueId) {

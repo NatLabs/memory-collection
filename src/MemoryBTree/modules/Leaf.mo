@@ -1,5 +1,6 @@
 /// Leaf Node Operations
 
+import Blob "mo:base/Blob";
 import Debug "mo:base/Debug";
 import Array "mo:base/Array";
 import Nat "mo:base/Nat";
@@ -16,6 +17,7 @@ import MemoryBlock "MemoryBlock";
 import T "Types";
 import Migrations "../Migrations";
 import Utils "../../Utils";
+import Itertools "mo:itertools/Iter";
 
 module Leaf {
     public type Leaf = Migrations.Leaf;
@@ -45,6 +47,9 @@ module Leaf {
     public let PREV_START = 16;
 
     public let NEXT_START = 24;
+
+    public let KEY_PREFIX_START = 32;
+    public let KEY_PREFIX_SIZE_START = 40;
 
     public let KV_IDS_START = HEADER_SIZE;
 
@@ -92,6 +97,9 @@ module Leaf {
         MemoryRegion.storeNat64(btree.leaves, leaf_address + Leaf.PARENT_START, NULL_ADDRESS);
         MemoryRegion.storeNat64(btree.leaves, leaf_address + Leaf.PREV_START, NULL_ADDRESS);
         MemoryRegion.storeNat64(btree.leaves, leaf_address + Leaf.NEXT_START, NULL_ADDRESS);
+
+        MemoryRegion.storeNat64(btree.leaves, leaf_address + Leaf.KEY_PREFIX_START, NULL_ADDRESS);
+        MemoryRegion.storeNat16(btree.leaves, leaf_address + Leaf.KEY_PREFIX_SIZE_START, 0);
 
         var i = 0;
 
@@ -291,7 +299,11 @@ module Leaf {
 
     public func get_key_blob(btree : MemoryBTree, address : Nat, i : Nat) : ?(Blob) {
         let ?id = get_kv_address(btree, address, i) else return null;
-        ?MemoryBlock.get_key_blob(btree, id);
+        let key_blob = MemoryBlock.get_key_blob(btree, id);
+
+        let ?prefix_key = get_prefix_key(btree, address) else return ?key_blob;
+
+        ?Utils.append_blob(prefix_key, key_blob);
     };
 
     public func set_key_to_null(btree : MemoryBTree, address : Nat, i : Nat) {
@@ -355,6 +367,28 @@ module Leaf {
         let prev = MemoryRegion.loadNat64(btree.leaves, address + PREV_START);
         if (prev == NULL_ADDRESS) return null;
         ?Nat64.toNat(prev);
+    };
+
+    public func get_prefix_key_block(btree : MemoryBTree, address : Nat) : ?MemoryBlock {
+        let prefix_key = MemoryRegion.loadNat64(btree.leaves, address + KEY_PREFIX_START);
+        if (prefix_key == NULL_ADDRESS) return null;
+
+        let prefix_key_nat = Nat64.toNat(prefix_key);
+        let prefix_key_size = MemoryRegion.loadNat16(btree.leaves, address + KEY_PREFIX_SIZE_START) |> Nat16.toNat(_);
+
+        ?(prefix_key_nat, prefix_key_size);
+    };
+
+    public func get_prefix_key_size(btree : MemoryBTree, address : Nat) : Nat {
+        MemoryRegion.loadNat16(btree.leaves, address + KEY_PREFIX_SIZE_START) |> Nat16.toNat(_);
+    };
+
+    public func get_prefix_key(btree : MemoryBTree, address : Nat) : ?Blob {
+        let ?prefix_key_block = get_prefix_key_block(btree, address) else return null;
+
+        let prefix_key = MemoryRegion.loadBlob(btree.data, prefix_key_block.0, prefix_key_block.1);
+
+        ?prefix_key;
     };
 
     public func binary_search<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, address : Nat, cmp : (K, K) -> Int8, search_key : K, arr_len : Nat) : Int {
@@ -499,12 +533,41 @@ module Leaf {
         MemoryRegion.storeNat64(btree.leaves, address + PREV_START, prev);
     };
 
+    public func update_kv_address(btree : MemoryBTree, address : Nat, index : Nat, new_id : UniqueId) {
+        let kv_address_offset = get_kv_address_offset(address, index);
+        MemoryRegion.storeNat64(btree.leaves, kv_address_offset, Nat64.fromNat(new_id));
+    };
+
+    public func update_prefix_key(btree : MemoryBTree, address : Nat, opt_prefix_key_blob : ?Blob) {
+        let (new_prefix_key_address, new_size) : (Nat64, Nat) = switch (opt_prefix_key_blob) {
+            case (null) (NULL_ADDRESS, 0);
+            case (?prefix_key_blob) {
+
+                let new_prefix_key_address = switch (get_prefix_key_block(btree, address)) {
+                    case (?(prev_address, prev_size)) {
+                        MemoryRegion.replaceBlob(btree.data, prev_address, prev_size, prefix_key_blob);
+                    };
+                    case (_) {
+                        MemoryRegion.addBlob(btree.data, prefix_key_blob);
+                    };
+                };
+
+                (Nat64.fromNat(new_prefix_key_address), prefix_key_blob.size());
+            };
+        };
+
+        MemoryRegion.storeNat64(btree.leaves, address + KEY_PREFIX_START, new_prefix_key_address);
+        MemoryRegion.storeNat16(btree.leaves, address + KEY_PREFIX_SIZE_START, Nat16.fromNat(new_size));
+
+    };
+
     public func clear(btree : MemoryBTree, leaf_address : Nat) {
         Leaf.update_index(btree, leaf_address, 0);
         Leaf.update_count(btree, leaf_address, 0);
         Leaf.update_parent(btree, leaf_address, null);
         Leaf.update_prev(btree, leaf_address, null);
         Leaf.update_next(btree, leaf_address, null);
+        Leaf.update_prefix_key(btree, leaf_address, null);
     };
 
     public func insert(btree : MemoryBTree, leaf_address : Nat, index : Nat, new_id : UniqueId) {
@@ -569,8 +632,10 @@ module Leaf {
             MemoryRegion.storeBlob(btree.leaves, new_start, blob_slice);
 
             elems_removed_from_left += right_cnt;
+
+            Leaf.insert(btree, leaf_address, elem_index, new_id);
         } else {
-            // | left | elem | right |
+            // | left | <-> |  elem | right |
             // left
             var size = elem_index - (i + median - offset) : Nat;
             var start = get_kv_address_offset(leaf_address, i + median - offset);
@@ -599,10 +664,6 @@ module Leaf {
 
         Leaf.update_count(btree, leaf_address, arr_len - elems_removed_from_left);
 
-        if (not is_elem_added_to_right) {
-            Leaf.insert(btree, leaf_address, elem_index, new_id);
-        };
-
         Leaf.update_count(btree, leaf_address, median);
         Leaf.update_count(btree, right_leaf_address, right_cnt);
 
@@ -626,7 +687,86 @@ module Leaf {
             case (_) {};
         };
 
+        if (btree.supports_key_compression) {
+            compress_similar_keys(btree, leaf_address, median);
+            compress_similar_keys(btree, right_leaf_address, right_cnt);
+        };
+
         right_leaf_address;
+    };
+
+    public func compress_similar_keys(btree : MemoryBTree, leaf_address : Nat, count : Nat) {
+        if (count == 0) return;
+
+        let ?smallest_key = Leaf.get_key_blob(btree, leaf_address, 0) else Debug.trap("Leaf.split: smallest_key is null");
+        let ?largest_key = Leaf.get_key_blob(btree, leaf_address, count - 1) else Debug.trap("Leaf.split: largest_key is null");
+
+        let smallest_key_bytes = Blob.toArray(smallest_key);
+        let largest_key_bytes = Blob.toArray(largest_key);
+
+        let prefix_key_size = Utils.get_prefix_size(smallest_key_bytes, largest_key_bytes);
+
+        let prev_prefix_key_size = Leaf.get_prefix_key_size(btree, leaf_address);
+
+        if (prefix_key_size > prev_prefix_key_size) {
+            let prev_prefix_key : Blob = switch (Leaf.get_prefix_key(btree, leaf_address)) {
+                case (?prefix_key) prefix_key;
+                case (_) "";
+            };
+
+            let additional_prefix_key = Array.subArray(smallest_key_bytes, 0, prefix_key_size);
+
+            let new_prefix_key = Blob.fromArray(Array.append(Blob.toArray(prev_prefix_key), additional_prefix_key));
+
+            update_prefix_key(btree, leaf_address, ?new_prefix_key);
+
+            remove_prefix_from_keys(btree, leaf_address, count, prefix_key_size - prev_prefix_key_size);
+
+        } else if (prefix_key_size < prev_prefix_key_size) {
+            let new_prefix_key = Blob.fromArray(Array.subArray(smallest_key_bytes, 0, prefix_key_size));
+            update_prefix_key(btree, leaf_address, ?new_prefix_key);
+
+            let additional_prefix_key = Array.subArray(smallest_key_bytes, 0, prefix_key_size) |> Blob.fromArray(_);
+
+            add_prefix_to_keys(btree, leaf_address, count, additional_prefix_key);
+        };
+
+    };
+
+    public func remove_prefix_from_keys(btree : MemoryBTree, leaf_address : Nat, count : Nat, remove_size : Nat) {
+
+        for (i in Itertools.range(0, count)) {
+            let ?leaf_key_address = Leaf.get_kv_address(btree, leaf_address, i) else Debug.trap("Leaf.add_prefix_to_keys: leaf_key_address is null");
+            let leaf_key = MemoryBlock.get_key_blob(btree, leaf_key_address);
+            let leaf_key_bytes = Blob.toArray(leaf_key);
+            let new_leaf_key_bytes = Array.subArray(leaf_key_bytes, remove_size, leaf_key_bytes.size() - remove_size : Nat);
+
+            let new_leaf_key = Blob.fromArray(new_leaf_key_bytes);
+
+            let new_leaf_key_address = MemoryBlock.replace_key(btree, leaf_key_address, new_leaf_key);
+
+            Leaf.update_kv_address(btree, leaf_address, i, new_leaf_key_address);
+
+        };
+
+    };
+
+    public func add_prefix_to_keys(btree : MemoryBTree, leaf_address : Nat, count : Nat, prefix_key : Blob) {
+
+        for (i in Itertools.range(0, count)) {
+            let ?leaf_key_address = Leaf.get_kv_address(btree, leaf_address, i) else Debug.trap("Leaf.add_prefix_to_keys: leaf_key_address is null");
+            let leaf_key = MemoryBlock.get_key_blob(btree, leaf_key_address);
+            let leaf_key_bytes = Blob.toArray(leaf_key);
+            let new_leaf_key_bytes = Array.append(Blob.toArray(prefix_key), leaf_key_bytes);
+
+            let new_leaf_key = Blob.fromArray(new_leaf_key_bytes);
+
+            let new_leaf_key_address = MemoryBlock.replace_key(btree, leaf_key_address, new_leaf_key);
+
+            Leaf.update_kv_address(btree, leaf_address, i, new_leaf_key_address);
+
+        };
+
     };
 
     public func shift(btree : MemoryBTree, leaf_address : Nat, start : Nat, end : Nat, offset : Int) {
@@ -698,6 +838,9 @@ module Leaf {
         Leaf.update_count(btree, leaf, leaf_count + data_to_move);
         Leaf.update_count(btree, neighbour, neighbour_count - data_to_move);
 
+        compress_similar_keys(btree, leaf, leaf_count + data_to_move);
+        compress_similar_keys(btree, neighbour, neighbour_count - data_to_move);
+
         // Debug.print("end redistribution");
         true;
     };
@@ -748,6 +891,8 @@ module Leaf {
             case (?c) Leaf.update_prev(btree, c, ?a);
             case (_) {};
         };
+
+        compress_similar_keys(btree, left, left_count + right_count);
 
     };
 

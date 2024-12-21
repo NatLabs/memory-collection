@@ -49,7 +49,7 @@ let random = Itertools.toBuffer<(Nat, Nat)>(
 let sorted = Buffer.clone(random);
 sorted.sort(func(a : (Nat, Nat), b : (Nat, Nat)) : Order = Nat.compare(a.0, b.0));
 
-let btree = MemoryBTree._new_with_options(?8, ?0, false);
+let btree = MemoryBTree.new(?{ node_capacity = null; enable_key_compression = ?false });
 let btree_utils = MemoryBTree.createUtils(TypeUtils.BigEndian.Nat, TypeUtils.BigEndian.Nat);
 
 suite(

@@ -8,6 +8,8 @@ import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
 import Result "mo:base/Result";
 
+import Itertools "mo:itertools/Iter";
+
 module {
 
     type Buffer<A> = Buffer.Buffer<A>;
@@ -181,6 +183,43 @@ module {
         };
 
         Nat64.toNat(n64);
+    };
+
+    // is 'a' a prefix of 'b'?
+    public func is_prefix(a : [Nat8], b : [Nat8]) : Bool {
+        let len = a.size();
+        if (len > b.size()) return false;
+        for (i in Itertools.range(0, len)) {
+            if (a[i] != b[i]) return false;
+        };
+        true;
+    };
+
+    public func get_prefix_size(a : [Nat8], b : [Nat8]) : Nat {
+        let len = a.size();
+        if (len > b.size()) return 0;
+        for (i in Itertools.range(0, len)) {
+            if (a[i] != b[i]) return i;
+        };
+        len;
+    };
+
+    public func get_prefix(a : [Nat8], b : [Nat8]) : [Nat8] {
+        let len = a.size();
+        if (len > b.size()) return [];
+        for (i in Itertools.range(0, len)) {
+            if (a[i] != b[i]) return Array.subArray(b, 0, i);
+        };
+        a;
+    };
+
+    public func append_blob(a : Blob, b : Blob) : Blob {
+        Blob.fromArray(
+            Array.append(
+                Blob.toArray(a),
+                Blob.toArray(b),
+            )
+        );
     };
 
 };
