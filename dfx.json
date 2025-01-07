@@ -1,21 +1,26 @@
 {
-    "version": 1,
-    "canisters": {
-        "actor_test" : {
-            "main": "tests/MemoryBuffer.ActorTest.mo",
-            "type": "motoko"
-        }
+  "version": 1,
+  "canisters": {
+    "actor_test": {
+      "main": "tests/MemoryBuffer.ActorTest.mo",
+      "type": "motoko"
     },
-    "defaults": {
-        "build": {
-            "packtool": "mops sources",
-            "args": "--incremental-gc"
-        }
-    },
-    "networks": {
-        "local": {
-            "bind": "127.0.0.1:8000",
-            "type": "ephemeral"
-        }
+    "stress_test": {
+      "main": "tests/MemoryBTree/MemoryBTree.StressTest.Replica.mo",
+      "type": "motoko",
+      "args": "--max-stable-pages 1638400"
     }
+  },
+  "defaults": {
+    "build": {
+      "packtool": "mops sources",
+      "args": "--incremental-gc"
+    }
+  },
+  "networks": {
+    "local": {
+      "bind": "127.0.0.1:4943",
+      "type": "ephemeral"
+    }
+  }
 }

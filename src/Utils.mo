@@ -8,6 +8,7 @@ import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
 import Result "mo:base/Result";
 
+import Itertools "mo:itertools/Iter";
 module {
 
     type Buffer<A> = Buffer.Buffer<A>;
@@ -74,6 +75,48 @@ module {
         return n;
     };
 
+    public func nat_to_bytes(n : Nat) : [Nat8] {
+        var num = n;
+        var nbytes = 0;
+
+        while (num > 0) {
+            num /= 255;
+            nbytes += 1;
+        };
+
+        num := n;
+
+        let arr = Array.reverse(
+            Array.tabulate(
+                nbytes,
+                func(_ : Nat) : Nat8 {
+                    let tmp = num % 255;
+                    num /= 255;
+                    Nat8.fromNat(tmp);
+                },
+            )
+        );
+
+        arr;
+    };
+
+    public func bytes_to_nat(bytes : Iter.Iter<Nat8>) : Nat {
+        var n = 0;
+        let bytes_arr : [Nat8] = Iter.toArray(bytes);
+
+        var j = bytes_arr.size();
+
+        while (j > 0) {
+            let byte = bytes_arr.get(j - 1);
+            n *= 255;
+            n += Nat8.toNat(byte);
+
+            j -= 1;
+        };
+
+        n;
+    };
+
     public func byte_iter_to_nat(iter : Iter<Nat8>) : Nat {
         var n = 0;
 
@@ -101,19 +144,7 @@ module {
             },
         );
 
-        var j = 0;
-
-        let bytes : [Nat8] = Array.tabulate(
-            total_size,
-            func(i : Nat) : Nat8 {
-                if (i == nested_bytes[j].size()) {
-                    j += 1;
-                };
-
-                nested_bytes[j][i];
-            },
-        );
-
+        let bytes = Array.flatten(nested_bytes);
         Blob.fromArray(bytes);
     };
 

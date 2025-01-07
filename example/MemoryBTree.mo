@@ -36,7 +36,7 @@ actor {
     orders_sstore := MemoryBTree.upgrade(orders_sstore);
 
     // If two orders are placed at the same timestamp, the second order will overwrite the first
-    // so for this test we assume that no two orders are placed at the same timestamp
+    // so for this test we assume that no two orders are placed at the same time
     let orders = MemoryBTree.MemoryBTree<Time, Order>(orders_sstore, orders_btree_utils);
 
     let product_prices = [39.99, 7.23, 12.99, 87.00, 5.99];

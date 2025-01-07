@@ -1,0 +1,12 @@
+[dependencies]
+base = "0.13.2"
+itertools = "0.2.1"
+vector = "0.4.1"
+memory-collection = "../../"
+moh = "https://github.com/NatLabs/moh#main@27f9634adf5b3b85bcf8bfa381875d82395e464c"
+"encoding.mo" = "https://github.com/aviate-labs/encoding.mo#v0.3.2@8e0fe1d8f5c2d284e77d719703c42e0e271839b1"
+
+[toolchain]
+wasmtime = "14.0.4"
+moc = "0.13.2"
+pocket-ic = "4.0.0"

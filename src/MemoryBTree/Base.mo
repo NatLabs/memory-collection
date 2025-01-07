@@ -206,7 +206,8 @@ module {
     };
 
     public func bytes(btree : MemoryBTree) : Nat {
-        MemoryRegion.allocated(btree.data);
+        MemoryRegion.allocated(btree.data) +
+        MemoryRegion.allocated(btree.values);
     };
 
     public func metadataBytes(btree : MemoryBTree) : Nat {
@@ -216,6 +217,7 @@ module {
 
     public func totalBytes(btree : MemoryBTree) : Nat {
         MemoryRegion.allocated(btree.data) +
+        MemoryRegion.allocated(btree.values) +
         MemoryRegion.allocated(btree.leaves) +
         MemoryRegion.allocated(btree.branches);
     };

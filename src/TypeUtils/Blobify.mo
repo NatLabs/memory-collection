@@ -152,6 +152,64 @@ module Blobify {
                 let _n64 = Base.Nat64.fromNat(Base.Nat8.toNat(bytes[0] << 56)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[1] << 48)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[2] << 40)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[3] << 32)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[4] << 24)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[5] << 16)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[6] << 8)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[7]));
             };
         };
+
+        public let Int : Blobify<Int> = {
+            to_blob = func(n : Int) : Blob {
+                let is_negative = n < 0;
+
+                var num : Nat = Base.Int.abs(n);
+                var nbytes = 0;
+
+                while (num > 0) {
+                    num /= 255;
+                    nbytes += 1;
+                };
+
+                num := Base.Int.abs(n);
+
+                let arr = ArrayModule.reverse(
+                    ArrayModule.tabulate(
+                        nbytes + 1,
+                        func(i : Nat) : Nat8 {
+                            if (i == nbytes) return Base.Nat8.fromNat(if (is_negative) 1 else 0);
+
+                            let tmp = num % 255;
+                            num /= 255;
+                            Nat8Module.fromNat(tmp);
+                        },
+                    )
+                );
+
+                Base.Blob.fromArray(arr);
+            };
+
+            from_blob = func(blob : Blob) : Int {
+                let bytes = Base.Blob.toArray(blob);
+
+                var n = 0;
+                var is_negative = false;
+
+                var j = 0;
+
+                while (j < bytes.size()) {
+                    let byte = bytes.get(j);
+                    if (j == bytes.size() - 1) {
+                        is_negative := Base.Nat8.toNat(byte) == 1;
+                    } else {
+                        n *= 255;
+                        n += Base.Nat8.toNat(byte);
+                    };
+
+                    j += 1;
+                };
+
+                if (is_negative) {
+                    -(n);
+                } else {
+                    (n);
+                };
+            };
+        };
     };
 
     public let Nat8 : Blobify<Nat8> = {

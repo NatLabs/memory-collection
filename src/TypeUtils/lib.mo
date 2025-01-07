@@ -58,6 +58,11 @@ module {
             cmp = MemoryCmp.BigEndian.Nat64;
         };
 
+        public let Int : TypeUtils<Int> = {
+            blobify = Blobify.BigEndian.Int;
+            cmp = MemoryCmp.BigEndian.Int;
+        };
+
     };
 
     public let Nat : TypeUtils<Nat> = {

@@ -25,6 +25,26 @@ module {
             }
         );
 
+        public let Int = #BlobCmp(
+            func(a : Blob, b : Blob) : Int8 {
+
+                switch (a.vals().next(), b.vals().next()) {
+                    case (?val_a, ?val_b) {
+                        if (val_a > val_b) return 1;
+                        if (val_a < val_b) return -1;
+                    };
+                    case (null, null) return 0;
+                    case (null, _) return -1;
+                    case (_, null) return 1;
+                };
+
+                if (a.size() > b.size()) return 1;
+                if (a.size() < b.size()) return -1;
+
+                Prim.blobCompare(a, b);
+            }
+        );
+
         public let Nat8 = #BlobCmp(Prim.blobCompare);
         public let Nat16 = #BlobCmp(Prim.blobCompare);
         public let Nat32 = #BlobCmp(Prim.blobCompare);
