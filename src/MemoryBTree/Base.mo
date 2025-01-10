@@ -994,12 +994,18 @@ module {
 
     public func getInterval<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, start : ?K, end : ?K) : (Nat, Nat) {
         let start_rank = switch (start) {
-            case (?key) getIndex(btree, btree_utils, key);
+            case (?key) switch (getExpectedIndex(btree, btree_utils, key)) {
+                case (#Found(index)) index;
+                case (#NotFound(index)) index;
+            };
             case (null) 0;
         };
 
         let end_rank = switch (end) {
-            case (?key) getIndex(btree, btree_utils, key) + 1; // +1 because the end is exclusive
+            case (?key) switch (getIndex(btree, btree_utils, key)) {
+                case (#Found(index)) index + 1; // +1 because the end is exclusive
+                case (#NotFound(index)) index + 1; // +1 because the end is exclusive
+            };
             case (null) btree.count;
         };
 
