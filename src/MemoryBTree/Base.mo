@@ -41,6 +41,7 @@ module {
     public type TypeUtils<A> = TypeUtils.TypeUtils<A>;
 
     public type BTreeUtils<K, V> = T.BTreeUtils<K, V>;
+    public type MemoryBTreeStats = T.MemoryBTreeStats;
 
     let CACHE_LIMIT = 50_000;
     let DEFAULT_ORDER = 256;
@@ -205,40 +206,88 @@ module {
         Migrations.addVersion(btree);
     };
 
-    public func bytes(btree : MemoryBTree) : Nat {
-        MemoryRegion.allocated(btree.data) +
-        MemoryRegion.allocated(btree.values);
+    /// The total number of pages allocated to the BTree.
+    public func allocatedPages(btree : MemoryBTree) : Nat {
+        MemoryRegion.pages(btree.data) +
+        MemoryRegion.pages(btree.values) +
+        MemoryRegion.pages(btree.leaves) +
+        MemoryRegion.pages(btree.branches);
     };
 
-    public func metadataBytes(btree : MemoryBTree) : Nat {
-        MemoryRegion.allocated(btree.leaves) +
-        MemoryRegion.allocated(btree.branches);
+    /// The total number of bytes available from the allocated pages.
+    public func allocatedBytes(btree : MemoryBTree) : Nat {
+        MemoryRegion.capacity(btree.data) +
+        MemoryRegion.capacity(btree.values) +
+        MemoryRegion.capacity(btree.leaves) +
+        MemoryRegion.capacity(btree.branches);
     };
 
-    public func totalBytes(btree : MemoryBTree) : Nat {
+    /// These are the bytes currently in use by the BTree.
+    public func usedBytes(btree : MemoryBTree) : Nat {
         MemoryRegion.allocated(btree.data) +
         MemoryRegion.allocated(btree.values) +
         MemoryRegion.allocated(btree.leaves) +
         MemoryRegion.allocated(btree.branches);
     };
 
-    public type MemoryBTreeStats = {
-        branches : MemoryRegion.MemoryInfo;
-        leaves : MemoryRegion.MemoryInfo;
-        data : MemoryRegion.MemoryInfo;
+    /// The number of bytes that are not used by the BTree.
+    public func freeBytes(btree : MemoryBTree) : Nat {
+        allocatedBytes(btree) - usedBytes(btree);
+    };
+
+    /// The total bytes used for storing the btree's data (keys and values).
+    public func dataBytes(btree : MemoryBTree) : Nat {
+        MemoryRegion.allocated(btree.data) +
+        MemoryRegion.allocated(btree.values);
+    };
+
+    /// The total bytes used for storing the btree's metadata (internal nodes: branches and leaves).
+    public func metadataBytes(btree : MemoryBTree) : Nat {
+        MemoryRegion.allocated(btree.leaves) +
+        MemoryRegion.allocated(btree.branches);
+    };
+
+    public func leafBytes(btree : MemoryBTree) : Nat {
+        MemoryRegion.allocated(btree.leaves);
+    };
+
+    public func branchBytes(btree : MemoryBTree) : Nat {
+        MemoryRegion.allocated(btree.branches);
+    };
+
+    public func keyBytes(btree : MemoryBTree) : Nat {
+        MemoryRegion.allocated(btree.data);
+    };
+
+    public func valueBytes(btree : MemoryBTree) : Nat {
+        MemoryRegion.allocated(btree.values);
+    };
+
+    public func leafCount(btree : MemoryBTree) : Nat { btree.leaf_count };
+
+    public func branchCount(btree : MemoryBTree) : Nat { btree.branch_count };
+
+    public func totalNodeCount(btree : MemoryBTree) : Nat {
+        btree.branch_count + btree.leaf_count;
     };
 
     public func stats(btree : MemoryBTree) : MemoryBTreeStats {
-        let branches = MemoryRegion.memoryInfo(btree.branches);
-        let leaves = MemoryRegion.memoryInfo(btree.leaves);
-        let data = MemoryRegion.memoryInfo(btree.data);
-
         {
-            branches;
-            leaves;
-            data;
+            allocatedPages = allocatedPages(btree);
+            bytesPerPage = MemoryRegion.PAGE_SIZE;
+            allocatedBytes = allocatedBytes(btree);
+            usedBytes = usedBytes(btree);
+            freeBytes = freeBytes(btree);
+            dataBytes = dataBytes(btree);
+            metadataBytes = metadataBytes(btree);
+            leafBytes = leafBytes(btree);
+            branchBytes = branchBytes(btree);
+            keyBytes = keyBytes(btree);
+            valueBytes = valueBytes(btree);
+            leafCount = leafCount(btree);
+            branchCount = branchCount(btree);
+            totalNodeCount = totalNodeCount(btree);
         };
-
     };
 
     func update_root(btree : MemoryBTree, new_root : Address) {

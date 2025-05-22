@@ -157,16 +157,46 @@ module {
         /// Returns the number of entries in the BTree
         public func size() : Nat = BaseMemoryBTree.size(state);
 
+        /// Returns the number of allocated pages in stable memory
+        public func allocatedPages() : Nat = BaseMemoryBTree.allocatedPages(state);
+
+        /// Returns the total number of allocated bytes
+        public func allocatedBytes() : Nat = BaseMemoryBTree.allocatedBytes(state);
+
+        /// Returns the number of bytes used by all the regions
+        public func usedBytes() : Nat = BaseMemoryBTree.usedBytes(state);
+
+        /// Returns the number of free bytes
+        public func freeBytes() : Nat = BaseMemoryBTree.freeBytes(state);
+
         /// Returns the number of bytes used to store the keys and values data
-        public func bytes() : Nat = BaseMemoryBTree.bytes(state);
+        public func dataBytes() : Nat = BaseMemoryBTree.dataBytes(state);
 
         /// Returns the number of bytes used to store information about the nodes and structure of the BTree
         public func metadataBytes() : Nat = BaseMemoryBTree.metadataBytes(state);
 
-        /// Returns the total number of bytes used to store the BTree
-        public func totalBytes() : Nat = BaseMemoryBTree.totalBytes(state);
+        /// Returns the number of bytes used for leaf nodes
+        public func leafBytes() : Nat = BaseMemoryBTree.leafBytes(state);
 
-        /// Returns the stats for each memory region used by the BTree
+        /// Returns the number of bytes used for branch nodes
+        public func branchBytes() : Nat = BaseMemoryBTree.branchBytes(state);
+
+        /// Returns the number of bytes used for keys
+        public func keyBytes() : Nat = BaseMemoryBTree.keyBytes(state);
+
+        /// Returns the number of bytes used for values
+        public func valueBytes() : Nat = BaseMemoryBTree.valueBytes(state);
+
+        /// Returns the number of leaf nodes
+        public func leafCount() : Nat = BaseMemoryBTree.leafCount(state);
+
+        /// Returns the number of branch nodes
+        public func branchCount() : Nat = BaseMemoryBTree.branchCount(state);
+
+        /// Returns the total number of nodes
+        public func totalNodeCount() : Nat = BaseMemoryBTree.totalNodeCount(state);
+
+        /// Returns the btree's memory stats
         public func stats() : MemoryBTreeStats = BaseMemoryBTree.stats(state);
 
         /// Functions for Unique Id References to values in the BTree

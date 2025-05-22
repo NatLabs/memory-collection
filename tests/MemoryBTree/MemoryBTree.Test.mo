@@ -151,6 +151,51 @@ suite(
         );
 
         test(
+            "getExpectedIndex",
+            func() {
+
+                for (i in Itertools.range(0, sorted.size())) {
+                    let (key, _) = sorted.get(i);
+
+                    let expected = #Found(i);
+                    let rank = MemoryBTree.getExpectedIndex(btree, btree_utils, key);
+
+                    if (not (rank == expected)) {
+                        Debug.print("getIndex -> " # debug_show (MemoryBTree.getIndex(btree, btree_utils, key)));
+                        Debug.print("mismatch for key:" # debug_show key);
+                        Debug.print("expected != rank: " # debug_show (expected, rank));
+                        assert false;
+                    };
+                };
+
+                let non_consecutive_range = Itertools.add(
+                    Iter.map(
+                        Iter.filter(
+                            Itertools.slidingTuples(Itertools.range(0, sorted.size())),
+                            func((i, j) : (Nat, Nat)) : Bool = (sorted.get(i).0 + 1) != sorted.get(j).0,
+                        ),
+                        func((i, j) : (Nat, Nat)) : Nat = i,
+                    ),
+                    sorted.size() - 1 : Nat,
+                );
+
+                for (i in non_consecutive_range) {
+                    let key = sorted.get(i).0 + 1;
+
+                    let expected = #NotFound(i + 1);
+                    let rank = MemoryBTree.getExpectedIndex(btree, btree_utils, key);
+
+                    if (not (rank == expected)) {
+                        Debug.print("getIndex -> " # debug_show (MemoryBTree.getIndex(btree, btree_utils, key)));
+                        Debug.print("mismatch for key:" # debug_show key);
+                        Debug.print("expected != rank: " # debug_show (expected, rank));
+                        assert false;
+                    };
+                };
+            },
+        );
+
+        test(
             "getFromIndex",
             func() {
                 for (i in Itertools.range(0, sorted.size())) {

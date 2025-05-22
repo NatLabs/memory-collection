@@ -39,4 +39,21 @@ module {
         #leaf;
     };
 
+    public type MemoryBTreeStats = {
+        allocatedPages : Nat;
+        bytesPerPage : Nat;
+        allocatedBytes : Nat;
+        usedBytes : Nat;
+        freeBytes : Nat;
+        dataBytes : Nat;
+        metadataBytes : Nat;
+        leafBytes : Nat;
+        branchBytes : Nat;
+        keyBytes : Nat;
+        valueBytes : Nat;
+        leafCount : Nat;
+        branchCount : Nat;
+        totalNodeCount : Nat;
+    };
+
 };

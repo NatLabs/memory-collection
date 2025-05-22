@@ -168,14 +168,74 @@ module StableMemoryBTree {
         MemoryBTree.size(state);
     };
 
-    public func bytes(btree : StableMemoryBTree) : Nat {
+    public func stats(btree : StableMemoryBTree) : MemoryBTree.MemoryBTreeStats {
         let state = Migrations.getCurrentVersion(btree);
-        MemoryBTree.bytes(state);
+        MemoryBTree.stats(state);
+    };
+
+    public func dataBytes(btree : StableMemoryBTree) : Nat {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.dataBytes(state);
+    };
+
+    public func freeBytes(btree : StableMemoryBTree) : Nat {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.freeBytes(state);
     };
 
     public func metadataBytes(btree : StableMemoryBTree) : Nat {
         let state = Migrations.getCurrentVersion(btree);
         MemoryBTree.metadataBytes(state);
+    };
+
+    public func usedBytes(btree : StableMemoryBTree) : Nat {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.usedBytes(state);
+    };
+
+    public func allocatedBytes(btree : StableMemoryBTree) : Nat {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.allocatedBytes(state);
+    };
+
+    public func leafBytes(btree : StableMemoryBTree) : Nat {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.leafBytes(state);
+    };
+
+    public func branchBytes(btree : StableMemoryBTree) : Nat {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.branchBytes(state);
+    };
+
+    public func keyBytes(btree : StableMemoryBTree) : Nat {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.keyBytes(state);
+    };
+
+    public func valueBytes(btree : StableMemoryBTree) : Nat {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.valueBytes(state);
+    };
+
+    public func leafCount(btree : StableMemoryBTree) : Nat {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.leafCount(state);
+    };
+
+    public func branchCount(btree : StableMemoryBTree) : Nat {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.branchCount(state);
+    };
+
+    public func totalNodeCount(btree : StableMemoryBTree) : Nat {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.totalNodeCount(state);
+    };
+
+    public func allocatedPages(btree : StableMemoryBTree) : Nat {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.allocatedPages(state);
     };
 
     public func getId<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>, key : K) : ?Nat {
