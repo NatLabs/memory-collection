@@ -254,20 +254,20 @@ Garbage Collection: ${\color{gray}0\\%}$
 
 |                    | MemoryQueue |
 | :----------------- | ----------: |
-| add()              |  52_747_763 |
-| vals()             |  40_974_696 |
-| pop()              |  78_133_980 |
-| random add()/pop() | 384_133_884 |
+| add()              |  52_717_491 |
+| vals()             |  40_933_760 |
+| pop()              |  78_093_044 |
+| random add()/pop() | 384_362_535 |
 
 
 **Heap**
 
 |                    | MemoryQueue |
 | :----------------- | ----------: |
-| add()              |  745.66 KiB |
-| vals()             |    1.54 MiB |
+| add()              |  745.32 KiB |
+| vals()             |    1.53 MiB |
 | pop()              |    2.07 MiB |
-| random add()/pop() |  -17.78 MiB |
+| random add()/pop() |  -17.76 MiB |
 
 
 **Garbage Collection**
