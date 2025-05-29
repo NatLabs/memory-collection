@@ -72,6 +72,24 @@ More information on how to create custom type utilities can be found in the **Cr
     import MemoryBTree "mo:memory-collection/MemoryBTree";
 ```
 
+### Canister Configuration
+
+Canisters have a default stable memory limit of 4GB. For applications using the `memory-collection` library with large datasets, you'll likely need to increase this limit. Use the `--max-stable-pages` argument to set the limit when deploying your canister. The limit is specified in pages, with each page being 64KiB (65,536 bytes).
+
+```json
+{
+  "canisters": {
+    "my-canister": {
+      "type": "motoko",
+      "main": "src/main.mo",
+      "args": "--max-stable-pages 3276800"
+    }
+  }
+}
+```
+
+> **Note**: This example sets the limit to 200GB (3,276,800 pages × 64KiB).
+
 ### Usage Examples
 
 Usage examples using the preset `TypeUtils`

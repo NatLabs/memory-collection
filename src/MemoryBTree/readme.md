@@ -6,13 +6,13 @@ It's designed to store large amounts of data that need to persist across caniste
 
 ### Design
 
-The MemoryBTree is implemented using three seperate [MemoryRegions](https://github.com/NatLabs/memory-region).
-A branch region for the branch nodes, a leaves region for all the leaf nodes and a data region for all the key-value pairs.
-Using three MemoryRegion allows us to isolate similar types of data with similar sizes, which helps reduce memory fragmentation during reallocation.
+The MemoryBTree is implemented using four separate [MemoryRegions](https://github.com/NatLabs/memory-region).
+A branch region for the branch nodes, a leaves region for all the leaf nodes, a data region for the key blocks, and a values region for the value blocks.
+Using four MemoryRegions allows us to isolate similar types of data with similar sizes, which helps reduce memory fragmentation during reallocation and provides better cache performance by separating keys from values.
 
 The MemoryBTree's internal structure is very much like a tree.
 The branch nodes store pointers to other branch nodes or to leaf nodes.
-The leaf nodes store pointers to key-value blocks where the serialized keys and values are stored.
+The leaf nodes store pointers to key-value blocks where the serialized keys are stored in the data region and values are stored separately in the values region.
 
 #### Referencing Key-Value Pairs
 
@@ -269,9 +269,9 @@ This region has a 64 byte fixed header followed by a sequence of leaf nodes in t
   | RESERVED       | 33     | 31                 | -     | -             | Extra space from header (size 64) for future use                          |
   | KV POINTERS    | 64     | 8 \* NODE_CAPACITY | Nat64 | -             | Unique addresses pointing to the key-value pair stored in the data region |
 
-#### Key-Value Region
+#### Data Region (Keys)
 
-This region contains a 64 byte fixed header with information about the tree like the root address and the max node capacity, followed by a sequence of key-value blocks.
+This region contains a 64 byte fixed header with information about the tree like the root address and the max node capacity, followed by a sequence of key blocks.
 
 - Header Section
 
@@ -280,35 +280,47 @@ This region contains a 64 byte fixed header with information about the tree like
   | MAGIC              | 0      | 3    | Blob  | `"BTR"`       | Magic number                                          |
   | LAYOUT VERSION     | 3      | 1    | Nat8  | `0`           | Layout version                                        |
   | BRANCHES REGION ID | 4      | 4    | Nat32 | -             | Id of the branches region                             |
-  | LEAVES REGION ID   | 4      | 4    | Nat32 | -             | Id of the leaves region                               |
-  | NODE CAPACITY      | 8      | 2    | Nat16 | -             | Maximum number of elements per node                   |
-  | ROOT               | 10     | 8    | Nat64 | -             | Address of the root node                              |
-  | COUNT              | 18     | 8    | Nat64 | -             | Number of elements in the B+Tree                      |
-  | DEPTH              | 26     | 8    | Nat64 | -             | Number of levels from the root node to the leaf nodes |
-  | IS_ROOT_A_LEAF     | 34     | 1    | Bool  | -             | Flag to indicate if the root is a leaf node           |
-  | RESERVED           | 35     | 29   | -     | -             | Extra space for future use                            |
+  | LEAVES REGION ID   | 8      | 4    | Nat32 | -             | Id of the leaves region                               |
+  | NODE CAPACITY      | 12     | 2    | Nat16 | -             | Maximum number of elements per node                   |
+  | ROOT               | 14     | 8    | Nat64 | -             | Address of the root node                              |
+  | COUNT              | 22     | 8    | Nat64 | -             | Number of elements in the B+Tree                      |
+  | DEPTH              | 30     | 1    | Nat8  | -             | Number of levels from the root node to the leaf nodes |
+  | IS_ROOT_A_LEAF     | 31     | 1    | Nat8  | -             | Flag to indicate if the root is a leaf node           |
+  | VALUES REGION ID   | 32     | 4    | Nat32 | -             | Id of the values region                               |
+  | RESERVED           | 36     | 28   | -     | -             | Extra space for future use                            |
 
-- Key-Value Blocks
+- Key Block
 
-  - Key Block
+  The key block stores a reference counter for the entry, the address pointer to the value block, the serialized key and their size. 
 
-    The key block stores a reference counter for the entry, the address pointer to the value block, the serialized key and their size.
+  | Field           | Offset | Size (In bytes) | Type  | Default Value | Description          |
+  | --------------- | ------ | --------------- | ----- | ------------- | -------------------- |
+  | REFERENCE_COUNT | 0      | 1               | Nat8  | -             | Reference count      |
+  | KEY_SIZE        | 1      | 2               | Nat16 | -             | Size of the key      |
+  | VAL_POINTER     | 3      | 8               | Nat64 | -             | Pointer to the value in the values region|
+  | VALUE_SIZE      | 11     | 4               | Nat32 | -             | Size of the value    |
+  | KEY_BLOB        | 15     | -               | Blob  | -             | Serialized key       |
 
-    | Field           | Offset | Size (In bytes) | Type  | Default Value | Description          |
-    | --------------- | ------ | --------------- | ----- | ------------- | -------------------- |
-    | REFERENCE_COUNT | 0      | 1               | Nat8  | -             | Reference count      |
-    | KEY_SIZE        | 1      | 2               | Nat16 | -             | Size of the key      |
-    | VAL_POINTER     | 3      | 8               | Nat64 | -             | Pointer to the value |
-    | VALUE_SIZE      | 11     | 4               | Nat32 | -             | Size of the value    |
-    | KEY_BLOB        | 15     | -               | Blob  | -             | Serialized key       |
+#### Values Region
 
-  - Value Block
+This region contains a 64 byte fixed header followed by a sequence of serialized values
 
-    The value block only contains the serialized value.
+- Header Section
 
-    | Field      | Offset | Size (In bytes) | Type | Default Value | Description      |
-    | ---------- | ------ | --------------- | ---- | ------------- | ---------------- |
-    | VALUE_BLOB | 0      | -               | Blob | -             | Serialized value |
+  | Field              | Offset | Size | Type  | Default Value | Description                    |
+  | ------------------ | ------ | ---- | ----- | ------------- | ------------------------------ |
+  | MAGIC              | 0      | 3    | Blob  | `"VLS"`       | Magic number                   |
+  | LAYOUT VERSION     | 3      | 1    | Nat8  | `0`           | Layout version                 |
+  | DATA REGION ID     | 4      | 4    | Nat32 | -             | Id of the data region          |
+  | RESERVED           | 8      | 56   | -     | -             | Extra space for future use     |
+
+- Value Block
+
+  The value block only contains the serialized value
+
+  | Field      | Offset | Size (In bytes) | Type | Default Value | Description      |
+  | ---------- | ------ | --------------- | ---- | ------------- | ---------------- |
+  | VALUE_BLOB | 0      | -               | Blob | -             | Serialized value |
 
 ### Benchmarks
 

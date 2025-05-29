@@ -9,6 +9,8 @@ module StableMemoryBTree {
     public type StableMemoryBTree = Migrations.VersionedMemoryBTree;
     public type MemoryBlock = T.MemoryBlock;
     public type BTreeUtils<K, V> = T.BTreeUtils<K, V>;
+    public type MemoryBTreeStats = MemoryBTree.MemoryBTreeStats;
+
     type RevIter<A> = RevIter.RevIter<A>;
 
     public func createUtils<K, V>(key_utils : T.KeyUtils<K>, value_utils : T.ValueUtils<V>) : BTreeUtils<K, V> {
