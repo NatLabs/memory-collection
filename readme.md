@@ -12,6 +12,7 @@ The heap memory in the Internet Computer is limited to 4GB, which can be a bottl
 - [MemoryBuffer](./src/MemoryBuffer/readme.md): A persistent buffer with `O(1)` random access.
 - [MemoryBTree](./src/MemoryBTree/readme.md): A persistent B-Tree with `O(log n)` search, insertion, and deletion.
   - MemoryBTreeSet: A persistent set with `O(log n)` search, insertion, and deletion.
+  - Example Canister storing 18 million records in a BTrees (~7GB) - https://6vupr-pqaaa-aaaap-anv2q-cai.icp0.io/
 - [MemoryQueue](./src/MemoryQueue/readme.md): A persistent queue with `O(1)` add and pop operations.
 
 Each data structure is implemented using the class+ pattern, which creates a mutable stable store that is wrapped around by a class object for a more familiar object oriented interface. This method allows the data to persists accross canister upgrades while also being simple and easy to use.
@@ -71,6 +72,24 @@ More information on how to create custom type utilities can be found in the **Cr
     import MemoryBuffer "mo:memory-collection/MemoryBuffer";
     import MemoryBTree "mo:memory-collection/MemoryBTree";
 ```
+
+### Canister Configuration
+
+Canisters have a default stable memory limit of 4GB. For applications using the `memory-collection` library with large datasets, you'll likely need to increase this limit. Use the `--max-stable-pages` argument to set the limit when deploying your canister. The limit is specified in pages, with each page being 64KiB (65,536 bytes).
+
+```json
+{
+  "canisters": {
+    "my-canister": {
+      "type": "motoko",
+      "main": "src/main.mo",
+      "args": "--max-stable-pages 3276800"
+    }
+  }
+}
+```
+
+> **Note**: This example sets the limit to 200GB (3,276,800 pages × 64KiB).
 
 ### Usage Examples
 
