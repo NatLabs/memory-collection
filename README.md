@@ -22,24 +22,24 @@ Garbage Collection: ${\color{gray}0\\%}$
 
 |                |      B+Tree |   MemoryBTree |
 | :------------- | ----------: | ------------: |
-| getFromIndex() |  69_684_956 |   482_626_750 |
-| getIndex()     | 169_709_535 | 1_329_581_840 |
-| getFloor()     |  80_555_899 |   850_293_968 |
-| getCeiling()   |  80_556_480 |   850_294_670 |
-| removeMin()    | 152_560_478 | 1_281_904_877 |
-| removeMax()    | 116_475_111 | 1_233_979_567 |
+| getFromIndex() |  69_204_872 |   429_536_233 |
+| getIndex()     | 168_348_367 | 3_381_652_971 |
+| getFloor()     |  80_759_279 |   820_213_638 |
+| getCeiling()   |  80_759_860 |   820_214_357 |
+| removeMin()    | 152_231_332 | 1_219_739_688 |
+| removeMax()    | 116_853_990 | 1_153_536_386 |
 
 
 **Heap**
 
 |                |     B+Tree | MemoryBTree |
 | :------------- | ---------: | ----------: |
-| getFromIndex() | 322.33 KiB |    7.94 MiB |
-| getIndex()     | 574.09 KiB |   -7.64 MiB |
-| getFloor()     | 209.88 KiB |    -2.3 MiB |
-| getCeiling()   | 209.88 KiB |   -4.36 MiB |
-| removeMin()    | 209.93 KiB |   -14.7 MiB |
-| removeMax()    | 206.11 KiB |    1.13 MiB |
+| getFromIndex() | 322.33 KiB |    3.52 MiB |
+| getIndex()     | 584.84 KiB |    8.82 MiB |
+| getFloor()     | 213.27 KiB |   -5.63 MiB |
+| getCeiling()   | 213.27 KiB |   -3.58 MiB |
+| removeMin()    | 212.86 KiB |  -17.58 MiB |
+| removeMax()    | 206.89 KiB |   -3.05 MiB |
 
 
 **Garbage Collection**
@@ -47,9 +47,9 @@ Garbage Collection: ${\color{gray}0\\%}$
 |                | B+Tree | MemoryBTree |
 | :------------- | -----: | ----------: |
 | getFromIndex() |    0 B |         0 B |
-| getIndex()     |    0 B |    30.4 MiB |
-| getFloor()     |    0 B |   28.35 MiB |
-| getCeiling()   |    0 B |    30.4 MiB |
+| getIndex()     |    0 B |   92.35 MiB |
+| getFloor()     |    0 B |    30.4 MiB |
+| getCeiling()   |    0 B |   28.35 MiB |
 | removeMin()    |    0 B |   60.65 MiB |
 | removeMax()    |    0 B |      31 MiB |
 
@@ -77,39 +77,39 @@ Garbage Collection: ${\color{gray}0\\%}$
 
 |                                        |    insert() |       get() |   replace() |  entries() |    remove() |
 | :------------------------------------- | ----------: | ----------: | ----------: | ---------: | ----------: |
-| Memory B+Tree - Text (#BlobCmp)        | 340_553_734 | 283_371_672 | 310_427_643 | 44_269_150 | 388_600_488 |
-| Memory B+Tree - Text (#GenCmp)         | 471_665_966 | 412_317_400 | 439_373_574 | 44_269_698 | 503_449_852 |
-| Memory B+Tree - Candid Text (#BlobCmp) | 393_428_526 | 338_103_186 | 373_277_963 | 66_590_300 | 439_386_328 |
-| Memory B+Tree - Candid Text (#GenCmp)  | 642_763_811 | 581_778_370 | 616_953_535 | 66_591_224 | 656_232_202 |
-| Memory B+Tree - Nat (#BlobCmp)         | 404_911_029 | 324_166_738 | 385_779_023 | 71_359_620 | 436_602_592 |
-| Memory B+Tree - Nat (#GenCmp)          | 668_549_491 | 579_556_392 | 641_168_677 | 71_360_336 | 663_698_914 |
-| Memory B+Tree - Candid Nat (#GenCmp)   | 530_594_065 | 460_528_529 | 499_270_144 | 58_252_928 | 554_617_701 |
+| Memory B+Tree - Text (#BlobCmp)        | 341_532_103 | 283_063_602 | 310_119_379 | 44_273_064 | 388_584_302 |
+| Memory B+Tree - Text (#GenCmp)         | 472_625_303 | 411_836_327 | 438_892_095 | 44_273_806 | 503_090_703 |
+| Memory B+Tree - Candid Text (#BlobCmp) | 643_699_895 | 581_088_594 | 616_263_768 | 66_594_408 | 655_470_369 |
+| Memory B+Tree - Candid Text (#GenCmp)  | 643_700_819 | 581_089_518 | 616_264_489 | 66_595_332 | 655_471_496 |
+| Memory B+Tree - Nat (#BlobCmp)         | 701_561_350 | 639_332_272 | 677_403_445 | 83_098_994 | 716_305_985 |
+| Memory B+Tree - Nat (#GenCmp)          | 701_562_067 | 639_333_190 | 677_403_959 | 83_099_710 | 716_306_894 |
+| Memory B+Tree - Candid Nat (#GenCmp)   | 530_705_997 | 460_282_390 | 499_019_265 | 58_245_578 | 555_657_484 |
 
 
 **Heap**
 
-|                                        |   insert() |      get() | replace() |  entries() |  remove() |
-| :------------------------------------- | ---------: | ---------: | --------: | ---------: | --------: |
-| Memory B+Tree - Text (#BlobCmp)        |   7.62 MiB |   4.08 MiB |  4.31 MiB | -29.34 MiB |  9.19 MiB |
-| Memory B+Tree - Text (#GenCmp)         |   10.8 MiB |   7.17 MiB | -21.2 MiB |   1.31 MiB | 11.93 MiB |
-| Memory B+Tree - Candid Text (#BlobCmp) |   9.67 MiB | -24.85 MiB |  6.52 MiB |   1.69 MiB | 10.79 MiB |
-| Memory B+Tree - Candid Text (#GenCmp)  | -14.16 MiB |  10.42 MiB | -19.5 MiB |   1.69 MiB |  14.9 MiB |
-| Memory B+Tree - Nat (#BlobCmp)         |   8.49 MiB | -23.87 MiB |  5.93 MiB |   2.68 MiB |  9.96 MiB |
-| Memory B+Tree - Nat (#GenCmp)          |  -8.32 MiB | -10.45 MiB | 19.36 MiB |   2.68 MiB | -8.76 MiB |
-| Memory B+Tree - Candid Nat (#GenCmp)   |   9.86 MiB | -22.74 MiB |  6.43 MiB |   1.08 MiB |  10.8 MiB |
+|                                        |   insert() |      get() |  replace() | entries() |   remove() |
+| :------------------------------------- | ---------: | ---------: | ---------: | --------: | ---------: |
+| Memory B+Tree - Text (#BlobCmp)        |   7.64 MiB | -26.57 MiB |   4.31 MiB |  1.31 MiB |   9.18 MiB |
+| Memory B+Tree - Text (#GenCmp)         |  10.81 MiB | -21.44 MiB |   7.39 MiB |  1.31 MiB |  11.91 MiB |
+| Memory B+Tree - Candid Text (#BlobCmp) |  -16.2 MiB |  10.41 MiB | -17.46 MiB |  1.69 MiB |  14.88 MiB |
+| Memory B+Tree - Candid Text (#GenCmp)  |  -16.2 MiB |  10.41 MiB |  11.13 MiB |  1.69 MiB | -13.72 MiB |
+| Memory B+Tree - Nat (#BlobCmp)         | -11.42 MiB |  15.13 MiB | -12.44 MiB |   2.3 MiB |  19.17 MiB |
+| Memory B+Tree - Nat (#GenCmp)          | -11.42 MiB | -13.47 MiB |  16.16 MiB |   2.3 MiB | -11.48 MiB |
+| Memory B+Tree - Candid Nat (#GenCmp)   |   9.86 MiB |   5.85 MiB | -22.17 MiB |  1.08 MiB |   10.8 MiB |
 
 
 **Garbage Collection**
 
 |                                        |  insert() |     get() | replace() | entries() |  remove() |
 | :------------------------------------- | --------: | --------: | --------: | --------: | --------: |
-| Memory B+Tree - Text (#BlobCmp)        |       0 B |       0 B |       0 B | 30.65 MiB |       0 B |
-| Memory B+Tree - Text (#GenCmp)         |       0 B |       0 B |  28.6 MiB |       0 B |       0 B |
-| Memory B+Tree - Candid Text (#BlobCmp) |       0 B | 30.65 MiB |       0 B |       0 B |       0 B |
-| Memory B+Tree - Candid Text (#GenCmp)  |  28.6 MiB |       0 B | 30.65 MiB |       0 B |       0 B |
-| Memory B+Tree - Nat (#BlobCmp)         |       0 B |  28.6 MiB |       0 B |       0 B |       0 B |
+| Memory B+Tree - Text (#BlobCmp)        |       0 B | 30.65 MiB |       0 B |       0 B |       0 B |
+| Memory B+Tree - Text (#GenCmp)         |       0 B |  28.6 MiB |       0 B |       0 B |       0 B |
+| Memory B+Tree - Candid Text (#BlobCmp) | 30.65 MiB |       0 B |  28.6 MiB |       0 B |       0 B |
+| Memory B+Tree - Candid Text (#GenCmp)  | 30.65 MiB |       0 B |       0 B |       0 B |  28.6 MiB |
+| Memory B+Tree - Nat (#BlobCmp)         | 30.65 MiB |       0 B |  28.6 MiB |       0 B |       0 B |
 | Memory B+Tree - Nat (#GenCmp)          | 30.65 MiB |  28.6 MiB |       0 B |       0 B | 30.65 MiB |
-| Memory B+Tree - Candid Nat (#GenCmp)   |       0 B |  28.6 MiB |       0 B |       0 B |       0 B |
+| Memory B+Tree - Candid Nat (#GenCmp)   |       0 B |       0 B |  28.6 MiB |       0 B |       0 B |
 
 
 </details>
@@ -135,33 +135,33 @@ Garbage Collection: ${\color{gray}0\\%}$
 
 |                          |    insert() |       get() |   replace() |  entries() |    remove() |
 | :----------------------- | ----------: | ----------: | ----------: | ---------: | ----------: |
-| RBTree                   | 168_972_309 |  81_389_785 | 171_199_309 | 25_794_620 | 201_655_302 |
-| BTree                    | 151_552_130 | 116_844_590 | 125_520_406 | 13_308_229 | 174_916_733 |
-| B+Tree                   | 212_222_118 | 113_439_170 | 121_758_826 |  4_731_437 | 229_355_394 |
-| Memory B+Tree (#BlobCmp) | 340_207_768 | 284_272_612 | 462_699_978 | 44_552_755 | 491_377_873 |
-| Memory B+Tree (#GenCmp)  | 471_273_825 | 413_341_367 | 591_768_936 | 44_553_315 | 606_317_600 |
+| RBTree                   | 169_261_030 |  81_369_099 | 171_125_213 | 25_794_620 | 201_528_439 |
+| BTree                    | 151_676_684 | 117_563_182 | 126_237_790 | 13_308_508 | 174_641_688 |
+| B+Tree                   | 212_639_986 | 113_278_846 | 121_598_502 |  4_733_565 | 227_772_087 |
+| Memory B+Tree (#BlobCmp) | 340_885_058 | 283_949_075 | 462_111_636 | 44_561_924 | 489_152_679 |
+| Memory B+Tree (#GenCmp)  | 471_847_441 | 412_807_553 | 590_969_717 | 44_562_484 | 604_026_788 |
 
 
 **Heap**
 
 |                          |   insert() |      get() |  replace() |  entries() |   remove() |
 | :----------------------- | ---------: | ---------: | ---------: | ---------: | ---------: |
-| RBTree                   |   8.59 MiB |   9.83 KiB |   7.88 MiB |    1.8 MiB | -17.34 MiB |
-| BTree                    |   1.17 MiB | 471.32 KiB |    1.1 MiB | 589.28 KiB |   1.87 MiB |
-| B+Tree                   | 667.32 KiB | 205.14 KiB | 595.77 KiB |   9.95 KiB | 205.15 KiB |
-| Memory B+Tree (#BlobCmp) |   7.58 MiB | -23.43 MiB |   6.26 MiB |    1.3 MiB |   9.55 MiB |
-| Memory B+Tree (#GenCmp)  | -18.82 MiB |   7.17 MiB |   9.35 MiB |    1.3 MiB | -15.22 MiB |
+| RBTree                   |   8.61 MiB |   9.83 KiB |   7.87 MiB |    1.8 MiB |  -17.3 MiB |
+| BTree                    |   1.17 MiB | 471.22 KiB |    1.1 MiB | 589.23 KiB |   1.87 MiB |
+| B+Tree                   | 671.09 KiB | 205.14 KiB | 595.77 KiB |   9.95 KiB | 205.15 KiB |
+| Memory B+Tree (#BlobCmp) |   7.59 MiB |   4.08 MiB | -21.05 MiB |    1.3 MiB |    9.5 MiB |
+| Memory B+Tree (#GenCmp)  |  10.76 MiB | -22.38 MiB |   9.33 MiB |    1.3 MiB |  12.24 MiB |
 
 
 **Garbage Collection**
 
-|                          |  insert() |     get() | replace() | entries() |  remove() |
-| :----------------------- | --------: | --------: | --------: | --------: | --------: |
-| RBTree                   |       0 B |       0 B |       0 B |       0 B | 29.57 MiB |
-| BTree                    |       0 B |       0 B |       0 B |       0 B |       0 B |
-| B+Tree                   |       0 B |       0 B |       0 B |       0 B |       0 B |
-| Memory B+Tree (#BlobCmp) |       0 B | 27.51 MiB |       0 B |       0 B |       0 B |
-| Memory B+Tree (#GenCmp)  | 29.57 MiB |       0 B |       0 B |       0 B | 27.51 MiB |
+|                          | insert() |     get() | replace() | entries() |  remove() |
+| :----------------------- | -------: | --------: | --------: | --------: | --------: |
+| RBTree                   |      0 B |       0 B |       0 B |       0 B | 29.54 MiB |
+| BTree                    |      0 B |       0 B |       0 B |       0 B |       0 B |
+| B+Tree                   |      0 B |       0 B |       0 B |       0 B |       0 B |
+| Memory B+Tree (#BlobCmp) |      0 B |       0 B |  27.3 MiB |       0 B |       0 B |
+| Memory B+Tree (#GenCmp)  |      0 B | 29.54 MiB |       0 B |       0 B |       0 B |
 
 
 </details>
@@ -187,48 +187,48 @@ Garbage Collection: ${\color{gray}0\\%}$
 
 |                      |    insert() |       get() |   replace() |  entries() |    remove() |
 | :------------------- | ----------: | ----------: | ----------: | ---------: | ----------: |
-| B+Tree               | 155_999_431 | 122_576_904 | 134_466_591 |  4_855_863 | 165_391_358 |
-| Memory B+Tree (4)    | 600_104_884 | 464_226_677 | 782_639_471 | 47_141_981 | 856_559_537 |
-| Memory B+Tree (32)   | 379_146_429 | 319_296_905 | 517_716_708 | 44_814_922 | 546_577_139 |
-| Memory B+Tree (64)   | 363_805_868 | 312_018_439 | 510_437_039 | 44_641_455 | 524_042_617 |
-| Memory B+Tree (128)  | 340_207_487 | 284_272_290 | 462_699_890 | 44_552_636 | 491_377_988 |
-| Memory B+Tree (256)  | 342_939_995 | 282_907_907 | 461_335_701 | 44_514_926 | 489_068_755 |
-| Memory B+Tree (512)  | 353_058_549 | 281_746_018 | 460_173_618 | 44_495_004 | 495_420_095 |
-| Memory B+Tree (1024) | 376_127_201 | 280_607_114 | 459_034_714 | 44_487_911 | 513_293_696 |
-| Memory B+Tree (2048) | 422_570_994 | 278_488_380 | 456_915_980 | 44_493_148 | 551_197_596 |
-| Memory B+Tree (4096) | 505_119_194 | 274_792_471 | 453_220_265 | 44_509_763 | 629_828_577 |
+| B+Tree               | 155_851_778 | 122_600_623 | 134_490_310 |  4_856_583 | 165_524_860 |
+| Memory B+Tree (4)    | 599_069_440 | 465_264_919 | 783_411_308 | 47_134_178 | 853_656_134 |
+| Memory B+Tree (32)   | 379_102_547 | 319_344_031 | 517_498_420 | 44_821_075 | 544_377_907 |
+| Memory B+Tree (64)   | 363_637_492 | 312_477_804 | 510_631_193 | 44_644_368 | 520_871_077 |
+| Memory B+Tree (128)  | 340_884_971 | 283_948_956 | 462_111_345 | 44_561_805 | 489_152_591 |
+| Memory B+Tree (256)  | 343_025_328 | 282_785_570 | 460_947_959 | 44_520_173 | 487_830_200 |
+| Memory B+Tree (512)  | 353_561_412 | 281_898_234 | 460_060_826 | 44_498_625 | 493_100_713 |
+| Memory B+Tree (1024) | 376_292_603 | 280_808_982 | 458_971_168 | 44_491_420 | 509_950_735 |
+| Memory B+Tree (2048) | 423_107_442 | 278_776_964 | 456_939_353 | 44_496_001 | 549_394_382 |
+| Memory B+Tree (4096) | 507_518_013 | 274_873_488 | 453_035_877 | 44_513_976 | 629_447_885 |
 
 
 **Heap**
 
-|                      |   insert() |      get() |  replace() | entries() |    remove() |
-| :------------------- | ---------: | ---------: | ---------: | --------: | ----------: |
-| B+Tree               | 716.43 KiB | 205.14 KiB | 595.77 KiB |  9.95 KiB |  205.15 KiB |
-| Memory B+Tree (4)    |   5.51 MiB |   5.74 MiB | -21.49 MiB |   1.3 MiB |    8.46 MiB |
-| Memory B+Tree (32)   |    5.3 MiB |   4.46 MiB | -20.69 MiB |   1.3 MiB |    7.58 MiB |
-| Memory B+Tree (64)   |   6.05 MiB |   4.36 MiB |   6.53 MiB |   1.3 MiB |   -21.3 MiB |
-| Memory B+Tree (128)  |   7.58 MiB |   4.09 MiB |   6.26 MiB |   1.3 MiB |  -17.95 MiB |
-| Memory B+Tree (256)  |  10.97 MiB |   4.07 MiB | -23.12 MiB |   1.3 MiB |   12.42 MiB |
-| Memory B+Tree (512)  |  -9.99 MiB |   4.05 MiB |   6.22 MiB |   1.3 MiB |  -11.51 MiB |
-| Memory B+Tree (1024) |   3.03 MiB |   4.03 MiB |   6.21 MiB |   1.3 MiB | -102.26 KiB |
-| Memory B+Tree (2048) |   -4.2 MiB |      4 MiB |   6.18 MiB |   1.3 MiB |    -8.3 MiB |
-| Memory B+Tree (4096) |   6.99 MiB |   3.94 MiB | -23.41 MiB |   1.3 MiB |    2.62 MiB |
+|                      |    insert() |      get() |  replace() | entries() |    remove() |
+| :------------------- | ----------: | ---------: | ---------: | --------: | ----------: |
+| B+Tree               |  716.93 KiB | 205.14 KiB | 595.77 KiB |  9.95 KiB |  205.15 KiB |
+| Memory B+Tree (4)    |    5.51 MiB |   5.76 MiB |   7.93 MiB |   1.3 MiB |  -21.07 MiB |
+| Memory B+Tree (32)   |     5.3 MiB |   4.46 MiB |   6.63 MiB |   1.3 MiB |  -19.89 MiB |
+| Memory B+Tree (64)   |    6.03 MiB |   4.36 MiB |   6.53 MiB |   1.3 MiB |    8.19 MiB |
+| Memory B+Tree (128)  |  -21.93 MiB |   4.08 MiB |   6.25 MiB |   1.3 MiB |     9.5 MiB |
+| Memory B+Tree (256)  |  -16.46 MiB |   4.06 MiB |   6.23 MiB |   1.3 MiB |  -17.13 MiB |
+| Memory B+Tree (512)  |   17.69 MiB |   4.05 MiB | -21.23 MiB |   1.3 MiB |      18 MiB |
+| Memory B+Tree (1024) | 1015.57 KiB | -23.43 MiB |   6.21 MiB |   1.3 MiB | -599.32 KiB |
+| Memory B+Tree (2048) |   -3.96 MiB |   4.01 MiB |   6.18 MiB |   1.3 MiB |   -8.09 MiB |
+| Memory B+Tree (4096) |     8.2 MiB |   3.95 MiB |   6.12 MiB |   1.3 MiB |  -28.44 MiB |
 
 
 **Garbage Collection**
 
-|                      |  insert() | get() | replace() | entries() |  remove() |
-| :------------------- | --------: | ----: | --------: | --------: | --------: |
-| B+Tree               |       0 B |   0 B |       0 B |       0 B |       0 B |
-| Memory B+Tree (4)    |       0 B |   0 B | 29.41 MiB |       0 B |       0 B |
-| Memory B+Tree (32)   |       0 B |   0 B | 27.33 MiB |       0 B |       0 B |
-| Memory B+Tree (64)   |       0 B |   0 B |       0 B |       0 B | 29.56 MiB |
-| Memory B+Tree (128)  |       0 B |   0 B |       0 B |       0 B |  27.5 MiB |
-| Memory B+Tree (256)  |       0 B |   0 B | 29.36 MiB |       0 B |       0 B |
-| Memory B+Tree (512)  |  27.5 MiB |   0 B |       0 B |       0 B | 29.56 MiB |
-| Memory B+Tree (1024) |  27.5 MiB |   0 B |       0 B |       0 B | 29.56 MiB |
-| Memory B+Tree (2048) |  59.5 MiB |   0 B |       0 B |       0 B |  59.5 MiB |
-| Memory B+Tree (4096) | 91.46 MiB |   0 B | 29.53 MiB |       0 B | 91.48 MiB |
+|                      |  insert() |     get() | replace() | entries() |   remove() |
+| :------------------- | --------: | --------: | --------: | --------: | ---------: |
+| B+Tree               |       0 B |       0 B |       0 B |       0 B |        0 B |
+| Memory B+Tree (4)    |       0 B |       0 B |       0 B |       0 B |  29.53 MiB |
+| Memory B+Tree (32)   |       0 B |       0 B |       0 B |       0 B |  27.47 MiB |
+| Memory B+Tree (64)   |       0 B |       0 B |       0 B |       0 B |        0 B |
+| Memory B+Tree (128)  | 29.53 MiB |       0 B |       0 B |       0 B |        0 B |
+| Memory B+Tree (256)  | 27.47 MiB |       0 B |       0 B |       0 B |  29.53 MiB |
+| Memory B+Tree (512)  |       0 B |       0 B | 27.45 MiB |       0 B |        0 B |
+| Memory B+Tree (1024) | 29.53 MiB | 27.47 MiB |       0 B |       0 B |  29.53 MiB |
+| Memory B+Tree (2048) | 59.47 MiB |       0 B |       0 B |       0 B |  59.46 MiB |
+| Memory B+Tree (4096) | 91.43 MiB |       0 B |       0 B |       0 B | 123.43 MiB |
 
 
 </details>
@@ -254,20 +254,20 @@ Garbage Collection: ${\color{gray}0\\%}$
 
 |                    | MemoryQueue |
 | :----------------- | ----------: |
-| add()              |  52_717_491 |
-| vals()             |  40_933_760 |
-| pop()              |  78_093_044 |
-| random add()/pop() | 384_362_535 |
+| add()              |  40_165_363 |
+| vals()             |  45_364_384 |
+| pop()              |  82_523_668 |
+| random add()/pop() | 169_327_241 |
 
 
 **Heap**
 
 |                    | MemoryQueue |
 | :----------------- | ----------: |
-| add()              |  745.32 KiB |
-| vals()             |    1.53 MiB |
-| pop()              |    2.07 MiB |
-| random add()/pop() |  -17.76 MiB |
+| add()              |    1.04 MiB |
+| vals()             |    1.34 MiB |
+| pop()              |    1.88 MiB |
+| random add()/pop() |    5.14 MiB |
 
 
 **Garbage Collection**
@@ -277,7 +277,7 @@ Garbage Collection: ${\color{gray}0\\%}$
 | add()              |         0 B |
 | vals()             |         0 B |
 | pop()              |         0 B |
-| random add()/pop() |   29.91 MiB |
+| random add()/pop() |         0 B |
 
 
 </details>
