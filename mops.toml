@@ -1,9 +1,9 @@
 [package]
 name = "memory-collection"
-version = "0.2.0"
+version = "0.2.1"
 description = "A collection of data structures that store their data in stable memory"
 repository = "https://github.com/NatLabs/memory-collection"
-keywords = [ "stable-memory", "encoding", "persistent" ]
+keywords = ["stable-memory", "encoding", "persistent"]
 license = "MIT"
 
 [dependencies]
