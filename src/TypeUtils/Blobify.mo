@@ -142,6 +142,15 @@ module Blobify {
         };
     };
 
+    public let Float : Blobify<Float> = {
+        to_blob = func(f : Float) : Blob {
+            Base.Blob.fromArray(ByteUtils.Sorted.fromFloat(f));
+        };
+        from_blob = func(blob : Blob) : Float {
+            ByteUtils.Sorted.toFloat(blob.vals());
+        };
+    };
+
     public let Blob : Blobify<Blob> = {
         to_blob = func(b : Blob) : Blob = b;
         from_blob = func(blob : Blob) : Blob = blob;

@@ -34,7 +34,7 @@ module {
 
     public let Nat : TypeUtils<Nat> = {
         blobify = Blobify.Nat;
-        cmp = MemoryCmp.Nat;
+        cmp = MemoryCmp.Default;
     };
 
     public let Nat8 : TypeUtils<Nat8> = {
@@ -54,6 +54,16 @@ module {
 
     public let Nat64 : TypeUtils<Nat64> = {
         blobify = Blobify.Nat64;
+        cmp = MemoryCmp.Default;
+    };
+
+    public let Int : TypeUtils<Int> = {
+        blobify = Blobify.Int;
+        cmp = MemoryCmp.Default;
+    };
+
+    public let Float : TypeUtils<Float> = {
+        blobify = Blobify.Float;
         cmp = MemoryCmp.Default;
     };
 

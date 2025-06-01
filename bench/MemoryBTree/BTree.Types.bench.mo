@@ -138,10 +138,10 @@ module {
         let btree_utils = MemoryBTree.createUtils(TypeUtils.Text, TypeUtils.Text);
         let gen_cmp_text_utils = MemoryBTree.createUtils({ TypeUtils.Text with cmp = #GenCmp(Int8Cmp.Text) }, TypeUtils.Text);
 
-        let candid_text_utils = MemoryBTree.createUtils(TypeUtils.Candid.Text, TypeUtils.Candid.Text);
+        let candid_text_utils = MemoryBTree.createUtils({ TypeUtils.Text with cmp = TypeUtils.MemoryCmp.Default }, TypeUtils.Candid.Text);
         let candid_text_gen_cmp_utils = MemoryBTree.createUtils({ TypeUtils.Candid.Text with cmp = #GenCmp(Int8Cmp.Text) }, TypeUtils.Candid.Text);
 
-        let nat_btree_utils = MemoryBTree.createUtils(TypeUtils.Nat, TypeUtils.Nat);
+        let nat_btree_utils = MemoryBTree.createUtils({ TypeUtils.Nat with cmp = TypeUtils.MemoryCmp.Default }, TypeUtils.Nat);
         let nat_gen_cmp_utils = MemoryBTree.createUtils(
             { TypeUtils.Nat with cmp = #GenCmp(Int8Cmp.Nat) },
             TypeUtils.Nat,

@@ -129,7 +129,7 @@ module {
             };
         };
 
-        let btree_utils = MemoryBTree.createUtils(TypeUtils.Text, TypeUtils.Text);
+        let btree_utils = MemoryBTree.createUtils({ TypeUtils.Text with cmp = TypeUtils.MemoryCmp.Default }, TypeUtils.Text);
         let ds_text_utils = MemoryBTree.createUtils({ TypeUtils.Text with cmp = #GenCmp(Int8Cmp.Text) }, TypeUtils.Text);
 
         bench.runner(

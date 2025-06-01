@@ -102,7 +102,7 @@ module {
         let sorted = Buffer.clone(entries);
         sorted.sort(func(a, b) = Text.compare(a.0, b.0));
 
-        let btree_utils = MemoryBTree.createUtils(TypeUtils.Text, TypeUtils.Text);
+        let btree_utils = MemoryBTree.createUtils({ TypeUtils.Text with cmp = TypeUtils.MemoryCmp.Default }, TypeUtils.Text);
 
         func run_bench(name : Text, category : Text, mem_btree_order : MemoryBTree) {
             switch (category) {
