@@ -1,23 +1,23 @@
 [package]
 name = "memory-collection"
-version = "0.1.0"
+version = "0.2.0"
 description = "A collection of data structures that store their data in stable memory"
 repository = "https://github.com/NatLabs/memory-collection"
 keywords = [ "stable-memory", "encoding", "persistent" ]
 license = "MIT"
 
 [dependencies]
-base = "0.12.1"
-itertools = "0.2.1"
+base = "0.14.11"
+itertools = "0.2.2"
 memory-region = "1.2.4"
 buffer-deque = "0.1.0"
 byte-utils = "0.0.1"
 
 [dev-dependencies]
-test = "2.0.0"
+test = "2.1.1"
 bench = "1.0.0"
 augmented-btrees = "0.5.2"
-fuzz = "0.2.1"
+fuzz = "1.0.0"
 MotokoStableBTree = "https://github.com/sardariuss/MotokoStableBTree#master@b590ede4489c2d4b2189299c3a2cc35dc4faa3fc"
 memory-collection-btree-v0-v0_0_1_migration = "https://github.com/NatLabs/memory-collection#master@bdba9e30ad95048634f23fe9c45c1e93c7787ce0"
 
