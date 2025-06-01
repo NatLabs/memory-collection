@@ -19,14 +19,32 @@ import BTreeMapMemory "mo:MotokoStableBTree/modules/memory";
 type Buffer<A> = Buffer.Buffer<A>;
 type Iter<A> = Iter.Iter<A>;
 
-        let { nconv; tconv } = MotokoStableBTree;
-        let tconv_20 = tconv(20);
-        let nconv_32 = nconv(32);
+let { nconv; tconv } = MotokoStableBTree;
+let tconv_20 = tconv(20);
+let nconv_32 = nconv(32);
 
-        let stable_btree = BTreeMap.new<Nat, Nat>(BTreeMapMemory.RegionMemory(Region.new()), nconv_32, nconv_32);
+let stable_btree = BTreeMap.new<Nat, Nat>(BTreeMapMemory.RegionMemory(Region.new()), nconv_32, nconv_32);
 
 let { nhash } = Map;
-let fuzz = Fuzz.fromSeed(0xdeadbeef);
+func xorshift128plus(seed : Nat) : { next() : Nat } {
+    var state0 : Nat64 = Nat64.fromNat(seed);
+    var state1 : Nat64 = Nat64.fromNat(seed + 1);
+    if (state0 == 0) state0 := 1;
+    if (state1 == 0) state1 := 2;
+
+    {
+        next = func() : Nat {
+            var s1 = state0;
+            let s0 = state1;
+            state0 := s0;
+            s1 ^= s1 << 23 : Nat64;
+            state1 := s1 ^ s0 ^ (s1 >> 18 : Nat64) ^ (s0 >> 5 : Nat64);
+            Nat64.toNat(state1 +% s0); // Use wrapping addition
+        };
+    };
+};
+
+let fuzz = Fuzz.create(xorshift128plus(0xdeadbeef));
 
 let limit = 10_000;
 
@@ -44,27 +62,30 @@ suite(
         test(
             "insert ",
             func() {
-                for (n in random.vals()){
+                for (n in random.vals()) {
                     ignore stable_btree.insert(n, nconv_32, n, nconv_32);
                 };
 
-                for (n in random.vals()){
+                for (n in random.vals()) {
                     assert ?n == stable_btree.get(n, nconv_32, nconv_32);
                 };
             },
         );
 
-        test("entries", func(){
-            var i = 0;
-            for ((n, (k, v)) in Itertools.zip(sorted.vals(), stable_btree.iter(nconv_32, nconv_32))){
-                i+=1;
-                if (not (n == k and n == v)){
-                    Debug.print("mismatch " # debug_show(n, (k, v)));
-                    assert false;
+        test(
+            "entries",
+            func() {
+                var i = 0;
+                for ((n, (k, v)) in Itertools.zip(sorted.vals(), stable_btree.iter(nconv_32, nconv_32))) {
+                    i += 1;
+                    if (not (n == k and n == v)) {
+                        Debug.print("mismatch " # debug_show (n, (k, v)));
+                        assert false;
+                    };
                 };
-            };
 
-            assert i == random.size(); // fails to return all entries
-        });
+                assert i == random.size(); // fails to return all entries
+            },
+        );
     },
 );

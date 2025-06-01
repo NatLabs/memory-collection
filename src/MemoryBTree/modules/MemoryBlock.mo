@@ -13,7 +13,7 @@ import Migrations "../Migrations";
 import T "Types";
 
 module MemoryBlock {
-    
+
     //      Memory Layout - (15 bytes)
     //
     //      | Field           | Size (bytes) | Description                             |

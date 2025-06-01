@@ -24,7 +24,25 @@ module {
     type BTreeUtils<K, V> = MemoryBTree.BTreeUtils<K, V>;
 
     public func init() : Bench.Bench {
-        let fuzz = Fuzz.fromSeed(0xdeadbeef);
+        func xorshift128plus(seed : Nat) : { next() : Nat } {
+            var state0 : Nat64 = Nat64.fromNat(seed);
+            var state1 : Nat64 = Nat64.fromNat(seed + 1);
+            if (state0 == 0) state0 := 1;
+            if (state1 == 0) state1 := 2;
+
+            {
+                next = func() : Nat {
+                    var s1 = state0;
+                    let s0 = state1;
+                    state0 := s0;
+                    s1 ^= s1 << 23 : Nat64;
+                    state1 := s1 ^ s0 ^ (s1 >> 18 : Nat64) ^ (s0 >> 5 : Nat64);
+                    Nat64.toNat(state1 +% s0); // Use wrapping addition
+                };
+            };
+        };
+
+        let fuzz = Fuzz.create(xorshift128plus(0xdeadbeef));
 
         let bench = Bench.Bench();
         bench.name("Comparing RBTree, BTree and B+Tree (BpTree)");

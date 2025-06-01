@@ -48,7 +48,25 @@ module {
 
         let limit = 10_000;
 
-        let fuzz = Fuzz.fromSeed(0x7f7f);
+        func xorshift128plus(seed : Nat) : { next() : Nat } {
+            var state0 : Nat64 = Nat64.fromNat(seed);
+            var state1 : Nat64 = Nat64.fromNat(seed + 1);
+            if (state0 == 0) state0 := 1;
+            if (state1 == 0) state1 := 2;
+
+            {
+                next = func() : Nat {
+                    var s1 = state0;
+                    let s0 = state1;
+                    state0 := s0;
+                    s1 ^= s1 << 23 : Nat64;
+                    state1 := s1 ^ s0 ^ (s1 >> 18 : Nat64) ^ (s0 >> 5 : Nat64);
+                    Nat64.toNat(state1 +% s0); // Use wrapping addition
+                };
+            };
+        };
+
+        let fuzz = Fuzz.create(xorshift128plus(0xdeadbeef));
 
         let buffer = Buffer.Buffer<Nat>(limit);
         let mbuffer = MemoryBuffer.new<Nat>();
@@ -220,7 +238,7 @@ module {
                 case ("MemoryBuffer (with Blobify)", "add()" or "add() reallocation") {
                     for (i in Iter.range(0, limit - 1)) {
                         let val = values.get(i);
-                        MemoryBuffer.add(mbuffer, TypeUtils.BigEndian.Nat, val);
+                        MemoryBuffer.add(mbuffer, TypeUtils.Nat, val);
                     };
 
                     Debug.print("mbuffer bytes: " # debug_show MemoryBuffer.bytes(mbuffer));
@@ -230,14 +248,14 @@ module {
                 };
                 case ("MemoryBuffer (with Blobify)", "get()") {
                     for (i in Iter.range(0, limit - 1)) {
-                        ignore MemoryBuffer.get(mbuffer, TypeUtils.BigEndian.Nat, i);
+                        ignore MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
                     };
 
                 };
                 case ("MemoryBuffer (with Blobify)", "put() (new == prev)") {
                     for (i in order.vals()) {
                         let val = values2.get(i);
-                        MemoryBuffer.put(mbuffer, TypeUtils.BigEndian.Nat, i, val);
+                        MemoryBuffer.put(mbuffer, TypeUtils.Nat, i, val);
                     };
                     Debug.print("mbuffer bytes: " # debug_show MemoryBuffer.bytes(mbuffer));
                     Debug.print("mbuffer metadataBytes: " # debug_show MemoryBuffer.metadataBytes(mbuffer));
@@ -247,7 +265,7 @@ module {
                 case ("MemoryBuffer (with Blobify)", "put() (new > prev)") {
                     for (i in order.vals()) {
                         let val = greater.get(i);
-                        MemoryBuffer.put(mbuffer, TypeUtils.BigEndian.Nat, i, val);
+                        MemoryBuffer.put(mbuffer, TypeUtils.Nat, i, val);
                     };
                     Debug.print("mbuffer bytes: " # debug_show MemoryBuffer.bytes(mbuffer));
                     Debug.print("mbuffer metadataBytes: " # debug_show MemoryBuffer.metadataBytes(mbuffer));
@@ -257,7 +275,7 @@ module {
                 case ("MemoryBuffer (with Blobify)", "put() (new < prev)") {
                     for (i in order.vals()) {
                         let val = less.get(i);
-                        MemoryBuffer.put(mbuffer, TypeUtils.BigEndian.Nat, i, val);
+                        MemoryBuffer.put(mbuffer, TypeUtils.Nat, i, val);
                     };
                     Debug.print("mbuffer bytes: " # debug_show MemoryBuffer.bytes(mbuffer));
                     Debug.print("mbuffer metadataBytes: " # debug_show MemoryBuffer.metadataBytes(mbuffer));
@@ -268,7 +286,7 @@ module {
                     for (i in order.vals()) {
                         let j = Nat.min(i, MemoryBuffer.size(mbuffer) - 1);
 
-                        ignore MemoryBuffer.remove(mbuffer, TypeUtils.BigEndian.Nat, j);
+                        ignore MemoryBuffer.remove(mbuffer, TypeUtils.Nat, j);
                     };
                     Debug.print("mbuffer bytes: " # debug_show MemoryBuffer.bytes(mbuffer));
                     Debug.print("mbuffer metadataBytes: " # debug_show MemoryBuffer.metadataBytes(mbuffer));
@@ -277,24 +295,24 @@ module {
                 };
                 case ("MemoryBuffer (with Blobify)", "insert()") {
                     for (i in order.vals()) {
-                        MemoryBuffer.insert(mbuffer, TypeUtils.BigEndian.Nat, Nat.min(i, MemoryBuffer.size(mbuffer)), i ** 3);
+                        MemoryBuffer.insert(mbuffer, TypeUtils.Nat, Nat.min(i, MemoryBuffer.size(mbuffer)), i ** 3);
                     };
                 };
                 case ("MemoryBuffer (with Blobify)", "reverse()") {
                     MemoryBuffer.reverse(mbuffer);
                 };
                 case ("MemoryBuffer (with Blobify)", "sortUnstable() #GenCmp") {
-                    MemoryBuffer.sortUnstable(mbuffer, TypeUtils.BigEndian.Nat, #GenCmp(Cmp.Nat));
+                    MemoryBuffer.sortUnstable(mbuffer, TypeUtils.Nat, #GenCmp(Cmp.Nat));
                 };
                 case ("MemoryBuffer (with Blobify)", "shuffle()") {
                     MemoryBuffer.shuffle(mbuffer);
                 };
                 case ("MemoryBuffer (with Blobify)", "sortUnstable() #BlobCmp") {
-                    MemoryBuffer.sortUnstable(mbuffer, TypeUtils.BigEndian.Nat, #BlobCmp(Cmp.Blob));
+                    MemoryBuffer.sortUnstable(mbuffer, TypeUtils.Nat, #BlobCmp(Cmp.Blob));
                 };
                 case ("MemoryBuffer (with Blobify)", "removeLast()") {
                     for (_ in Iter.range(0, limit - 1)) {
-                        ignore MemoryBuffer.removeLast(mbuffer, TypeUtils.BigEndian.Nat);
+                        ignore MemoryBuffer.removeLast(mbuffer, TypeUtils.Nat);
                     };
                 };
 

@@ -34,7 +34,7 @@ This is an optional feature so if `reference()` is not called, all entries would
   sstore := MemoryBTree.upgrade(sstore);
 
   let btree_utils = MemoryBTree.createUtils(
-    TypeUtils.BigEndian.Nat,
+    TypeUtils.Nat,
     TypeUtils.Text
   );
   let mbtree = MemoryBTree.new(sstore, btree_utils);
@@ -70,7 +70,7 @@ The second one `#BlobCmp` compares the keys in their serialized form as `Blob`s 
 
   ```motoko
   let btree_utils = MemoryBTree.createUtils(
-    TypeUtils.BigEndian.Nat, // key,
+    TypeUtils.Nat, // key,
     TypeUtils.Text // value
   );
 

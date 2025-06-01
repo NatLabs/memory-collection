@@ -32,39 +32,6 @@ module {
         // hash : Hash<K>;
     };
 
-    public module BigEndian = {
-        public let Nat : TypeUtils<Nat> = {
-            blobify = Blobify.BigEndian.Nat;
-            cmp = MemoryCmp.BigEndian.Nat;
-        };
-
-        public let Nat8 : TypeUtils<Nat8> = {
-            blobify = Blobify.BigEndian.Nat8;
-            cmp = MemoryCmp.BigEndian.Nat8;
-        };
-
-        public let Nat16 : TypeUtils<Nat16> = {
-            blobify = Blobify.BigEndian.Nat16;
-            cmp = MemoryCmp.BigEndian.Nat16;
-        };
-
-        public let Nat32 : TypeUtils<Nat32> = {
-            blobify = Blobify.BigEndian.Nat32;
-            cmp = MemoryCmp.BigEndian.Nat32;
-        };
-
-        public let Nat64 : TypeUtils<Nat64> = {
-            blobify = Blobify.BigEndian.Nat64;
-            cmp = MemoryCmp.BigEndian.Nat64;
-        };
-
-        public let Int : TypeUtils<Int> = {
-            blobify = Blobify.BigEndian.Int;
-            cmp = MemoryCmp.BigEndian.Int;
-        };
-
-    };
-
     public let Nat : TypeUtils<Nat> = {
         blobify = Blobify.Nat;
         cmp = MemoryCmp.Nat;
@@ -72,151 +39,151 @@ module {
 
     public let Nat8 : TypeUtils<Nat8> = {
         blobify = Blobify.Nat8;
-        cmp = MemoryCmp.Nat8;
+        cmp = MemoryCmp.Default;
     };
 
     public let Nat16 : TypeUtils<Nat16> = {
         blobify = Blobify.Nat16;
-        cmp = MemoryCmp.Nat16;
+        cmp = MemoryCmp.Default;
     };
 
     public let Nat32 : TypeUtils<Nat32> = {
         blobify = Blobify.Nat32;
-        cmp = MemoryCmp.Nat32;
+        cmp = MemoryCmp.Default;
     };
 
     public let Nat64 : TypeUtils<Nat64> = {
         blobify = Blobify.Nat64;
-        cmp = MemoryCmp.Nat64;
+        cmp = MemoryCmp.Default;
     };
 
     public let Int8 : TypeUtils<Int8> = {
         blobify = Blobify.Int8;
-        cmp = MemoryCmp.Int8;
+        cmp = MemoryCmp.Default;
     };
 
     public let Int16 : TypeUtils<Int16> = {
         blobify = Blobify.Int16;
-        cmp = MemoryCmp.Int16;
+        cmp = MemoryCmp.Default;
     };
 
     public let Int32 : TypeUtils<Int32> = {
         blobify = Blobify.Int32;
-        cmp = MemoryCmp.Int32;
+        cmp = MemoryCmp.Default;
     };
 
     public let Int64 : TypeUtils<Int64> = {
         blobify = Blobify.Int64;
-        cmp = MemoryCmp.Int64;
+        cmp = MemoryCmp.Default;
     };
 
     public let Blob : TypeUtils<Blob> = {
         blobify = Blobify.Blob;
-        cmp = MemoryCmp.Blob;
+        cmp = MemoryCmp.Default;
     };
 
     public let Bool : TypeUtils<Bool> = {
         blobify = Blobify.Bool;
-        cmp = MemoryCmp.Bool;
+        cmp = MemoryCmp.Default;
     };
 
     public let Text : TypeUtils<Text> = {
         blobify = Blobify.Text;
-        cmp = MemoryCmp.Text;
+        cmp = MemoryCmp.Default;
     };
 
     public let Char : TypeUtils<Char> = {
         blobify = Blobify.Char;
-        cmp = MemoryCmp.Char;
+        cmp = MemoryCmp.Default;
     };
 
     public let Principal : TypeUtils<Principal> = {
         blobify = Blobify.Principal;
-        cmp = MemoryCmp.Principal;
+        cmp = MemoryCmp.Default;
     };
 
     public let Time : TypeUtils<Int> = {
         blobify = Blobify.Time;
-        cmp = MemoryCmp.Time;
+        cmp = MemoryCmp.Default;
     };
 
     /// BTree Utils for motoko types using candid serialization
     public module Candid {
         public let Nat : TypeUtils<Nat> = {
             blobify = Blobify.Candid.Nat;
-            cmp = #GenCmp(Int8Cmp.Nat);
+            cmp = MemoryCmp.Nat;
         };
 
         public let Nat8 : TypeUtils<Nat8> = {
             blobify = Blobify.Candid.Nat8;
-            cmp = #BlobCmp(Int8Cmp.Blob);
+            cmp = MemoryCmp.Nat8;
         };
 
         // Using #GenCmp because its serialized as little endian
         // and must be deserialized before it can be compared
         public let Nat16 : TypeUtils<Nat16> = {
             blobify = Blobify.Candid.Nat16;
-            cmp = #GenCmp(Int8Cmp.Nat16);
+            cmp = MemoryCmp.Nat16;
         };
 
         public let Nat32 : TypeUtils<Nat32> = {
             blobify = Blobify.Candid.Nat32;
-            cmp = #GenCmp(Int8Cmp.Nat32);
+            cmp = MemoryCmp.Nat32;
         };
 
         public let Nat64 : TypeUtils<Nat64> = {
             blobify = Blobify.Candid.Nat64;
-            cmp = #GenCmp(Int8Cmp.Nat64);
+            cmp = MemoryCmp.Nat64;
         };
 
         public let Int : TypeUtils<Int> = {
             blobify = Blobify.Candid.Int;
-            cmp = #GenCmp(Int8Cmp.Int);
+            cmp = MemoryCmp.Int;
         };
 
         public let Int8 : TypeUtils<Int8> = {
             blobify = Blobify.Candid.Int8;
-            cmp = #GenCmp(Int8Cmp.Int8);
+            cmp = MemoryCmp.Int8;
         };
 
         public let Int16 : TypeUtils<Int16> = {
             blobify = Blobify.Candid.Int16;
-            cmp = #GenCmp(Int8Cmp.Int16);
+            cmp = MemoryCmp.Int16;
         };
 
         public let Int32 : TypeUtils<Int32> = {
             blobify = Blobify.Candid.Int32;
-            cmp = #GenCmp(Int8Cmp.Int32);
+            cmp = MemoryCmp.Int32;
         };
 
         public let Int64 : TypeUtils<Int64> = {
             blobify = Blobify.Candid.Int64;
-            cmp = #GenCmp(Int8Cmp.Int64);
+            cmp = MemoryCmp.Int64;
         };
 
         public let Float : TypeUtils<Float> = {
             blobify = Blobify.Candid.Float;
-            cmp = #GenCmp(Int8Cmp.Float);
+            cmp = MemoryCmp.Float;
         };
 
         public let Bool : TypeUtils<Bool> = {
             blobify = Blobify.Candid.Bool;
-            cmp = #BlobCmp(Int8Cmp.Blob);
+            cmp = MemoryCmp.Bool;
         };
 
         public let Text : TypeUtils<Text> = {
             blobify = Blobify.Candid.Text;
-            cmp = #BlobCmp(Int8Cmp.Blob);
+            cmp = MemoryCmp.Text;
         };
 
         public let Principal : TypeUtils<Principal> = {
             blobify = Blobify.Candid.Principal;
-            cmp = #BlobCmp(Int8Cmp.Blob);
+            cmp = MemoryCmp.Principal;
         };
 
         public let Char : TypeUtils<Char> = {
             blobify = Blobify.Candid.Char;
-            cmp = #BlobCmp(Int8Cmp.Blob);
+            cmp = MemoryCmp.Char;
         };
 
     };

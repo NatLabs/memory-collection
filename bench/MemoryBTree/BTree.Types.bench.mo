@@ -3,6 +3,7 @@ import Debug "mo:base/Debug";
 import Buffer "mo:base/Buffer";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat";
+import Nat64 "mo:base/Nat64";
 
 import Bench "mo:bench";
 import Fuzz "mo:fuzz";
@@ -19,7 +20,25 @@ module {
     type Buffer<T> = Buffer.Buffer<T>;
 
     public func init() : Bench.Bench {
-        let fuzz = Fuzz.fromSeed(0xdeadbeef);
+        func xorshift128plus(seed : Nat) : { next() : Nat } {
+            var state0 : Nat64 = Nat64.fromNat(seed);
+            var state1 : Nat64 = Nat64.fromNat(seed + 1);
+            if (state0 == 0) state0 := 1;
+            if (state1 == 0) state1 := 2;
+
+            {
+                next = func() : Nat {
+                    var s1 = state0;
+                    let s0 = state1;
+                    state0 := s0;
+                    s1 ^= s1 << 23 : Nat64;
+                    state1 := s1 ^ s0 ^ (s1 >> 18 : Nat64) ^ (s0 >> 5 : Nat64);
+                    Nat64.toNat(state1 +% s0); // Use wrapping addition
+                };
+            };
+        };
+
+        let fuzz = Fuzz.create(xorshift128plus(0xdeadbeef));
 
         let bench = Bench.Bench();
         bench.name("Comparing B+Tree and Memory B+Tree with different serialization formats and comparison functions");
@@ -122,10 +141,10 @@ module {
         let candid_text_utils = MemoryBTree.createUtils(TypeUtils.Candid.Text, TypeUtils.Candid.Text);
         let candid_text_gen_cmp_utils = MemoryBTree.createUtils({ TypeUtils.Candid.Text with cmp = #GenCmp(Int8Cmp.Text) }, TypeUtils.Candid.Text);
 
-        let nat_btree_utils = MemoryBTree.createUtils(TypeUtils.BigEndian.Nat, TypeUtils.BigEndian.Nat);
+        let nat_btree_utils = MemoryBTree.createUtils(TypeUtils.Nat, TypeUtils.Nat);
         let nat_gen_cmp_utils = MemoryBTree.createUtils(
-            { TypeUtils.BigEndian.Nat with cmp = #GenCmp(Int8Cmp.Nat) },
-            TypeUtils.BigEndian.Nat,
+            { TypeUtils.Nat with cmp = #GenCmp(Int8Cmp.Nat) },
+            TypeUtils.Nat,
         );
 
         let candid_nat_utils = MemoryBTree.createUtils(TypeUtils.Candid.Nat, TypeUtils.Candid.Nat);

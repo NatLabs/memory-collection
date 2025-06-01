@@ -38,7 +38,7 @@ module {
     ///     import TypeUtils "mo:memory-collection/TypeUtils";
     ///
     ///     let btree_utils = MemoryBTree.createUtils(
-    ///         TypeUtils.BigEndian.Nat,
+    ///         TypeUtils.Nat,
     ///         TypeUtils.Text
     ///     );
     ///

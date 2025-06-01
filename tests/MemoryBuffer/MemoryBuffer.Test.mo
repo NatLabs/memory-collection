@@ -5,6 +5,7 @@ import Iter "mo:base/Iter";
 import Prelude "mo:base/Prelude";
 import Nat "mo:base/Nat";
 import Array "mo:base/Array";
+import Nat64 "mo:base/Nat64";
 
 import { test; suite } "mo:test";
 import Fuzz "mo:fuzz";
@@ -28,7 +29,25 @@ for (i in Iter.range(0, limit - 1)) {
     order.add(i);
 };
 
-let fuzz = Fuzz.fromSeed(0x7f7f);
+func xorshift128plus(seed : Nat) : { next() : Nat } {
+    var state0 : Nat64 = Nat64.fromNat(seed);
+    var state1 : Nat64 = Nat64.fromNat(seed + 1);
+    if (state0 == 0) state0 := 1;
+    if (state1 == 0) state1 := 2;
+
+    {
+        next = func() : Nat {
+            var s1 = state0;
+            let s0 = state1;
+            state0 := s0;
+            s1 ^= s1 << 23 : Nat64;
+            state1 := s1 ^ s0 ^ (s1 >> 18 : Nat64) ^ (s0 >> 5 : Nat64);
+            Nat64.toNat(state1 +% s0); // Use wrapping addition
+        };
+    };
+};
+
+let fuzz = Fuzz.create(xorshift128plus(0xdeadbeef));
 fuzz.buffer.shuffle(order);
 // Utils.shuffle_buffer(fuzz, order);
 
@@ -59,10 +78,10 @@ suite(
             "add() to Buffer",
             func() {
                 for (i in Iter.range(0, limit - 1)) {
-                    MemoryBuffer.add(mbuffer, TypeUtils.BigEndian.Nat, i);
+                    MemoryBuffer.add(mbuffer, TypeUtils.Nat, i);
                     values.add(i);
 
-                    assert MemoryBuffer.get(mbuffer, TypeUtils.BigEndian.Nat, i) == i;
+                    assert MemoryBuffer.get(mbuffer, TypeUtils.Nat, i) == i;
                     assert MemoryBuffer.size(mbuffer) == i + 1;
 
                     // assert MemoryRegion.size(mbuffer.pointers) == 64 + (MemoryBuffer.size(mbuffer) * 12);
@@ -82,12 +101,12 @@ suite(
             "put() (new == prev) in Buffer",
             func() {
                 for (i in order.vals()) {
-                    assert MemoryBuffer.get(mbuffer, TypeUtils.BigEndian.Nat, i) == i;
+                    assert MemoryBuffer.get(mbuffer, TypeUtils.Nat, i) == i;
 
-                    MemoryBuffer.put(mbuffer, TypeUtils.BigEndian.Nat, i, i);
+                    MemoryBuffer.put(mbuffer, TypeUtils.Nat, i, i);
                     validate_region(mbuffer.blobs);
                     validate_region(mbuffer.pointers);
-                    assert MemoryBuffer.get(mbuffer, TypeUtils.BigEndian.Nat, i) == i;
+                    assert MemoryBuffer.get(mbuffer, TypeUtils.Nat, i) == i;
                 };
             },
         );
@@ -100,17 +119,17 @@ suite(
                     let pointer = MemoryBuffer._get_pointer(mbuffer, i);
                     let memory_block = MemoryBuffer._get_memory_block(mbuffer, i);
                     let blob = MemoryBuffer._get_blob(mbuffer, i);
-                    // Debug.print("old " # debug_show (i, pointer, memory_block, blob, TypeUtils.BigEndian.Nat.blobify.to_blob(i)));
-                    assert blob == TypeUtils.BigEndian.Nat.blobify.to_blob(i);
+                    // Debug.print("old " # debug_show (i, pointer, memory_block, blob, TypeUtils.Nat.blobify.to_blob(i)));
+                    assert blob == TypeUtils.Nat.blobify.to_blob(i);
 
                     // Debug.print("node keys: " # debug_show (MaxBpTree.toNodeKeys(mbuffer.blobs.free_memory)));
                     // Debug.print("leaf nodes: " # debug_show (MaxBpTree.toLeafNodes(mbuffer.blobs.free_memory)));
-                    MemoryBuffer.put(mbuffer, TypeUtils.BigEndian.Nat, i, i * 100);
+                    MemoryBuffer.put(mbuffer, TypeUtils.Nat, i, i * 100);
 
                     validate_region(mbuffer.blobs);
                     validate_region(mbuffer.pointers);
 
-                    let serialized = TypeUtils.BigEndian.Nat.blobify.to_blob(val);
+                    let serialized = TypeUtils.Nat.blobify.to_blob(val);
 
                     let new_pointer = MemoryBuffer._get_pointer(mbuffer, i);
                     let new_memory_block = MemoryBuffer._get_memory_block(mbuffer, i);
@@ -129,15 +148,15 @@ suite(
 
                 for (i in order.vals()) {
 
-                    assert MemoryBuffer.get(mbuffer, TypeUtils.BigEndian.Nat, i) == i * 100; // ensures the previous value did not get overwritten
+                    assert MemoryBuffer.get(mbuffer, TypeUtils.Nat, i) == i * 100; // ensures the previous value did not get overwritten
 
                     let new_value = i;
-                    MemoryBuffer.put(mbuffer, TypeUtils.BigEndian.Nat, i, new_value);
+                    MemoryBuffer.put(mbuffer, TypeUtils.Nat, i, new_value);
                     // Debug.print("node keys: " # debug_show (MaxBpTree.toNodeKeys(mbuffer.blobs.free_memory)));
                     // Debug.print("leaf nodes: " # debug_show (MaxBpTree.toLeafNodes(mbuffer.blobs.free_memory)));
                     validate_region(mbuffer.blobs);
                     validate_region(mbuffer.pointers);
-                    let received = MemoryBuffer.get(mbuffer, TypeUtils.BigEndian.Nat, i);
+                    let received = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
                     if (received != new_value) {
                         Debug.print("mismatch at i = " # debug_show i);
                         Debug.print("(exprected, received) -> " # debug_show (new_value, received));
@@ -155,7 +174,7 @@ suite(
                 for (i in Iter.range(0, limit - 1)) {
                     let expected = limit - i - 1;
 
-                    let removed = MemoryBuffer.removeLast(mbuffer, TypeUtils.BigEndian.Nat);
+                    let removed = MemoryBuffer.removeLast(mbuffer, TypeUtils.Nat);
 
                     validate_region(mbuffer.blobs);
                     validate_region(mbuffer.pointers);
@@ -171,10 +190,10 @@ suite(
                 assert MemoryBuffer.size(mbuffer) == 0;
 
                 for (i in Iter.range(0, limit - 1)) {
-                    MemoryBuffer.add(mbuffer, TypeUtils.BigEndian.Nat, i);
+                    MemoryBuffer.add(mbuffer, TypeUtils.Nat, i);
 
                     let expected = i;
-                    let received = MemoryBuffer.get(mbuffer, TypeUtils.BigEndian.Nat, i);
+                    let received = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
 
                     if (expected != received) {
                         Debug.print("mismatch at i = " # debug_show i);
@@ -191,10 +210,10 @@ suite(
         test(
             "reverse()",
             func() {
-                let array = MemoryBuffer.toArray(mbuffer, TypeUtils.BigEndian.Nat);
+                let array = MemoryBuffer.toArray(mbuffer, TypeUtils.Nat);
                 MemoryBuffer.reverse(mbuffer);
                 let reversed = Array.reverse(array);
-                assert reversed == MemoryBuffer.toArray(mbuffer, TypeUtils.BigEndian.Nat);
+                assert reversed == MemoryBuffer.toArray(mbuffer, TypeUtils.Nat);
             },
         );
 
@@ -208,7 +227,7 @@ suite(
 
                     let expected = i;
                     let j = Nat.min(i, MemoryBuffer.size(mbuffer) - 1);
-                    let removed = MemoryBuffer.remove(mbuffer, TypeUtils.BigEndian.Nat, j);
+                    let removed = MemoryBuffer.remove(mbuffer, TypeUtils.Nat, j);
                     validate_region(mbuffer.blobs);
                     validate_region(mbuffer.pointers);
 
@@ -228,14 +247,14 @@ suite(
                     let j = Nat.min(i, MemoryBuffer.size(mbuffer));
                     // Debug.print("inserting i = " # debug_show i # " at index " # debug_show j);
 
-                    MemoryBuffer.insert(mbuffer, TypeUtils.BigEndian.Nat, j, i);
-                    let received = MemoryBuffer.get(mbuffer, TypeUtils.BigEndian.Nat, j);
+                    MemoryBuffer.insert(mbuffer, TypeUtils.Nat, j, i);
+                    let received = MemoryBuffer.get(mbuffer, TypeUtils.Nat, j);
                     if (received != i) {
                         Debug.print("mismatch at i = " # debug_show i);
                         Debug.print("(exprected, received) -> " # debug_show (i, received));
                         assert false;
                     };
-                    // assert MemoryBuffer.get(mbuffer, TypeUtils.BigEndian.Nat, j) == i;
+                    // assert MemoryBuffer.get(mbuffer, TypeUtils.Nat, j) == i;
                 };
             },
         );
@@ -246,7 +265,7 @@ suite(
                 MemoryBuffer.shuffle(mbuffer);
 
                 for (i in Iter.range(0, limit - 1)) {
-                    let n = MemoryBuffer.get(mbuffer, TypeUtils.BigEndian.Nat, i);
+                    let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
                 };
             },
         );
@@ -254,11 +273,11 @@ suite(
         test(
             "sortUnstable",
             func() {
-                MemoryBuffer.sortUnstable<Nat>(mbuffer, TypeUtils.BigEndian.Nat, MemoryCmp.BigEndian.Nat);
+                MemoryBuffer.sortUnstable<Nat>(mbuffer, TypeUtils.Nat, MemoryCmp.Nat);
 
-                var prev = MemoryBuffer.get(mbuffer, TypeUtils.BigEndian.Nat, 0);
+                var prev = MemoryBuffer.get(mbuffer, TypeUtils.Nat, 0);
                 for (i in Iter.range(1, limit - 1)) {
-                    let n = MemoryBuffer.get(mbuffer, TypeUtils.BigEndian.Nat, i);
+                    let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
                     assert prev <= n;
                     prev := n;
                 };
@@ -277,9 +296,9 @@ suite(
             "addFromIter",
             func() {
                 let iter = Iter.range(0, limit - 1);
-                MemoryBuffer.addFromIter(mbuffer, TypeUtils.BigEndian.Nat, iter);
+                MemoryBuffer.addFromIter(mbuffer, TypeUtils.Nat, iter);
                 for (i in Iter.range(0, limit - 1)) {
-                    let n = MemoryBuffer.get(mbuffer, TypeUtils.BigEndian.Nat, i);
+                    let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
                     assert n == i;
                 };
             },
@@ -290,7 +309,7 @@ suite(
             func() {
                 let arr : [Nat] = [3, 782, 910, 1289, 4782, 9999];
                 for (i in arr.vals()) {
-                    let index = MemoryBuffer.indexOf<Nat>(mbuffer, TypeUtils.BigEndian.Nat, Nat.equal, i);
+                    let index = MemoryBuffer.indexOf<Nat>(mbuffer, TypeUtils.Nat, Nat.equal, i);
                     assert index == ?i;
                 };
             },
@@ -299,9 +318,9 @@ suite(
         test(
             "items()",
             func() {
-                let items = MemoryBuffer.items(mbuffer, TypeUtils.BigEndian.Nat);
+                let items = MemoryBuffer.items(mbuffer, TypeUtils.Nat);
                 for (i in Iter.range(0, limit - 1)) {
-                    let n = MemoryBuffer.get(mbuffer, TypeUtils.BigEndian.Nat, i);
+                    let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
                     assert ?(i, n) == items.next();
                 };
             },
@@ -310,10 +329,10 @@ suite(
         test(
             "tabulate",
             func() {
-                let mbuffer = MemoryBuffer.tabulate(TypeUtils.BigEndian.Nat, limit, func(i : Nat) : Nat = i);
+                let mbuffer = MemoryBuffer.tabulate(TypeUtils.Nat, limit, func(i : Nat) : Nat = i);
                 assert MemoryBuffer.size(mbuffer) == limit;
                 for (i in Iter.range(0, limit - 1)) {
-                    let n = MemoryBuffer.get(mbuffer, TypeUtils.BigEndian.Nat, i);
+                    let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
                     assert n == i;
                 };
             },

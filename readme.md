@@ -131,8 +131,8 @@ Usage examples using the preset `TypeUtils`
     sstore := MemoryBTree.upgrade(sstore);
 
     let btree_utils = MemoryBTree.createUtils(
-      TypeUtils.BigEndian.Nat,
-      TypeUtils.BigEndian.Nat
+      TypeUtils.Nat,
+      TypeUtils.Nat
     );
     let mbtree = MemoryBTree.new(sstore, btree_utils);
 

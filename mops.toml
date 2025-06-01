@@ -3,7 +3,7 @@ name = "memory-collection"
 version = "0.1.0"
 description = "A collection of data structures that store their data in stable memory"
 repository = "https://github.com/NatLabs/memory-collection"
-keywords = ["stable-memory", "encoding", "persistent"]
+keywords = [ "stable-memory", "encoding", "persistent" ]
 license = "MIT"
 
 [dependencies]
@@ -11,6 +11,7 @@ base = "0.12.1"
 itertools = "0.2.1"
 memory-region = "1.2.4"
 buffer-deque = "0.1.0"
+byte-utils = "0.0.1"
 
 [dev-dependencies]
 test = "2.0.0"
@@ -22,4 +23,4 @@ memory-collection-btree-v0-v0_0_1_migration = "https://github.com/NatLabs/memory
 
 [toolchain]
 wasmtime = "14.0.4"
-moc = "0.13.2"
+moc = "0.14.9"

@@ -20,8 +20,10 @@ import Int32Module "mo:base/Int32";
 import Int64Module "mo:base/Int64";
 import PrincipalModule "mo:base/Principal";
 import TimeModule "mo:base/Time";
-
 import Debug "mo:base/Debug";
+
+import ByteUtils "mo:byte-utils";
+
 import Utils "../Utils";
 
 module Blobify {
@@ -52,360 +54,91 @@ module Blobify {
         from_blob : (Blob) -> A;
     };
 
-    /// Default blobify helpers return blobs in big-endian format.
-    public module BigEndian {
-        public let Nat : Blobify<Nat> = {
-            to_blob = func(n : Nat) : Blob {
-                var num = n;
-                var nbytes = 0;
-
-                while (num > 0) {
-                    num /= 255;
-                    nbytes += 1;
-                };
-
-                num := n;
-
-                let arr = ArrayModule.reverse(
-                    ArrayModule.tabulate(
-                        nbytes,
-                        func(_ : Nat) : Nat8 {
-                            let tmp = num % 255;
-                            num /= 255;
-                            Nat8Module.fromNat(tmp);
-                        },
-                    )
-                );
-
-                Base.Blob.fromArray(arr);
-            };
-            from_blob = func(blob : Blob) : Nat {
-
-                var n = 0;
-                let bytes = Base.Blob.toArray(blob);
-
-                var j = 0;
-
-                while (j < bytes.size()) {
-                    let byte = bytes.get(j);
-                    n *= 255;
-                    n += Base.Nat8.toNat(byte);
-
-                    j += 1;
-                };
-
-                n;
-            };
-        };
-
-        public let Nat8 : Blobify<Nat8> = {
-            to_blob = func(n : Nat8) : Blob { Base.Blob.fromArray([n]) };
-            from_blob = func(blob : Blob) : Nat8 { Base.Blob.toArray(blob)[0] };
-        };
-
-        public let Nat16 : Blobify<Nat16> = {
-            to_blob = func(n : Nat16) : Blob {
-                Base.Blob.fromArray([
-                    Base.Nat8.fromNat16(n >> 8),
-                    Base.Nat8.fromNat16(n & 0xff),
-                ]);
-            };
-            from_blob = func(blob : Blob) : Nat16 {
-                let bytes = Base.Blob.toArray(blob);
-
-                let _n16 = Base.Nat16.fromNat8(bytes[0] << 8) | Base.Nat16.fromNat8(bytes[1]);
-            };
-        };
-
-        public let Nat32 : Blobify<Nat32> = {
-            to_blob = func(n : Nat32) : Blob {
-                Base.Blob.fromArray([
-                    Base.Nat8.fromNat(Base.Nat32.toNat(n >> 24)),
-                    Base.Nat8.fromNat(Base.Nat32.toNat((n >> 16) & 0xff)),
-                    Base.Nat8.fromNat(Base.Nat32.toNat((n >> 8) & 0xff)),
-                    Base.Nat8.fromNat(Base.Nat32.toNat(n & 0xff)),
-                ]);
-            };
-            from_blob = func(blob : Blob) : Nat32 {
-                let bytes = Base.Blob.toArray(blob);
-
-                let _n32 = Base.Nat32.fromNat(Base.Nat8.toNat(bytes[0] << 24)) | Base.Nat32.fromNat(Base.Nat8.toNat(bytes[1] << 16)) | Base.Nat32.fromNat(Base.Nat8.toNat(bytes[2] << 8)) | Base.Nat32.fromNat(Base.Nat8.toNat(bytes[3]));
-            };
-        };
-
-        public let Nat64 : Blobify<Nat64> = {
-            to_blob = func(n : Nat64) : Blob {
-                Base.Blob.fromArray([
-                    Base.Nat8.fromNat(Base.Nat64.toNat(n >> 56)),
-                    Base.Nat8.fromNat(Base.Nat64.toNat((n >> 48) & 0xff)),
-                    Base.Nat8.fromNat(Base.Nat64.toNat((n >> 40) & 0xff)),
-                    Base.Nat8.fromNat(Base.Nat64.toNat((n >> 32) & 0xff)),
-                    Base.Nat8.fromNat(Base.Nat64.toNat((n >> 24) & 0xff)),
-                    Base.Nat8.fromNat(Base.Nat64.toNat((n >> 16) & 0xff)),
-                    Base.Nat8.fromNat(Base.Nat64.toNat((n >> 8) & 0xff)),
-                    Base.Nat8.fromNat(Base.Nat64.toNat(n & 0xff)),
-                ]);
-            };
-            from_blob = func(blob : Blob) : Nat64 {
-                let bytes = Base.Blob.toArray(blob);
-
-                let _n64 = Base.Nat64.fromNat(Base.Nat8.toNat(bytes[0] << 56)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[1] << 48)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[2] << 40)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[3] << 32)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[4] << 24)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[5] << 16)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[6] << 8)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[7]));
-            };
-        };
-
-        public let Int : Blobify<Int> = {
-            to_blob = func(n : Int) : Blob {
-                let is_negative = n < 0;
-
-                var num : Nat = Base.Int.abs(n);
-                var nbytes = 0;
-
-                while (num > 0) {
-                    num /= 255;
-                    nbytes += 1;
-                };
-
-                num := Base.Int.abs(n);
-
-                let arr = ArrayModule.reverse(
-                    ArrayModule.tabulate(
-                        nbytes + 1,
-                        func(i : Nat) : Nat8 {
-                            if (i == nbytes) return Base.Nat8.fromNat(if (is_negative) 1 else 0);
-
-                            let tmp = num % 255;
-                            num /= 255;
-                            Nat8Module.fromNat(tmp);
-                        },
-                    )
-                );
-
-                Base.Blob.fromArray(arr);
-            };
-
-            from_blob = func(blob : Blob) : Int {
-                let bytes = Base.Blob.toArray(blob);
-
-                var n = 0;
-                var is_negative = false;
-
-                var j = 0;
-
-                while (j < bytes.size()) {
-                    let byte = bytes.get(j);
-                    if (j == bytes.size() - 1) {
-                        is_negative := Base.Nat8.toNat(byte) == 1;
-                    } else {
-                        n *= 255;
-                        n += Base.Nat8.toNat(byte);
-                    };
-
-                    j += 1;
-                };
-
-                if (is_negative) {
-                    -(n);
-                } else {
-                    (n);
-                };
-            };
-        };
-    };
-
     public let Nat8 : Blobify<Nat8> = {
         to_blob = func(n : Nat8) : Blob { Base.Blob.fromArray([n]) };
-        from_blob = func(blob : Blob) : Nat8 { Base.Blob.toArray(blob)[0] };
+        from_blob = func(blob : Blob) : Nat8 { blob.get(0) };
     };
 
     public let Nat16 : Blobify<Nat16> = {
         to_blob = func(n : Nat16) : Blob {
-            Base.Blob.fromArray([
-                Base.Nat8.fromNat16(n & 0xff),
-                Base.Nat8.fromNat16(n >> 8),
-            ]);
+            Base.Blob.fromArray(ByteUtils.Sorted.fromNat16(n));
         };
         from_blob = func(blob : Blob) : Nat16 {
-            let bytes = Base.Blob.toArray(blob);
-
-            let _n16 = Base.Nat16.fromNat8(bytes[1] << 8) | Base.Nat16.fromNat8(bytes[0]);
+            ByteUtils.Sorted.toNat16(blob.vals());
         };
     };
 
     public let Nat32 : Blobify<Nat32> = {
         to_blob = func(n : Nat32) : Blob {
-            Base.Blob.fromArray([
-                Base.Nat8.fromNat(Base.Nat32.toNat(n & 0xff)),
-                Base.Nat8.fromNat(Base.Nat32.toNat((n >> 8) & 0xff)),
-                Base.Nat8.fromNat(Base.Nat32.toNat((n >> 16) & 0xff)),
-                Base.Nat8.fromNat(Base.Nat32.toNat(n >> 24)),
-            ]);
+            Base.Blob.fromArray(ByteUtils.Sorted.fromNat32(n));
         };
         from_blob = func(blob : Blob) : Nat32 {
-            let bytes = Base.Blob.toArray(blob);
-
-            let _n32 = Base.Nat32.fromNat(Base.Nat8.toNat(bytes[3] << 24)) | Base.Nat32.fromNat(Base.Nat8.toNat(bytes[2] << 16)) | Base.Nat32.fromNat(Base.Nat8.toNat(bytes[1] << 8)) | Base.Nat32.fromNat(Base.Nat8.toNat(bytes[0]));
+            ByteUtils.Sorted.toNat32(blob.vals());
         };
     };
 
     public let Nat64 : Blobify<Nat64> = {
         to_blob = func(n : Nat64) : Blob {
-            Base.Blob.fromArray([
-                Base.Nat8.fromNat(Base.Nat64.toNat(n & 0xff)),
-                Base.Nat8.fromNat(Base.Nat64.toNat((n >> 8) & 0xff)),
-                Base.Nat8.fromNat(Base.Nat64.toNat((n >> 16) & 0xff)),
-                Base.Nat8.fromNat(Base.Nat64.toNat((n >> 24) & 0xff)),
-                Base.Nat8.fromNat(Base.Nat64.toNat((n >> 32) & 0xff)),
-                Base.Nat8.fromNat(Base.Nat64.toNat((n >> 40) & 0xff)),
-                Base.Nat8.fromNat(Base.Nat64.toNat((n >> 48) & 0xff)),
-                Base.Nat8.fromNat(Base.Nat64.toNat(n >> 56)),
-            ]);
+            Base.Blob.fromArray(ByteUtils.Sorted.fromNat64(n));
         };
         from_blob = func(blob : Blob) : Nat64 {
-            let bytes = Base.Blob.toArray(blob);
-
-            let _n64 = Base.Nat64.fromNat(Base.Nat8.toNat(bytes[7] << 56)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[6] << 48)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[5] << 40)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[4] << 32)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[3] << 24)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[2] << 16)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[1] << 8)) | Base.Nat64.fromNat(Base.Nat8.toNat(bytes[0]));
+            ByteUtils.Sorted.toNat64(blob.vals());
         };
     };
 
     public let Int8 : Blobify<Int8> = {
         to_blob = func(n : Int8) : Blob {
-            let int8_as_nat8 = Base.Int8.toNat8(n);
-            Blobify.Nat8.to_blob(int8_as_nat8);
+            Base.Blob.fromArray([Base.Int8.toNat8(n)]);
         };
         from_blob = func(blob : Blob) : Int8 {
-            let nat8 = Blobify.Nat8.from_blob(blob);
-            Base.Int8.fromNat8(nat8);
+            Base.Int8.fromNat8(blob.get(0));
         };
     };
 
     public let Int16 : Blobify<Int16> = {
         to_blob = func(n : Int16) : Blob {
-            let int16_as_nat16 = Base.Int16.toNat16(n);
-            Blobify.Nat16.to_blob(int16_as_nat16);
+            Base.Blob.fromArray(ByteUtils.Sorted.fromInt16(n));
         };
         from_blob = func(blob : Blob) : Int16 {
-            let int16 = Blobify.Nat16.from_blob(blob);
-            Base.Int16.fromNat16(int16);
+            ByteUtils.Sorted.toInt16(blob.vals());
         };
     };
 
     public let Int32 : Blobify<Int32> = {
         to_blob = func(n : Int32) : Blob {
-            let int32_as_nat32 = Base.Int32.toNat32(n);
-            Blobify.Nat32.to_blob(int32_as_nat32);
+            Base.Blob.fromArray(ByteUtils.Sorted.fromInt32(n));
         };
         from_blob = func(blob : Blob) : Int32 {
-            let int32 = Blobify.Nat32.from_blob(blob);
-            Base.Int32.fromNat32(int32);
+            ByteUtils.Sorted.toInt32(blob.vals());
         };
     };
 
     public let Int64 : Blobify<Int64> = {
         to_blob = func(n : Int64) : Blob {
             let int64_as_nat64 = Base.Int64.toNat64(n);
-            Blobify.Nat64.to_blob(int64_as_nat64);
+            Base.Blob.fromArray(ByteUtils.Sorted.fromNat64(int64_as_nat64));
         };
         from_blob = func(blob : Blob) : Int64 {
-            let int64 = Blobify.Nat64.from_blob(blob);
+            let int64 = ByteUtils.Sorted.toNat64(blob.vals());
             Base.Int64.fromNat64(int64);
+        };
+    };
+
+    public let Nat : Blobify<Nat> = {
+        to_blob = func(n : Nat) : Blob {
+            Nat64.to_blob(Base.Nat64.fromNat(n));
+        };
+        from_blob = func(blob : Blob) : Nat {
+            Base.Nat64.toNat(Nat64.from_blob(blob));
         };
     };
 
     public let Int : Blobify<Int> = {
         to_blob = func(n : Int) : Blob {
-            let is_negative = n < 0;
-
-            var num : Nat = Base.Int.abs(n);
-            var nbytes = 0;
-
-            while (num > 0) {
-                num /= 255;
-                nbytes += 1;
-            };
-
-            num := Base.Int.abs(n);
-
-            let arr = ArrayModule.tabulate(
-                nbytes + 1,
-                func(i : Nat) : Nat8 {
-                    if (i == nbytes) return Base.Nat8.fromNat(if (is_negative) 1 else 0);
-
-                    let tmp = num % 255;
-                    num /= 255;
-                    Nat8Module.fromNat(tmp);
-                },
-            );
-
-            Base.Blob.fromArray(arr);
+            Int64.to_blob(Base.Int64.fromInt(n));
         };
-
         from_blob = func(blob : Blob) : Int {
-            let bytes = Base.Blob.toArray(blob);
-
-            var n = 0;
-            var is_negative = false;
-
-            var j = bytes.size();
-
-            while (j > 0) {
-                let byte = bytes.get(j - 1);
-                if (j == 1) {
-                    is_negative := Base.Nat8.toNat(byte) == 1;
-                } else {
-                    n *= 255;
-                    n += Base.Nat8.toNat(byte);
-                };
-
-                j -= 1;
-            };
-
-            if (is_negative) {
-                -(n);
-            } else {
-                (n);
-            };
-        };
-    };
-
-    // Default blobify helpers return blobs in little-endian format.
-    public let Nat : Blobify<Nat> = {
-        to_blob = func(n : Nat) : Blob {
-            var num = n;
-            var nbytes = 0;
-
-            while (num > 0) {
-                num /= 255;
-                nbytes += 1;
-            };
-
-            num := n;
-
-            let arr = ArrayModule.tabulate(
-                nbytes,
-                func(_ : Nat) : Nat8 {
-                    let tmp = num % 255;
-                    num /= 255;
-                    Nat8Module.fromNat(tmp);
-                },
-            );
-
-            Base.Blob.fromArray(arr);
-        };
-        from_blob = func(blob : Blob) : Nat {
-            var n = 0;
-            let bytes = Base.Blob.toArray(blob);
-
-            var j = bytes.size();
-
-            while (j > 0) {
-                let byte = bytes.get(j - 1);
-                n *= 255;
-                n += Base.Nat8.toNat(byte);
-
-                j -= 1;
-            };
-
-            n;
+            Base.Int64.toInt(Int64.from_blob(blob));
         };
     };
 

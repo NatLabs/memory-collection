@@ -48,7 +48,7 @@ actor class Backend() {
     };
 
     let nat_block_blob_utils = MemoryBTree.createUtils(
-        TypeUtils.BigEndian.Nat,
+        TypeUtils.Nat,
         { blobify = blobify_block },
     );
     let txs_by_tx_index = MemoryBTree.MemoryBTree<Nat, Block>(txs_by_tx_index_sstore, nat_block_blob_utils);
@@ -107,7 +107,7 @@ actor class Backend() {
         cmp = TypeUtils.MemoryCmp.Default;
     };
 
-    let nat_nat_blob_utils = MemoryBTree.createUtils(nat_tuple_type_utils, TypeUtils.BigEndian.Nat);
+    let nat_nat_blob_utils = MemoryBTree.createUtils(nat_tuple_type_utils, TypeUtils.Nat);
     let txs_by_ts = MemoryBTree.MemoryBTree<(Nat, ?Nat), Nat>(txs_by_ts_sstore, nat_nat_blob_utils);
     let txs_by_amt = MemoryBTree.MemoryBTree<(Nat, ?Nat), Nat>(txs_by_amt_sstore, nat_nat_blob_utils);
     let txs_by_fee = MemoryBTree.MemoryBTree<(Nat, ?Nat), Nat>(txs_by_fee_sstore, nat_nat_blob_utils);
