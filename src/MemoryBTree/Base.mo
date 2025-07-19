@@ -376,7 +376,7 @@ module {
         var right_index = Leaf.get_index(btree, right_node_address);
 
         let ?first_key_address = Leaf.get_kv_address(btree, right_node_address, 0) else Debug.trap("insert: first_key_address accessed a null value");
-        var median_key_address = first_key_address;
+        var separator_key_address = first_key_address;
 
         // assert Leaf.get_count(btree, left_node_address) == (btree.node_capacity / 2) + 1;
         // assert Leaf.get_count(btree, right_node_address) == (btree.node_capacity / 2);
@@ -392,7 +392,7 @@ module {
                 // Debug.print("found branch with enough space");
                 // Debug.print("parent before insert: " # debug_show Branch.from_memory(btree, parent_address));
 
-                Branch.insert(btree, parent_address, right_index, median_key_address, right_node_address);
+                Branch.insert(btree, parent_address, right_index, separator_key_address, right_node_address);
                 update_count(btree, btree.count + 1);
 
                 // Debug.print("parent after insert: " # debug_show Branch.from_memory(btree, parent_address));
@@ -402,12 +402,12 @@ module {
 
             // otherwise split parent
             left_node_address := parent_address;
-            right_node_address := Branch.split(btree, left_node_address, right_index, median_key_address, right_node_address);
+            right_node_address := Branch.split(btree, left_node_address, right_index, separator_key_address, right_node_address);
             update_branch_count(btree, btree.branch_count + 1);
 
             let ?first_key_address = Branch.get_key_address(btree, right_node_address, btree.node_capacity - 2) else Debug.trap("4. insert: accessed a null value in first key of branch");
             Branch.set_key_address_to_null(btree, right_node_address, btree.node_capacity - 2);
-            median_key_address := first_key_address;
+            separator_key_address := first_key_address;
 
             right_index := Branch.get_index(btree, right_node_address);
             opt_parent := Branch.get_parent(btree, right_node_address);
@@ -423,7 +423,7 @@ module {
         Branch.update_depth(btree, new_root, new_depth);
         assert Branch.get_depth(btree, new_root) == new_depth;
 
-        Branch.put_key_address(btree, new_root, 0, median_key_address);
+        Branch.put_key_address(btree, new_root, 0, separator_key_address);
 
         Branch.add_child(btree, new_root, left_node_address);
         Branch.add_child(btree, new_root, right_node_address);
@@ -723,7 +723,7 @@ module {
         if (elem_index == 0) {
             // if the first element is removed then update the parent key
             let ?next_key_address = Leaf.get_kv_address(btree, leaf_address, 0) else Debug.trap("remove: next_key_block is null");
-            Branch.update_median_key_address(btree, parent, leaf_index, next_key_address);
+            Branch.update_separator_key_address(btree, parent, leaf_index, next_key_address);
         };
 
         let min_count = btree.node_capacity / 2;

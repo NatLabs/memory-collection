@@ -733,26 +733,26 @@ module Methods {
                     assert address == leaf.0 [Leaf.AC.ADDRESS];
                     assert depth == 1;
 
-                    let (left_median_key, right_median_key) = switch (Leaf.get_parent(btree, address)) {
+                    let (left_separator_key, right_separator_key) = switch (Leaf.get_parent(btree, address)) {
                         case (?parent) {
-                            var left_median_key : ?Nat = null;
-                            var right_median_key : ?Nat = null;
+                            var left_separator_key : ?Nat = null;
+                            var right_separator_key : ?Nat = null;
 
                             if (index > 0) {
-                                let ?left_median_key_blob = Branch.get_key_blob(btree, parent, index - 1) else Debug.trap("1. validate: accessed a null value");
-                                left_median_key := ?btree_utils.key.blobify.from_blob(left_median_key_blob);
+                                let ?left_separator_key_blob = Branch.get_key_blob(btree, parent, index - 1) else Debug.trap("1. validate: accessed a null value");
+                                left_separator_key := ?btree_utils.key.blobify.from_blob(left_separator_key_blob);
 
                             };
 
                             let parent_count = Branch.get_count(btree, parent);
 
                             if (index + 1 < parent_count) {
-                                let ?right_median_key_blob = Branch.get_key_blob(btree, parent, index) else Debug.trap("2. validate: accessed a null value");
-                                right_median_key := ?btree_utils.key.blobify.from_blob(right_median_key_blob);
+                                let ?right_separator_key_blob = Branch.get_key_blob(btree, parent, index) else Debug.trap("2. validate: accessed a null value");
+                                right_separator_key := ?btree_utils.key.blobify.from_blob(right_separator_key_blob);
 
                             };
 
-                            (left_median_key, right_median_key);
+                            (left_separator_key, right_separator_key);
 
                         };
                         case (null) (null, null);
@@ -783,16 +783,16 @@ module Methods {
                             };
                         };
 
-                        switch (left_median_key) {
-                            case (?left_median_key) {
-                                assert left_median_key <= key;
+                        switch (left_separator_key) {
+                            case (?left_separator_key) {
+                                assert left_separator_key <= key;
                             };
                             case (null) {};
                         };
 
-                        switch (right_median_key) {
-                            case (?right_median_key) {
-                                assert key < right_median_key;
+                        switch (right_separator_key) {
+                            case (?right_separator_key) {
+                                assert key < right_separator_key;
                             };
                             case (null) {};
                         };
@@ -820,26 +820,26 @@ module Methods {
                     assert address == branch.0 [Branch.AC.ADDRESS];
                     assert subtree_size == branch.0 [Branch.AC.SUBTREE_SIZE];
 
-                    let (left_median_key, right_median_key) = switch (Branch.get_parent(btree, address)) {
+                    let (left_separator_key, right_separator_key) = switch (Branch.get_parent(btree, address)) {
                         case (?parent) {
-                            var left_median_key : ?Nat = null;
-                            var right_median_key : ?Nat = null;
+                            var left_separator_key : ?Nat = null;
+                            var right_separator_key : ?Nat = null;
 
                             if (index > 0) {
-                                let ?left_median_key_blob = Branch.get_key_blob(btree, parent, index - 1) else Debug.trap("7. validate: accessed a null value");
-                                left_median_key := ?btree_utils.key.blobify.from_blob(left_median_key_blob);
+                                let ?left_separator_key_blob = Branch.get_key_blob(btree, parent, index - 1) else Debug.trap("7. validate: accessed a null value");
+                                left_separator_key := ?btree_utils.key.blobify.from_blob(left_separator_key_blob);
 
                             };
 
                             let parent_count = Branch.get_count(btree, parent);
 
                             if (index + 1 < parent_count) {
-                                let ?right_median_key_blob = Branch.get_key_blob(btree, parent, index) else Debug.trap("8. validate: accessed a null value");
-                                right_median_key := ?btree_utils.key.blobify.from_blob(right_median_key_blob);
+                                let ?right_separator_key_blob = Branch.get_key_blob(btree, parent, index) else Debug.trap("8. validate: accessed a null value");
+                                right_separator_key := ?btree_utils.key.blobify.from_blob(right_separator_key_blob);
 
                             };
 
-                            (left_median_key, right_median_key);
+                            (left_separator_key, right_separator_key);
 
                         };
                         case (null) (null, null);
@@ -868,16 +868,16 @@ module Methods {
                                 };
                             };
 
-                            switch (left_median_key) {
-                                case (?left_median_key) {
-                                    assert left_median_key <= key;
+                            switch (left_separator_key) {
+                                case (?left_separator_key) {
+                                    assert left_separator_key <= key;
                                 };
                                 case (null) {};
                             };
 
-                            switch (right_median_key) {
-                                case (?right_median_key) {
-                                    assert key < right_median_key;
+                            switch (right_separator_key) {
+                                case (?right_separator_key) {
+                                    assert key < right_separator_key;
                                 };
                                 case (null) {};
                             };
