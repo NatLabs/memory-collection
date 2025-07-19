@@ -26,25 +26,8 @@ type Order = Order.Order;
 type MemoryBlock = MemoryBTree.MemoryBlock;
 
 let { nhash } = Map;
-func xorshift128plus(seed : Nat) : { next() : Nat } {
-    var state0 : Nat64 = Nat64.fromNat(seed);
-    var state1 : Nat64 = Nat64.fromNat(seed + 1);
-    if (state0 == 0) state0 := 1;
-    if (state1 == 0) state1 := 2;
 
-    {
-        next = func() : Nat {
-            var s1 = state0;
-            let s0 = state1;
-            state0 := s0;
-            s1 ^= s1 << 23 : Nat64;
-            state1 := s1 ^ s0 ^ (s1 >> 18 : Nat64) ^ (s0 >> 5 : Nat64);
-            Nat64.toNat(state1 +% s0); // Use wrapping addition
-        };
-    };
-};
-
-let fuzz = Fuzz.create(xorshift128plus(0xdeadbeef));
+let fuzz = Fuzz.fromSeed(0xdeadbeef);
 
 let limit = 10_000;
 
@@ -67,7 +50,7 @@ let random = Itertools.toBuffer<(Nat, Nat)>(
 let sorted = Buffer.clone(random);
 sorted.sort(func(a : (Nat, Nat), b : (Nat, Nat)) : Order = Nat.compare(a.0, b.0));
 
-let btree = MemoryBTree._new_with_options(?8, ?0, false);
+let btree = MemoryBTree._new_with_options(?4, ?0, false);
 let btree_utils = MemoryBTree.createUtils(TypeUtils.Nat, TypeUtils.Nat);
 
 suite(
@@ -525,15 +508,23 @@ suite(
                     assert ?(1 + i * 10) == val;
 
                     assert MemoryBTree.size(btree) == random.size() - i - 1;
-                    // Debug.print("node keys: " # debug_show MemoryBTree.toNodeKeys(btree, btree_utils));
+                    // let node_keys = MemoryBTree.toNodeKeys(btree, btree_utils);
+                    // Debug.print("node keys: " # debug_show node_keys);
                     // Debug.print("leaf nodes: " # debug_show Iter.toArray(MemoryBTree.leafNodes(btree, btree_utils)));
-                };
 
+                };
                 assert Methods.validate_memory(btree, btree_utils);
 
             },
 
         );
+
+        // test(
+        //     "check for memory leaks",
+        //     func() {
+
+        //     }
+        // );
 
         test(
             "clear()",

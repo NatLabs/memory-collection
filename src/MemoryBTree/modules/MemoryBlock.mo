@@ -14,7 +14,78 @@ import T "Types";
 
 module MemoryBlock {
 
-    //      Memory Layout - (15 bytes)
+    type Address = Nat;
+    type MemoryRegion = MemoryRegion.MemoryRegion;
+    type RevIter<A> = RevIter.RevIter<A>;
+
+    public type MemoryBTree = Migrations.MemoryBTree;
+    public type MemoryBlock = T.MemoryBlock;
+    type UniqueId = T.UniqueId;
+
+    public module Branch {
+
+        // Branch Key Memory Layout
+        //      | Field           | Size (bytes) | Description                             |
+        //      |-----------------|--------------|-----------------------------------------|
+        //      | key size        |  2           | key size                               |
+        //      | key blob        |  key size    | serialized key                          |
+        //      |-----------------|--------------|-----------------------------------------|
+
+        public let KEY_SIZE_START = 0;
+        public let KEY_BLOB_START = 2;
+
+        public func store_key_blob(btree : MemoryBTree, key : Blob) : UniqueId {
+            let key_address = MemoryRegion.allocate(btree.data, KEY_BLOB_START + key.size());
+
+            MemoryRegion.storeNat16(btree.data, key_address + KEY_SIZE_START, Nat16.fromNat(key.size())); // key mem block size
+            MemoryRegion.storeBlob(btree.data, key_address + KEY_BLOB_START, key);
+
+            key_address;
+        };
+
+        public func get_key_blob(btree : MemoryBTree, key_address : UniqueId) : Blob {
+            let key_size = MemoryRegion.loadNat16(btree.data, key_address + KEY_SIZE_START) |> Nat16.toNat(_);
+            let blob = MemoryRegion.loadBlob(btree.data, key_address + KEY_BLOB_START, key_size);
+
+            blob;
+        };
+
+        public func get_key_block(btree : MemoryBTree, key_address : UniqueId) : MemoryBlock {
+            let key_size = MemoryRegion.loadNat16(btree.data, key_address + KEY_SIZE_START) |> Nat16.toNat(_);
+
+            (key_address + KEY_BLOB_START, key_size);
+        };
+
+        public func remove_key_blob(btree : MemoryBTree, key_address : UniqueId) {
+            let key_size = MemoryRegion.loadNat16(btree.data, key_address + KEY_SIZE_START) |> Nat16.toNat(_);
+            MemoryRegion.deallocate(btree.data, key_address, KEY_BLOB_START + key_size);
+        };
+
+        // Replaces the key blob at 'prev_key_address' with 'new_key'.
+        // If the memory block address remains the same after resizing, it returns null.
+        // Otherwise, it returns the new memory block address.
+        public func replace_key_blob(btree : MemoryBTree, prev_key_address : UniqueId, new_key : Blob) : ?UniqueId {
+
+            let prev_key_size = MemoryRegion.loadNat16(btree.data, prev_key_address + KEY_SIZE_START) |> Nat16.toNat(_);
+
+            if (prev_key_size == new_key.size()) {
+                MemoryRegion.storeBlob(btree.data, prev_key_address + KEY_BLOB_START, new_key);
+                return null;
+            };
+
+            let new_key_address = MemoryRegion.resize(btree.data, prev_key_address, prev_key_size + KEY_SIZE_START, new_key.size() + KEY_SIZE_START);
+
+            MemoryRegion.storeNat16(btree.data, new_key_address + KEY_SIZE_START, Nat16.fromNat(new_key.size()));
+            MemoryRegion.storeBlob(btree.data, new_key_address + KEY_BLOB_START, new_key);
+
+            if (new_key_address == prev_key_address) return null;
+
+            ?new_key_address;
+        };
+
+    };
+
+    //      Leaf Entry Memory Layout - (15 bytes)
     //
     //      | Field           | Size (bytes) | Description                             |
     //      |-----------------|--------------|-----------------------------------------|
@@ -25,14 +96,6 @@ module MemoryBlock {
     // |    | key blob        |  key size    | serialized key                          |
     // |
     // └--> value blob of 'value size' stored at this address
-
-    type Address = Nat;
-    type MemoryRegion = MemoryRegion.MemoryRegion;
-    type RevIter<A> = RevIter.RevIter<A>;
-
-    public type MemoryBTree = Migrations.MemoryBTree;
-    public type MemoryBlock = T.MemoryBlock;
-    type UniqueId = T.UniqueId;
 
     let BLOCK_ENTRY_SIZE = 15;
 
