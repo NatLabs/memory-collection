@@ -519,12 +519,23 @@ suite(
 
         );
 
-        // test(
-        //     "check for memory leaks",
-        //     func() {
+        test(
+            "check for memory leaks",
+            func() {
 
-        //     }
-        // );
+                Debug.print("checking for memory leaks");
+                Debug.print("data info: " # debug_show MemoryRegion.memoryInfo(btree.data));
+                Debug.print("values info: " # debug_show MemoryRegion.memoryInfo(btree.values));
+                Debug.print("leaves info: " # debug_show MemoryRegion.memoryInfo(btree.leaves));
+                Debug.print("branches info: " # debug_show MemoryRegion.memoryInfo(btree.branches));
+
+                assert MemoryRegion.size(btree.data) == MemoryBTree.MC.REGION_HEADER_SIZE;
+                assert MemoryRegion.allocated(btree.values) == MemoryBTree.MC.REGION_HEADER_SIZE;
+                assert MemoryRegion.size(btree.leaves) == MemoryBTree.MC.REGION_HEADER_SIZE + MemoryBTree.Leaf.get_memory_size(btree.node_capacity);
+                assert MemoryRegion.size(btree.branches) == MemoryBTree.MC.REGION_HEADER_SIZE;
+
+            },
+        );
 
         test(
             "clear()",
@@ -538,6 +549,12 @@ suite(
                 assert MemoryBTree.size(btree) == 0;
 
                 assert Methods.validate_memory(btree, btree_utils);
+
+                assert MemoryRegion.size(btree.data) == MemoryBTree.MC.REGION_HEADER_SIZE;
+                assert MemoryRegion.allocated(btree.values) == MemoryBTree.MC.REGION_HEADER_SIZE;
+                assert MemoryRegion.size(btree.leaves) == MemoryBTree.MC.REGION_HEADER_SIZE + MemoryBTree.Leaf.get_memory_size(btree.node_capacity);
+                assert MemoryRegion.size(btree.branches) == MemoryBTree.MC.REGION_HEADER_SIZE;
+
             },
         );
 

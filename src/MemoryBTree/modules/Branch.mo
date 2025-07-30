@@ -1070,6 +1070,8 @@ module Branch {
     };
 
     public func deallocate(btree : MemoryBTree, branch : Address) {
+        // Only deallocate the branch node itself, not the keys
+        // Keys should be explicitly managed by the caller to avoid double-free errors
         let memory_size = Branch.get_memory_size(btree.node_capacity);
         MemoryRegion.deallocate(btree.branches, branch, memory_size);
     };
@@ -1106,6 +1108,7 @@ module Branch {
 
             if (i < (right_count - 1 : Nat)) {
                 let ?key_address = Branch.get_key_address(btree, right, i) else return Debug.trap("Branch.merge: key_address should not be null");
+                Branch.set_key_address_to_null(btree, right, i);
                 separator_key_address := key_address;
             };
 

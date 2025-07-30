@@ -20,7 +20,7 @@ import MemoryBlock "modules/MemoryBlock";
 import Branch "modules/Branch";
 import Utils "../Utils";
 import Migrations "Migrations";
-import Leaf "modules/Leaf";
+import LeafModule "modules/Leaf";
 import T "modules/Types";
 import TypeUtils "../TypeUtils";
 
@@ -45,6 +45,7 @@ module {
 
     let CACHE_LIMIT = 50_000;
     let DEFAULT_ORDER = 256;
+    public let Leaf = LeafModule;
 
     public func _new_with_options(node_capacity : ?Nat, opt_cache_size : ?Nat, is_set : Bool) : MemoryBTree {
         let cache_size = Option.get(opt_cache_size, CACHE_LIMIT);
@@ -376,7 +377,7 @@ module {
         var right_index = Leaf.get_index(btree, right_node_address);
 
         let ?first_key = Leaf.get_key_blob(btree, right_node_address, 0) else Debug.trap("insert: first_key_address accessed a null value");
-        var separator_key = first_key;
+        var separator_key_address = MemoryBlock.Branch.store_key_blob(btree, first_key);
 
         // assert Leaf.get_count(btree, left_node_address) == (btree.node_capacity / 2) + 1;
         // assert Leaf.get_count(btree, right_node_address) == (btree.node_capacity / 2);
@@ -392,7 +393,7 @@ module {
                 // Debug.print("found branch with enough space");
                 // Debug.print("parent before insert: " # debug_show Branch.from_memory(btree, parent_address));
 
-                Branch.insert_with_key_blob(btree, parent_address, right_index, separator_key, right_node_address);
+                Branch.insert(btree, parent_address, right_index, separator_key_address, right_node_address);
                 update_count(btree, btree.count + 1);
 
                 // Debug.print("parent after insert: " # debug_show Branch.from_memory(btree, parent_address));
@@ -402,12 +403,14 @@ module {
 
             // otherwise split parent
             left_node_address := parent_address;
-            right_node_address := Branch.split_with_key_blob(btree, left_node_address, right_index, separator_key, right_node_address);
+            right_node_address := Branch.split(btree, left_node_address, right_index, separator_key_address, right_node_address);
             update_branch_count(btree, btree.branch_count + 1);
 
-            let ?first_key = Branch.get_key_blob(btree, right_node_address, btree.node_capacity - 2) else Debug.trap("4. insert: accessed a null value in first key of branch");
+            // The separator key is temporarily stored in the right node at the last position.
+            // We need to move it to the left node and update the separator key address.
+            let ?first_key_address = Branch.get_key_address(btree, right_node_address, btree.node_capacity - 2) else Debug.trap("4. insert: accessed a null value in first key of branch");
             Branch.set_key_address_to_null(btree, right_node_address, btree.node_capacity - 2);
-            separator_key := first_key;
+            separator_key_address := first_key_address;
 
             right_index := Branch.get_index(btree, right_node_address);
             opt_parent := Branch.get_parent(btree, right_node_address);
@@ -423,7 +426,7 @@ module {
         Branch.update_depth(btree, new_root, new_depth);
         assert Branch.get_depth(btree, new_root) == new_depth;
 
-        Branch.put_key(btree, new_root, 0, separator_key);
+        Branch.put_key_address(btree, new_root, 0, separator_key_address);
 
         Branch.add_child(btree, new_root, left_node_address);
         Branch.add_child(btree, new_root, right_node_address);
@@ -793,6 +796,10 @@ module {
                 update_root(btree, child);
                 update_is_root_a_leaf(btree, child_is_leaf);
                 update_depth(btree, btree.depth - 1);
+
+                Branch.deallocate(btree, parent);
+                update_branch_count(btree, btree.branch_count - 1);
+
                 return ?prev_val;
 
             } else {
@@ -825,9 +832,10 @@ module {
 
             let merged_branch = Branch.merge(btree, branch, neighbour);
             let merged_branch_index = Branch.get_index(btree, merged_branch);
-            ignore Branch.remove(btree, parent, merged_branch_index);
+            let removed_key_address = Branch.remove(btree, parent, merged_branch_index);
 
-            // Deallocate the key that was separating the merged branches as the leaf stores its keys separately
+            // The separator key is transferred to the merged branch during merge,
+            // so it should not be deallocated here
             // MemoryBlock.Branch.remove_key_blob(btree, removed_key_address);
 
             Branch.deallocate(btree, merged_branch);
