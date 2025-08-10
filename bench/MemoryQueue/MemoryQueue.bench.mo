@@ -3,7 +3,7 @@ import Debug "mo:base@.v0.14.11/Debug";
 import Buffer "mo:base@.v0.14.11/Buffer";
 import Nat64 "mo:base@.v0.14.11/Nat64";
 
-import Bench "mo:bench@.v1.0.0";
+import Bench "mo:bench";
 import Fuzz "mo:fuzz@.v1.0.0";
 import Itertools "mo:itertools@.v0.2.2/Iter";
 

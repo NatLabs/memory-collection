@@ -7,7 +7,7 @@ import Text "mo:base@.v0.14.11/Text";
 import RBTree "mo:base@.v0.14.11/RBTree";
 
 import BTree "mo:stableheapbtreemap@.v1.5.0/BTree";
-import Bench "mo:bench@.v1.0.0";
+import Bench "mo:bench";
 import Fuzz "mo:fuzz@.v1.0.0";
 
 import { BpTree; Cmp } "mo:augmented-btrees@.v0.7.1";

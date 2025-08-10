@@ -6,11 +6,8 @@ import Region "mo:base@.v0.14.11/Region";
 import Buffer "mo:base@.v0.14.11/Buffer";
 import Text "mo:base@.v0.14.11/Text";
 
-import Bench "mo:bench@.v1.0.0";
+import Bench "mo:bench";
 import Fuzz "mo:fuzz@.v1.0.0";
-import MotokoStableBTree "mo:MotokoStableBTree/BTree";
-import BTreeMap "mo:MotokoStableBTree/modules/btreemap";
-import BTreeMapMemory "mo:MotokoStableBTree/modules/memory";
 
 import { BpTree; Cmp } "mo:augmented-btrees@.v0.7.1";
 
@@ -51,12 +48,7 @@ module {
 
         let limit = 10_000;
 
-        let { n64conv; tconv } = MotokoStableBTree;
-
-        let tconv_10 = tconv(10);
-
         let bptree = BpTree.new<Text, Text>(?32);
-        let stable_btree = BTreeMap.new<Text, Text>(BTreeMapMemory.RegionMemory(Region.new()), tconv_10, tconv_10);
         let mem_btree_order_4 = MemoryBTree.new(?4);
         let mem_btree_order_32 = MemoryBTree.new(?32);
         let mem_btree_order_64 = MemoryBTree.new(?64);
@@ -204,38 +196,6 @@ module {
                 case ("B+Tree", "remove()") {
                     for ((k, v) in entries.vals()) {
                         ignore BpTree.remove(bptree, Cmp.Text, k);
-                    };
-                };
-
-                case ("MotokoStableBTree", "insert()") {
-                    for ((key, val) in entries.vals()) {
-                        ignore stable_btree.insert(key, tconv_10, val, tconv_10);
-                    };
-                };
-                case ("MotokoStableBTree", "replace()") {
-                    for ((key, val) in replacements.vals()) {
-                        ignore stable_btree.insert(key, tconv_10, val, tconv_10);
-                    };
-                };
-                case ("MotokoStableBTree", "get()") {
-                    for (i in Iter.range(0, limit - 1)) {
-                        let (key, val) = entries.get(i);
-                        ignore stable_btree.get(key, tconv_10, tconv_10);
-                    };
-                };
-                case ("MotokoStableBTree", "entries()") {
-                    var i = 0;
-                    for (kv in stable_btree.iter(tconv_10, tconv_10)) {
-                        i += 1;
-                    };
-
-                    assert Nat64.fromNat(i) == stable_btree.getLength();
-                    Debug.print("Size: " # debug_show (i, stable_btree.getLength()));
-                };
-                case ("MotokoStableBTree", "scan()") {};
-                case ("MotokoStableBTree", "remove()") {
-                    for ((k, v) in entries.vals()) {
-                        ignore stable_btree.remove(k, tconv_10, tconv_10);
                     };
                 };
 

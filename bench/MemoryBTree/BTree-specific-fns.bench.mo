@@ -4,7 +4,7 @@ import Nat "mo:base@.v0.14.11/Nat";
 import Buffer "mo:base@.v0.14.11/Buffer";
 import Nat64 "mo:base@.v0.14.11/Nat64";
 
-import Bench "mo:bench@.v1.0.0";
+import Bench "mo:bench";
 import Fuzz "mo:fuzz@.v1.0.0";
 
 import { BpTree; Cmp } "mo:augmented-btrees@.v0.7.1";

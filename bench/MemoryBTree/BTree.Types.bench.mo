@@ -5,9 +5,8 @@ import Text "mo:base@.v0.14.11/Text";
 import Nat "mo:base@.v0.14.11/Nat";
 import Nat64 "mo:base@.v0.14.11/Nat64";
 
-import Bench "mo:bench@.v1.0.0";
+import Bench "mo:bench";
 import Fuzz "mo:fuzz@.v1.0.0";
-import MotokoStableBTree "mo:MotokoStableBTree/BTree";
 
 import MemoryBTree "../../src/MemoryBTree/Base";
 import TypeUtils "../../src/TypeUtils";
@@ -46,10 +45,6 @@ module {
         ]);
 
         let limit = 10_000;
-
-        let { n64conv; tconv } = MotokoStableBTree;
-
-        let tconv_10 = tconv(10);
 
         let mem_btree_text_gen_cmp = MemoryBTree.new(?128);
         let mem_btree_text_blob_cmp = MemoryBTree.new(?128);
