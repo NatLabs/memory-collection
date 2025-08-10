@@ -1,5 +1,5 @@
 // @testmode wasi
-import { test; suite } "mo:test";
+import { test; suite } "mo:test@.v2.1.1";
 import MemoryBuffer "../../src/MemoryBuffer/Base";
 import StableMemoryBuffer "../../src/MemoryBuffer/Stable";
 import Migrations "../../src/MemoryBuffer/Migrations";

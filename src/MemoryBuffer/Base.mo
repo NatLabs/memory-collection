@@ -1,20 +1,20 @@
 /// A memory buffer is a data structure that stores a sequence of values in memory.
 
-import Debug "mo:base/Debug";
-import Array "mo:base/Array";
-import Iter "mo:base/Iter";
-import Int "mo:base/Int";
-import Nat "mo:base/Nat";
-import Nat8 "mo:base/Nat8";
-import Nat32 "mo:base/Nat32";
-import Nat64 "mo:base/Nat64";
-import Blob "mo:base/Blob";
-import Result "mo:base/Result";
-import Order "mo:base/Order";
+import Debug "mo:base@.v0.14.11/Debug";
+import Array "mo:base@.v0.14.11/Array";
+import Iter "mo:base@.v0.14.11/Iter";
+import Int "mo:base@.v0.14.11/Int";
+import Nat "mo:base@.v0.14.11/Nat";
+import Nat8 "mo:base@.v0.14.11/Nat8";
+import Nat32 "mo:base@.v0.14.11/Nat32";
+import Nat64 "mo:base@.v0.14.11/Nat64";
+import Blob "mo:base@.v0.14.11/Blob";
+import Result "mo:base@.v0.14.11/Result";
+import Order "mo:base@.v0.14.11/Order";
 
-import MemoryRegion "mo:memory-region/MemoryRegion";
-import RevIter "mo:itertools/RevIter";
-import Itertools "mo:itertools/Iter";
+import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
+import RevIter "mo:itertools@.v0.2.2/RevIter";
+import Itertools "mo:itertools@.v0.2.2/Iter";
 
 import Migrations "Migrations";
 import MemoryCmp "../TypeUtils/MemoryCmp";
@@ -92,7 +92,7 @@ module MemoryBuffer {
         MemoryRegion.storeBlob(m_region.blobs, C.MAGIC_NUMBER_ADDRESS, "BLB");
         MemoryRegion.storeNat8(m_region.blobs, C.LAYOUT_VERSION_ADDRESS, Nat8.fromNat(LAYOUT_VERSION));
         MemoryRegion.storeNat32(m_region.blobs, C.REGION_ID_ADDRESS, Nat32.fromNat(MemoryRegion.id(m_region.pointers))); // store the pointers region id in the blob region
-        assert MemoryRegion.size(m_region.blobs) == REGION_HEADER_SIZE;
+        assert MemoryRegion.allocated(m_region.blobs) == REGION_HEADER_SIZE;
 
         // Initialize the Pointer Region Header
         ignore MemoryRegion.allocate(m_region.pointers, REGION_HEADER_SIZE); // Reserved Space for the Region Header
@@ -101,7 +101,7 @@ module MemoryBuffer {
         MemoryRegion.storeNat32(m_region.pointers, C.REGION_ID_ADDRESS, Nat32.fromNat(MemoryRegion.id(m_region.blobs))); // store the blobs region id in the pointers region
         MemoryRegion.storeNat64(m_region.pointers, C.COUNT_ADDRESS, 0);
 
-        assert MemoryRegion.size(m_region.pointers) == REGION_HEADER_SIZE;
+        assert MemoryRegion.allocated(m_region.pointers) == REGION_HEADER_SIZE;
     };
 
     func update_count<A>(self : MemoryBuffer<A>, count : Nat) {

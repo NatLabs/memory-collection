@@ -1,13 +1,13 @@
-import Nat "mo:base/Nat";
-import Blob "mo:base/Blob";
-import Nat64 "mo:base/Nat64";
-import Nat16 "mo:base/Nat16";
-import Nat8 "mo:base/Nat8";
-import Nat32 "mo:base/Nat32";
-import Debug "mo:base/Debug";
+import Nat "mo:base@.v0.14.11/Nat";
+import Blob "mo:base@.v0.14.11/Blob";
+import Nat64 "mo:base@.v0.14.11/Nat64";
+import Nat16 "mo:base@.v0.14.11/Nat16";
+import Nat8 "mo:base@.v0.14.11/Nat8";
+import Nat32 "mo:base@.v0.14.11/Nat32";
+import Debug "mo:base@.v0.14.11/Debug";
 
-import MemoryRegion "mo:memory-region/MemoryRegion";
-import RevIter "mo:itertools/RevIter";
+import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
+import RevIter "mo:itertools@.v0.2.2/RevIter";
 
 import Migrations "../Migrations";
 import T "Types";
@@ -43,7 +43,7 @@ module MemoryBlock {
     let KEY_BLOB_START = 15;
 
     public func id_exists(btree : MemoryBTree, block_address : UniqueId) : Bool {
-        MemoryRegion.isAllocated(btree.data, block_address);
+        MemoryRegion.isAllocated(btree.data, block_address, 0);
     };
 
     public func store(btree : MemoryBTree, key : Blob, val : Blob) : UniqueId {

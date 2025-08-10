@@ -1,16 +1,16 @@
-import Debug "mo:base/Debug";
-import Iter "mo:base/Iter";
-import Int "mo:base/Int";
-import Nat "mo:base/Nat";
-import Option "mo:base/Option";
-import Nat8 "mo:base/Nat8";
-import Nat16 "mo:base/Nat16";
-import Nat32 "mo:base/Nat32";
-import Nat64 "mo:base/Nat64";
-import Blob "mo:base/Blob";
+import Debug "mo:base@.v0.14.11/Debug";
+import Iter "mo:base@.v0.14.11/Iter";
+import Int "mo:base@.v0.14.11/Int";
+import Nat "mo:base@.v0.14.11/Nat";
+import Option "mo:base@.v0.14.11/Option";
+import Nat8 "mo:base@.v0.14.11/Nat8";
+import Nat16 "mo:base@.v0.14.11/Nat16";
+import Nat32 "mo:base@.v0.14.11/Nat32";
+import Nat64 "mo:base@.v0.14.11/Nat64";
+import Blob "mo:base@.v0.14.11/Blob";
 
-import MemoryRegion "mo:memory-region/MemoryRegion";
-import RevIter "mo:itertools/RevIter";
+import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
+import RevIter "mo:itertools@.v0.2.2/RevIter";
 import Find "mo:map/Map/modules/find";
 
 import MemoryCmp "../TypeUtils/MemoryCmp";
@@ -636,9 +636,13 @@ module {
     public func clear(btree : MemoryBTree) {
 
         // the first leaf node should be at the address where the header ends
+        // Leaf.validate() checks that the leaf_address the specified leaf_address is valid (i.e the start of the leaf node)
         let leaf_address = MC.REGION_HEADER_SIZE;
         assert Leaf.validate(btree, leaf_address);
 
+        // remove all key-value pairs from the leaf
+        // this will also deallocate the key and value blocks
+        // but not the leaf node itself
         Leaf.clear(btree, leaf_address);
         assert Leaf.validate(btree, leaf_address);
 
@@ -650,28 +654,25 @@ module {
         update_leaf_count(btree, 1);
 
         let leaf_memory_size = Leaf.get_memory_size(btree.node_capacity);
-        let everything_after_leaf = leaf_address + leaf_memory_size;
+        let leaf_memory_end = leaf_address + leaf_memory_size;
         let leaves_region_size = MemoryRegion.size(btree.leaves);
-        MemoryRegion.deallocateRange(btree.leaves, everything_after_leaf, leaves_region_size);
+        MemoryRegion.deallocateRange(btree.leaves, leaf_memory_end, leaves_region_size);
 
-        assert MemoryRegion.allocated(btree.leaves) == everything_after_leaf;
-        assert MemoryRegion.size(btree.leaves) == everything_after_leaf;
-        assert MemoryRegion.deallocated(btree.leaves) == 0;
-        assert [] == Iter.toArray(MemoryRegion.deallocatedBlocksInRange(btree.leaves, 0, leaves_region_size));
+        assert MemoryRegion.allocated(btree.leaves) == leaf_memory_end;
+        assert MemoryRegion.size(btree.leaves) == MemoryRegion.allocated(btree.leaves) + MemoryRegion.deallocated(btree.leaves);
+        assert [(leaf_memory_end, MemoryRegion.size(btree.leaves) - leaf_memory_end)] == MemoryRegion.getFreeMemory(btree.leaves);
 
         let branches_memory_size = MemoryRegion.size(btree.branches);
         MemoryRegion.deallocateRange(btree.branches, MC.REGION_HEADER_SIZE, branches_memory_size);
         assert MemoryRegion.allocated(btree.branches) == MC.REGION_HEADER_SIZE;
-        assert MemoryRegion.size(btree.branches) == MC.REGION_HEADER_SIZE;
-        assert MemoryRegion.deallocated(btree.branches) == 0;
-        assert [] == Iter.toArray(MemoryRegion.deallocatedBlocksInRange(btree.branches, 0, branches_memory_size));
+        assert MemoryRegion.size(btree.branches) == MemoryRegion.allocated(btree.branches) + MemoryRegion.deallocated(btree.branches);
+        assert [(MC.REGION_HEADER_SIZE, MemoryRegion.size(btree.branches) - MC.REGION_HEADER_SIZE)] == MemoryRegion.getFreeMemory(btree.branches);
 
         let data_memory_size = MemoryRegion.size(btree.data);
         MemoryRegion.deallocateRange(btree.data, MC.REGION_HEADER_SIZE, data_memory_size);
         assert MemoryRegion.allocated(btree.data) == MC.REGION_HEADER_SIZE;
-        assert MemoryRegion.size(btree.data) == MC.REGION_HEADER_SIZE;
-        assert MemoryRegion.deallocated(btree.data) == 0;
-        assert [] == Iter.toArray(MemoryRegion.deallocatedBlocksInRange(btree.data, 0, data_memory_size));
+        assert MemoryRegion.size(btree.data) == MemoryRegion.allocated(btree.data) + MemoryRegion.deallocated(btree.data);
+        assert [(MC.REGION_HEADER_SIZE, MemoryRegion.size(btree.data) - MC.REGION_HEADER_SIZE)] == MemoryRegion.getFreeMemory(btree.data);
 
     };
 

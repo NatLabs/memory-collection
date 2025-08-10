@@ -1,11 +1,11 @@
-import Iter "mo:base/Iter";
-import Nat8 "mo:base/Nat8";
-import Nat64 "mo:base/Nat64";
-import Debug "mo:base/Debug";
-import Blob "mo:base/Blob";
-import TextModule "mo:base/Text";
+import Iter "mo:base@.v0.14.11/Iter";
+import Nat8 "mo:base@.v0.14.11/Nat8";
+import Nat64 "mo:base@.v0.14.11/Nat64";
+import Debug "mo:base@.v0.14.11/Debug";
+import Blob "mo:base@.v0.14.11/Blob";
+import TextModule "mo:base@.v0.14.11/Text";
 
-import Itertools "mo:itertools/Iter";
+import Itertools "mo:itertools@.v0.2.2/Iter";
 import Blobify "../TypeUtils/Blobify";
 
 module WyHash {

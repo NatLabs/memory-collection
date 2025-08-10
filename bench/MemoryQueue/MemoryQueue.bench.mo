@@ -1,11 +1,11 @@
-import Iter "mo:base/Iter";
-import Debug "mo:base/Debug";
-import Buffer "mo:base/Buffer";
-import Nat64 "mo:base/Nat64";
+import Iter "mo:base@.v0.14.11/Iter";
+import Debug "mo:base@.v0.14.11/Debug";
+import Buffer "mo:base@.v0.14.11/Buffer";
+import Nat64 "mo:base@.v0.14.11/Nat64";
 
-import Bench "mo:bench";
-import Fuzz "mo:fuzz";
-import Itertools "mo:itertools/Iter";
+import Bench "mo:bench@.v1.0.0";
+import Fuzz "mo:fuzz@.v1.0.0";
+import Itertools "mo:itertools@.v0.2.2/Iter";
 
 import MemoryQueue "../../src/MemoryQueue";
 import TypeUtils "../../src/TypeUtils";
@@ -25,25 +25,7 @@ module {
             "random add()/pop()",
         ]);
 
-        func xorshift128plus(seed : Nat) : { next() : Nat } {
-            var state0 : Nat64 = Nat64.fromNat(seed);
-            var state1 : Nat64 = Nat64.fromNat(seed + 1);
-            if (state0 == 0) state0 := 1;
-            if (state1 == 0) state1 := 2;
-
-            {
-                next = func() : Nat {
-                    var s1 = state0;
-                    let s0 = state1;
-                    state0 := s0;
-                    s1 ^= s1 << 23 : Nat64;
-                    state1 := s1 ^ s0 ^ (s1 >> 18 : Nat64) ^ (s0 >> 5 : Nat64);
-                    Nat64.toNat(state1 +% s0); // Use wrapping addition
-                };
-            };
-        };
-
-        let fuzz = Fuzz.create(xorshift128plus(0xdeadbeef));
+        let fuzz = Fuzz.fromSeed(0xdeadbeef);
 
         let limit = 10_000;
 

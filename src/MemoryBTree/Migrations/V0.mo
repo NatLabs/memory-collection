@@ -1,8 +1,8 @@
-import Nat "mo:base/Nat";
+import Nat "mo:base@.v0.14.11/Nat";
 
-import MemoryRegion "mo:memory-region/MemoryRegion";
-import RevIter "mo:itertools/RevIter";
-// import Branch "mo:augmented-btrees/BpTree/Branch";
+import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
+import RevIter "mo:itertools@.v0.2.2/RevIter";
+// import Branch "mo:augmented-btrees@.v0.7.1/BpTree/Branch";
 
 import Blobify "../../TypeUtils/Blobify";
 import MemoryCmp "../../TypeUtils/MemoryCmp";

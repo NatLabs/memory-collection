@@ -1,12 +1,12 @@
-import Iter "mo:base/Iter";
-import Buffer "mo:base/Buffer";
-import Nat "mo:base/Nat";
-import Blob "mo:base/Blob";
-import Debug "mo:base/Debug";
-import Nat64 "mo:base/Nat64";
+import Iter "mo:base@.v0.14.11/Iter";
+import Buffer "mo:base@.v0.14.11/Buffer";
+import Nat "mo:base@.v0.14.11/Nat";
+import Blob "mo:base@.v0.14.11/Blob";
+import Debug "mo:base@.v0.14.11/Debug";
+import Nat64 "mo:base@.v0.14.11/Nat64";
 
-import Bench "mo:bench";
-import Fuzz "mo:fuzz";
+import Bench "mo:bench@.v1.0.0";
+import Fuzz "mo:fuzz@.v1.0.0";
 
 import MemoryBuffer "../../src/MemoryBuffer/Base";
 
@@ -45,25 +45,7 @@ module {
 
         let limit = 10_000;
 
-        func xorshift128plus(seed : Nat) : { next() : Nat } {
-            var state0 : Nat64 = Nat64.fromNat(seed);
-            var state1 : Nat64 = Nat64.fromNat(seed + 1);
-            if (state0 == 0) state0 := 1;
-            if (state1 == 0) state1 := 2;
-
-            {
-                next = func() : Nat {
-                    var s1 = state0;
-                    let s0 = state1;
-                    state0 := s0;
-                    s1 ^= s1 << 23 : Nat64;
-                    state1 := s1 ^ s0 ^ (s1 >> 18 : Nat64) ^ (s0 >> 5 : Nat64);
-                    Nat64.toNat(state1 +% s0); // Use wrapping addition
-                };
-            };
-        };
-
-        let fuzz = Fuzz.create(xorshift128plus(0xdeadbeef));
+        let fuzz = Fuzz.fromSeed(0xdeadbeef);
 
         let buffer = Buffer.Buffer<Blob>(limit);
         let mbuffer = MemoryBuffer.new<Blob>();
@@ -75,10 +57,12 @@ module {
         let less = Buffer.Buffer<Blob>(limit);
 
         for (i in Iter.range(0, limit - 1)) {
-            let blob = fuzz.blob.randomBlob(10);
-            let blob2 = fuzz.blob.randomBlob(10);
-            let higher = fuzz.blob.randomBlob(20);
-            let lower = fuzz.blob.randomBlob(5);
+            let size = fuzz.nat.randomRange(25, 50);
+
+            let blob = fuzz.blob.randomBlob(size);
+            let blob2 = fuzz.blob.randomBlob(size);
+            let higher = fuzz.blob.randomBlob(fuzz.nat.randomRange(50, 100));
+            let lower = fuzz.blob.randomBlob(fuzz.nat.randomRange(0, 25));
 
             order.add(i);
             values.add(blob);
@@ -155,10 +139,6 @@ module {
                         MemoryBuffer.add(mbuffer, TypeUtils.Blob, val);
                     };
 
-                    Debug.print("mbuffer bytes: " # debug_show MemoryBuffer.bytes(mbuffer));
-                    Debug.print("mbuffer metadataBytes: " # debug_show MemoryBuffer.metadataBytes(mbuffer));
-                    Debug.print("mbuffer capacity: " # debug_show MemoryBuffer.capacity(mbuffer));
-
                 };
                 case ("MemoryBuffer", "get()") {
                     for (i in Iter.range(0, limit - 1)) {
@@ -171,9 +151,6 @@ module {
                         let val = values2.get(i);
                         MemoryBuffer.put(mbuffer, TypeUtils.Blob, i, val);
                     };
-                    Debug.print("mbuffer bytes: " # debug_show MemoryBuffer.bytes(mbuffer));
-                    Debug.print("mbuffer metadataBytes: " # debug_show MemoryBuffer.metadataBytes(mbuffer));
-                    Debug.print("mbuffer capacity: " # debug_show MemoryBuffer.capacity(mbuffer));
 
                 };
                 case ("MemoryBuffer", "put() (new > prev)") {
@@ -181,9 +158,6 @@ module {
                         let val = greater.get(i);
                         MemoryBuffer.put(mbuffer, TypeUtils.Blob, i, val);
                     };
-                    Debug.print("mbuffer bytes: " # debug_show MemoryBuffer.bytes(mbuffer));
-                    Debug.print("mbuffer metadataBytes: " # debug_show MemoryBuffer.metadataBytes(mbuffer));
-                    Debug.print("mbuffer capacity: " # debug_show MemoryBuffer.capacity(mbuffer));
 
                 };
                 case ("MemoryBuffer", "put() (new < prev)") {
@@ -191,9 +165,6 @@ module {
                         let val = less.get(i);
                         MemoryBuffer.put(mbuffer, TypeUtils.Blob, i, val);
                     };
-                    Debug.print("mbuffer bytes: " # debug_show MemoryBuffer.bytes(mbuffer));
-                    Debug.print("mbuffer metadataBytes: " # debug_show MemoryBuffer.metadataBytes(mbuffer));
-                    Debug.print("mbuffer capacity: " # debug_show MemoryBuffer.capacity(mbuffer));
 
                 };
                 case ("MemoryBuffer", "remove()") {
@@ -202,9 +173,6 @@ module {
 
                         ignore MemoryBuffer.remove(mbuffer, TypeUtils.Blob, j);
                     };
-                    Debug.print("mbuffer bytes: " # debug_show MemoryBuffer.bytes(mbuffer));
-                    Debug.print("mbuffer metadataBytes: " # debug_show MemoryBuffer.metadataBytes(mbuffer));
-                    Debug.print("mbuffer capacity: " # debug_show MemoryBuffer.capacity(mbuffer));
 
                 };
                 case ("MemoryBuffer", "insert()") {

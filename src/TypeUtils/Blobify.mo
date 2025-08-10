@@ -4,25 +4,25 @@
 /// and deserializing values that will be stored in persistent stable memory.
 ///
 
-import TextModule "mo:base/Text";
-import CharModule "mo:base/Char";
-import BlobModule "mo:base/Blob";
-import ArrayModule "mo:base/Array";
-import NatModule "mo:base/Nat";
-import Nat8Module "mo:base/Nat8";
-import Nat16Module "mo:base/Nat16";
-import Nat32Module "mo:base/Nat32";
-import Nat64Module "mo:base/Nat64";
-import IntModule "mo:base/Int";
-import Int8Module "mo:base/Int8";
-import Int16Module "mo:base/Int16";
-import Int32Module "mo:base/Int32";
-import Int64Module "mo:base/Int64";
-import PrincipalModule "mo:base/Principal";
-import TimeModule "mo:base/Time";
-import Debug "mo:base/Debug";
+import TextModule "mo:base@.v0.14.11/Text";
+import CharModule "mo:base@.v0.14.11/Char";
+import BlobModule "mo:base@.v0.14.11/Blob";
+import ArrayModule "mo:base@.v0.14.11/Array";
+import NatModule "mo:base@.v0.14.11/Nat";
+import Nat8Module "mo:base@.v0.14.11/Nat8";
+import Nat16Module "mo:base@.v0.14.11/Nat16";
+import Nat32Module "mo:base@.v0.14.11/Nat32";
+import Nat64Module "mo:base@.v0.14.11/Nat64";
+import IntModule "mo:base@.v0.14.11/Int";
+import Int8Module "mo:base@.v0.14.11/Int8";
+import Int16Module "mo:base@.v0.14.11/Int16";
+import Int32Module "mo:base@.v0.14.11/Int32";
+import Int64Module "mo:base@.v0.14.11/Int64";
+import PrincipalModule "mo:base@.v0.14.11/Principal";
+import TimeModule "mo:base@.v0.14.11/Time";
+import Debug "mo:base@.v0.14.11/Debug";
 
-import ByteUtils "mo:byte-utils";
+import ByteUtils "mo:byte-utils@.v0.0.1";
 
 import Utils "../Utils";
 

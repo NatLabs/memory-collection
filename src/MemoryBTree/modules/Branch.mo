@@ -1,19 +1,19 @@
 /// Branch Node Operations
 
-import Debug "mo:base/Debug";
-import Array "mo:base/Array";
-import Int "mo:base/Int";
-import Nat "mo:base/Nat";
-import Nat8 "mo:base/Nat8";
-import Nat16 "mo:base/Nat16";
-import Nat64 "mo:base/Nat64";
-import Blob "mo:base/Blob";
-import Bool "mo:base/Bool";
-import Float "mo:base/Float";
+import Debug "mo:base@.v0.14.11/Debug";
+import Array "mo:base@.v0.14.11/Array";
+import Int "mo:base@.v0.14.11/Int";
+import Nat "mo:base@.v0.14.11/Nat";
+import Nat8 "mo:base@.v0.14.11/Nat8";
+import Nat16 "mo:base@.v0.14.11/Nat16";
+import Nat64 "mo:base@.v0.14.11/Nat64";
+import Blob "mo:base@.v0.14.11/Blob";
+import Bool "mo:base@.v0.14.11/Bool";
+import Float "mo:base@.v0.14.11/Float";
 
-import MemoryRegion "mo:memory-region/MemoryRegion";
-import RevIter "mo:itertools/RevIter";
-// import Branch "mo:augmented-btrees/BpTree/Branch";
+import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
+import RevIter "mo:itertools@.v0.2.2/RevIter";
+// import Branch "mo:augmented-btrees@.v0.7.1/BpTree/Branch";
 
 import MemoryFns "MemoryFns";
 import T "Types";

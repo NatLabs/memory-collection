@@ -1,11 +1,11 @@
-import Array "mo:base/Array";
-import Debug "mo:base/Debug";
-import Iter "mo:base/Iter";
-import Nat8 "mo:base/Nat8";
-import Nat32 "mo:base/Nat32";
-import Nat64 "mo:base/Nat64";
+import Array "mo:base@.v0.14.11/Array";
+import Debug "mo:base@.v0.14.11/Debug";
+import Iter "mo:base@.v0.14.11/Iter";
+import Nat8 "mo:base@.v0.14.11/Nat8";
+import Nat32 "mo:base@.v0.14.11/Nat32";
+import Nat64 "mo:base@.v0.14.11/Nat64";
 
-import MemoryRegion "mo:memory-region/MemoryRegion";
+import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
 
 import Blobify "../TypeUtils/Blobify";
 import TypeUtils "../TypeUtils";
@@ -80,7 +80,7 @@ module MemoryQueue {
         MemoryRegion.storeNat64(mem_queue.region, C.COUNT_ADDRESS, 0);
         MemoryRegion.storeNat64(mem_queue.region, C.HEAD_START, Nat64.fromNat(C.NULL_ADDRESS));
         MemoryRegion.storeNat64(mem_queue.region, C.TAIL_START, Nat64.fromNat(C.NULL_ADDRESS));
-        assert MemoryRegion.size(mem_queue.region) == C.REGION_HEADER_SIZE;
+        assert MemoryRegion.allocated(mem_queue.region) == C.REGION_HEADER_SIZE;
     };
 
     func update_count(mem_queue : MemoryQueue, count : Nat) {
@@ -213,8 +213,10 @@ module MemoryQueue {
 
     /// Removes all the elements from the memory queue.
     public func clear<A>(mem_queue : MemoryQueue) {
-        MemoryRegion.clear(mem_queue.region);
-        init_region_header(mem_queue);
+        MemoryRegion.deallocateRange(mem_queue.region, C.REGION_HEADER_SIZE, MemoryRegion.size(mem_queue.region));
+        update_count(mem_queue, 0);
+        update_head(mem_queue, C.NULL_ADDRESS);
+        update_tail(mem_queue, C.NULL_ADDRESS);
     };
 
 };
