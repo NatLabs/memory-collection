@@ -1,15 +1,15 @@
-import Iter "mo:base@.v0.14.11/Iter";
-import Debug "mo:base@.v0.14.11/Debug";
-import Nat "mo:base@.v0.14.11/Nat";
-import Nat64 "mo:base@.v0.14.11/Nat64";
-import Region "mo:base@.v0.14.11/Region";
-import Buffer "mo:base@.v0.14.11/Buffer";
-import Text "mo:base@.v0.14.11/Text";
+import Iter "mo:base@0.14.11/Iter";
+import Debug "mo:base@0.14.11/Debug";
+import Nat "mo:base@0.14.11/Nat";
+import Nat64 "mo:base@0.14.11/Nat64";
+import Region "mo:base@0.14.11/Region";
+import Buffer "mo:base@0.14.11/Buffer";
+import Text "mo:base@0.14.11/Text";
 
 import Bench "mo:bench";
-import Fuzz "mo:fuzz@.v1.0.0";
+import Fuzz "mo:fuzz@1.0.0";
 
-import { BpTree; Cmp } "mo:augmented-btrees@.v0.7.1";
+import { BpTree; Cmp } "mo:augmented-btrees@0.7.1";
 
 import MemoryBTree "../../src/MemoryBTree/Base";
 import TypeUtils "../../src/TypeUtils";

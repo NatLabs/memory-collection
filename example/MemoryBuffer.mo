@@ -1,4 +1,4 @@
-import Debug "mo:base@.v0.14.11/Debug";
+import Debug "mo:base@0.14.11/Debug";
 
 import MemoryBuffer "../src/MemoryBuffer"; // "mo:memory_collection/MemoryBuffer"
 import TypeUtils "../src/TypeUtils"; // "mo:memory_collection/TypeUtils"

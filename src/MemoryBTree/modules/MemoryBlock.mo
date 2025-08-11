@@ -1,13 +1,13 @@
-import Nat "mo:base@.v0.14.11/Nat";
-import Blob "mo:base@.v0.14.11/Blob";
-import Nat64 "mo:base@.v0.14.11/Nat64";
-import Nat16 "mo:base@.v0.14.11/Nat16";
-import Nat8 "mo:base@.v0.14.11/Nat8";
-import Nat32 "mo:base@.v0.14.11/Nat32";
-import Debug "mo:base@.v0.14.11/Debug";
+import Nat "mo:base@0.14.11/Nat";
+import Blob "mo:base@0.14.11/Blob";
+import Nat64 "mo:base@0.14.11/Nat64";
+import Nat16 "mo:base@0.14.11/Nat16";
+import Nat8 "mo:base@0.14.11/Nat8";
+import Nat32 "mo:base@0.14.11/Nat32";
+import Debug "mo:base@0.14.11/Debug";
 
-import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
-import RevIter "mo:itertools@.v0.2.2/RevIter";
+import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import RevIter "mo:itertools@0.2.2/RevIter";
 
 import Migrations "../Migrations";
 import T "Types";

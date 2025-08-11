@@ -1,17 +1,17 @@
 // @testmode wasi
-import { test; suite } "mo:test@.v2.1.1";
-import Debug "mo:base@.v0.14.11/Debug";
-import Iter "mo:base@.v0.14.11/Iter";
-import Buffer "mo:base@.v0.14.11/Buffer";
-import Nat "mo:base@.v0.14.11/Nat";
-import Blob "mo:base@.v0.14.11/Blob";
-import Order "mo:base@.v0.14.11/Order";
+import { test; suite } "mo:test@2.1.1";
+import Debug "mo:base@0.14.11/Debug";
+import Iter "mo:base@0.14.11/Iter";
+import Buffer "mo:base@0.14.11/Buffer";
+import Nat "mo:base@0.14.11/Nat";
+import Blob "mo:base@0.14.11/Blob";
+import Order "mo:base@0.14.11/Order";
 
-import Fuzz "mo:fuzz@.v1.0.0";
-import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
-import { MaxBpTree; Cmp } "mo:augmented-btrees@.v0.7.1";
-import MaxBpTreeMethods "mo:augmented-btrees@.v0.7.1/MaxBpTree/Methods";
-import BpTree "mo:augmented-btrees@.v0.7.1/BpTree";
+import Fuzz "mo:fuzz@1.0.0";
+import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import { MaxBpTree; Cmp } "mo:augmented-btrees@0.7.1";
+import MaxBpTreeMethods "mo:augmented-btrees@0.7.1/MaxBpTree/Methods";
+import BpTree "mo:augmented-btrees@0.7.1/BpTree";
 
 import MemoryBTree "../../src/MemoryBTree/Base";
 import TypeUtils "../../src/TypeUtils";

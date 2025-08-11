@@ -1,18 +1,18 @@
 // @testmode wasi
 import Prim "mo:prim";
 
-import Array "mo:base@.v0.14.11/Array";
-import Nat8 "mo:base@.v0.14.11/Nat8";
-import Blob "mo:base@.v0.14.11/Blob";
-import Debug "mo:base@.v0.14.11/Debug";
-import Nat "mo:base@.v0.14.11/Nat";
-import Nat64 "mo:base@.v0.14.11/Nat64";
-import Iter "mo:base@.v0.14.11/Iter";
-import Buffer "mo:base@.v0.14.11/Buffer";
-import { test; suite } "mo:test@.v2.1.1";
+import Array "mo:base@0.14.11/Array";
+import Nat8 "mo:base@0.14.11/Nat8";
+import Blob "mo:base@0.14.11/Blob";
+import Debug "mo:base@0.14.11/Debug";
+import Nat "mo:base@0.14.11/Nat";
+import Nat64 "mo:base@0.14.11/Nat64";
+import Iter "mo:base@0.14.11/Iter";
+import Buffer "mo:base@0.14.11/Buffer";
+import { test; suite } "mo:test@2.1.1";
 
-import Fuzz "mo:fuzz@.v1.0.0";
-import Itertools "mo:itertools@.v0.2.2/Iter";
+import Fuzz "mo:fuzz@1.0.0";
+import Itertools "mo:itertools@0.2.2/Iter";
 
 import MemoryBTree "../../../src/MemoryBTree/Base";
 import TypeUtils "../../../src/TypeUtils";

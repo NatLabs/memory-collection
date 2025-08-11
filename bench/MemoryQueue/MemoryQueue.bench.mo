@@ -1,11 +1,11 @@
-import Iter "mo:base@.v0.14.11/Iter";
-import Debug "mo:base@.v0.14.11/Debug";
-import Buffer "mo:base@.v0.14.11/Buffer";
-import Nat64 "mo:base@.v0.14.11/Nat64";
+import Iter "mo:base@0.14.11/Iter";
+import Debug "mo:base@0.14.11/Debug";
+import Buffer "mo:base@0.14.11/Buffer";
+import Nat64 "mo:base@0.14.11/Nat64";
 
 import Bench "mo:bench";
-import Fuzz "mo:fuzz@.v1.0.0";
-import Itertools "mo:itertools@.v0.2.2/Iter";
+import Fuzz "mo:fuzz@1.0.0";
+import Itertools "mo:itertools@0.2.2/Iter";
 
 import MemoryQueue "../../src/MemoryQueue";
 import TypeUtils "../../src/TypeUtils";

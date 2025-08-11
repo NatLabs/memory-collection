@@ -1,10 +1,10 @@
-import Iter "mo:base@.v0.14.11/Iter";
-import Nat "mo:base@.v0.14.11/Nat";
-import Result "mo:base@.v0.14.11/Result";
-import Order "mo:base@.v0.14.11/Order";
+import Iter "mo:base@0.14.11/Iter";
+import Nat "mo:base@0.14.11/Nat";
+import Result "mo:base@0.14.11/Result";
+import Order "mo:base@0.14.11/Order";
 
-import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
-import RevIter "mo:itertools@.v0.2.2/RevIter";
+import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import RevIter "mo:itertools@0.2.2/RevIter";
 
 import MemoryBuffer "Base";
 import Migrations "Migrations";

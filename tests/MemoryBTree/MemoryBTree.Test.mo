@@ -1,20 +1,20 @@
 // @testmode wasi
-import { test; suite } "mo:test@.v2.1.1";
-import Debug "mo:base@.v0.14.11/Debug";
-import Iter "mo:base@.v0.14.11/Iter";
-import Buffer "mo:base@.v0.14.11/Buffer";
-import Nat32 "mo:base@.v0.14.11/Nat32";
-import Nat64 "mo:base@.v0.14.11/Nat64";
-import Nat "mo:base@.v0.14.11/Nat";
-import Order "mo:base@.v0.14.11/Order";
-import Array "mo:base@.v0.14.11/Array";
-import Blob "mo:base@.v0.14.11/Blob";
-import Nat8 "mo:base@.v0.14.11/Nat8";
+import { test; suite } "mo:test@2.1.1";
+import Debug "mo:base@0.14.11/Debug";
+import Iter "mo:base@0.14.11/Iter";
+import Buffer "mo:base@0.14.11/Buffer";
+import Nat32 "mo:base@0.14.11/Nat32";
+import Nat64 "mo:base@0.14.11/Nat64";
+import Nat "mo:base@0.14.11/Nat";
+import Order "mo:base@0.14.11/Order";
+import Array "mo:base@0.14.11/Array";
+import Blob "mo:base@0.14.11/Blob";
+import Nat8 "mo:base@0.14.11/Nat8";
 
-import Fuzz "mo:fuzz@.v1.0.0";
-import Itertools "mo:itertools@.v0.2.2/Iter";
-import Map "mo:map@.v9.0.1/Map";
-import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
+import Fuzz "mo:fuzz@1.0.0";
+import Itertools "mo:itertools@0.2.2/Iter";
+import Map "mo:map@9.0.1/Map";
+import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
 
 import MemoryBTree "../../src/MemoryBTree/Base";
 import TypeUtils "../../src/TypeUtils";

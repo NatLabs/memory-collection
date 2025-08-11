@@ -1,14 +1,14 @@
-import Blob "mo:base@.v0.14.11/Blob";
-import Buffer "mo:base@.v0.14.11/Buffer";
-import Array "mo:base@.v0.14.11/Array";
-import Nat8 "mo:base@.v0.14.11/Nat8";
-import Nat64 "mo:base@.v0.14.11/Nat64";
-import Prelude "mo:base@.v0.14.11/Prelude";
-import Iter "mo:base@.v0.14.11/Iter";
-import Debug "mo:base@.v0.14.11/Debug";
-import Result "mo:base@.v0.14.11/Result";
+import Blob "mo:base@0.14.11/Blob";
+import Buffer "mo:base@0.14.11/Buffer";
+import Array "mo:base@0.14.11/Array";
+import Nat8 "mo:base@0.14.11/Nat8";
+import Nat64 "mo:base@0.14.11/Nat64";
+import Prelude "mo:base@0.14.11/Prelude";
+import Iter "mo:base@0.14.11/Iter";
+import Debug "mo:base@0.14.11/Debug";
+import Result "mo:base@0.14.11/Result";
 
-import Itertools "mo:itertools@.v0.2.2/Iter";
+import Itertools "mo:itertools@0.2.2/Iter";
 module {
 
     type Buffer<A> = Buffer.Buffer<A>;

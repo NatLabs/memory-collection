@@ -1,13 +1,13 @@
-import Array "mo:base@.v0.14.11/Array";
-import Principal "mo:base@.v0.14.11/Principal";
-import Debug "mo:base@.v0.14.11/Debug";
-import Nat64 "mo:base@.v0.14.11/Nat64";
-import Nat "mo:base@.v0.14.11/Nat";
-import Cycles "mo:base@.v0.14.11/ExperimentalCycles";
-import Buffer "mo:base@.v0.14.11/Buffer";
+import Array "mo:base@0.14.11/Array";
+import Principal "mo:base@0.14.11/Principal";
+import Debug "mo:base@0.14.11/Debug";
+import Nat64 "mo:base@0.14.11/Nat64";
+import Nat "mo:base@0.14.11/Nat";
+import Cycles "mo:base@0.14.11/ExperimentalCycles";
+import Buffer "mo:base@0.14.11/Buffer";
 
 import Vector "mo:vector";
-import Itertools "mo:itertools@.v0.2.2/Iter";
+import Itertools "mo:itertools@0.2.2/Iter";
 
 import Ledger "ledger";
 import T "Types";

@@ -1,7 +1,7 @@
-import Debug "mo:base@.v0.14.11/Debug";
-import Nat32 "mo:base@.v0.14.11/Nat32";
+import Debug "mo:base@0.14.11/Debug";
+import Nat32 "mo:base@0.14.11/Nat32";
 
-import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
 
 import V0 "V0";
 import V0_0_1 "V0_0_1";

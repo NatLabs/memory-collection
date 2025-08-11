@@ -4,7 +4,7 @@
 
 import Prim "mo:prim";
 
-import Blob "mo:base@.v0.14.11/Blob";
+import Blob "mo:base@0.14.11/Blob";
 
 import Int8Cmp "Int8Cmp";
 module {

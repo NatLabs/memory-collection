@@ -1,14 +1,14 @@
-import Debug "mo:base@.v0.14.11/Debug";
-import Array "mo:base@.v0.14.11/Array";
-import Iter "mo:base@.v0.14.11/Iter";
-import Int "mo:base@.v0.14.11/Int";
-import Nat "mo:base@.v0.14.11/Nat";
-import Blob "mo:base@.v0.14.11/Blob";
-import Buffer "mo:base@.v0.14.11/Buffer";
+import Debug "mo:base@0.14.11/Debug";
+import Array "mo:base@0.14.11/Array";
+import Iter "mo:base@0.14.11/Iter";
+import Int "mo:base@0.14.11/Int";
+import Nat "mo:base@0.14.11/Nat";
+import Blob "mo:base@0.14.11/Blob";
+import Buffer "mo:base@0.14.11/Buffer";
 
-import RevIter "mo:itertools@.v0.2.2/RevIter";
-import BufferDeque "mo:buffer-deque@.v0.1.0/BufferDeque";
-// import Branch "mo:augmented-btrees@.v0.7.1/BpTree/Branch";
+import RevIter "mo:itertools@0.2.2/RevIter";
+import BufferDeque "mo:buffer-deque@0.1.0/BufferDeque";
+// import Branch "mo:augmented-btrees@0.7.1/BpTree/Branch";
 
 import T "Types";
 import Leaf "Leaf";

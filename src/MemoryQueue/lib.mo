@@ -15,10 +15,10 @@
 /// import TypeUtils "mo:memory-collections/TypeUtils";
 /// ```
 
-import Iter "mo:base@.v0.14.11/Iter";
-import Nat "mo:base@.v0.14.11/Nat";
+import Iter "mo:base@0.14.11/Iter";
+import Nat "mo:base@0.14.11/Nat";
 
-import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
 
 import BaseMemoryQueue "Base";
 import StableMemoryQueue "Stable";

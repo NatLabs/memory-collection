@@ -1,10 +1,10 @@
 // @testmode wasi
-import Buffer "mo:base@.v0.14.11/Buffer";
-import Iter "mo:base@.v0.14.11/Iter";
-import Debug "mo:base@.v0.14.11/Debug";
+import Buffer "mo:base@0.14.11/Buffer";
+import Iter "mo:base@0.14.11/Iter";
+import Debug "mo:base@0.14.11/Debug";
 
-import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
-import { test; suite } "mo:test@.v2.1.1";
+import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import { test; suite } "mo:test@2.1.1";
 
 import MemoryQueue "../../src/MemoryQueue/Base";
 import TypeUtils "../../src/TypeUtils";

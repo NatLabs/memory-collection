@@ -1,20 +1,20 @@
 /// A memory buffer is a data structure that stores a sequence of values in memory.
 
-import Debug "mo:base@.v0.14.11/Debug";
-import Array "mo:base@.v0.14.11/Array";
-import Iter "mo:base@.v0.14.11/Iter";
-import Int "mo:base@.v0.14.11/Int";
-import Nat "mo:base@.v0.14.11/Nat";
-import Nat8 "mo:base@.v0.14.11/Nat8";
-import Nat32 "mo:base@.v0.14.11/Nat32";
-import Nat64 "mo:base@.v0.14.11/Nat64";
-import Blob "mo:base@.v0.14.11/Blob";
-import Result "mo:base@.v0.14.11/Result";
-import Order "mo:base@.v0.14.11/Order";
+import Debug "mo:base@0.14.11/Debug";
+import Array "mo:base@0.14.11/Array";
+import Iter "mo:base@0.14.11/Iter";
+import Int "mo:base@0.14.11/Int";
+import Nat "mo:base@0.14.11/Nat";
+import Nat8 "mo:base@0.14.11/Nat8";
+import Nat32 "mo:base@0.14.11/Nat32";
+import Nat64 "mo:base@0.14.11/Nat64";
+import Blob "mo:base@0.14.11/Blob";
+import Result "mo:base@0.14.11/Result";
+import Order "mo:base@0.14.11/Order";
 
-import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
-import RevIter "mo:itertools@.v0.2.2/RevIter";
-import Itertools "mo:itertools@.v0.2.2/Iter";
+import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import RevIter "mo:itertools@0.2.2/RevIter";
+import Itertools "mo:itertools@0.2.2/Iter";
 
 import Migrations "Migrations";
 import MemoryCmp "../TypeUtils/MemoryCmp";

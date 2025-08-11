@@ -1,11 +1,11 @@
-import Array "mo:base@.v0.14.11/Array";
-import Debug "mo:base@.v0.14.11/Debug";
-import Iter "mo:base@.v0.14.11/Iter";
-import Nat8 "mo:base@.v0.14.11/Nat8";
-import Nat32 "mo:base@.v0.14.11/Nat32";
-import Nat64 "mo:base@.v0.14.11/Nat64";
+import Array "mo:base@0.14.11/Array";
+import Debug "mo:base@0.14.11/Debug";
+import Iter "mo:base@0.14.11/Iter";
+import Nat8 "mo:base@0.14.11/Nat8";
+import Nat32 "mo:base@0.14.11/Nat32";
+import Nat64 "mo:base@0.14.11/Nat64";
 
-import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
 
 import Blobify "../TypeUtils/Blobify";
 import TypeUtils "../TypeUtils";

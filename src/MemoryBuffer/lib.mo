@@ -27,11 +27,11 @@
 ///   assert buffer.removeLast() == ?9;
 /// ```
 
-import Iter "mo:base@.v0.14.11/Iter";
-import Order "mo:base@.v0.14.11/Order";
-import Nat "mo:base@.v0.14.11/Nat";
+import Iter "mo:base@0.14.11/Iter";
+import Order "mo:base@0.14.11/Order";
+import Nat "mo:base@0.14.11/Nat";
 
-import RevIter "mo:itertools@.v0.2.2/RevIter";
+import RevIter "mo:itertools@0.2.2/RevIter";
 
 import BaseMemoryBuffer "Base";
 import StableMemoryBuffer "Stable";

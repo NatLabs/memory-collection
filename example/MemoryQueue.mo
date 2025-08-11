@@ -1,11 +1,11 @@
-import Buffer "mo:base@.v0.14.11/Buffer";
-import Principal "mo:base@.v0.14.11/Principal";
-import Timer "mo:base@.v0.14.11/Timer";
-import Debug "mo:base@.v0.14.11/Debug";
-import Iter "mo:base@.v0.14.11/Iter";
-import Nat "mo:base@.v0.14.11/Nat";
+import Buffer "mo:base@0.14.11/Buffer";
+import Principal "mo:base@0.14.11/Principal";
+import Timer "mo:base@0.14.11/Timer";
+import Debug "mo:base@0.14.11/Debug";
+import Iter "mo:base@0.14.11/Iter";
+import Nat "mo:base@0.14.11/Nat";
 
-import Map "mo:map@.v9.0.1/Map";
+import Map "mo:map@9.0.1/Map";
 
 import MemoryQueue "../src/MemoryQueue"; // "mo:memory_collection/MemoryQueue"
 import TypeUtils "../src/TypeUtils"; // "mo:memory_collection/TypeUtils"

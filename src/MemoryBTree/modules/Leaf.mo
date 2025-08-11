@@ -1,15 +1,15 @@
 /// Leaf Node Operations
 
-import Debug "mo:base@.v0.14.11/Debug";
-import Array "mo:base@.v0.14.11/Array";
-import Nat "mo:base@.v0.14.11/Nat";
-import Nat8 "mo:base@.v0.14.11/Nat8";
-import Nat16 "mo:base@.v0.14.11/Nat16";
-import Nat64 "mo:base@.v0.14.11/Nat64";
-import Int "mo:base@.v0.14.11/Int";
-import Float "mo:base@.v0.14.11/Float";
+import Debug "mo:base@0.14.11/Debug";
+import Array "mo:base@0.14.11/Array";
+import Nat "mo:base@0.14.11/Nat";
+import Nat8 "mo:base@0.14.11/Nat8";
+import Nat16 "mo:base@0.14.11/Nat16";
+import Nat64 "mo:base@0.14.11/Nat64";
+import Int "mo:base@0.14.11/Int";
+import Float "mo:base@0.14.11/Float";
 
-import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
 
 import MemoryFns "MemoryFns";
 import MemoryBlock "MemoryBlock";

@@ -1,7 +1,7 @@
-import Nat "mo:base@.v0.14.11/Nat";
+import Nat "mo:base@0.14.11/Nat";
 
-import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
-import RevIter "mo:itertools@.v0.2.2/RevIter";
+import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import RevIter "mo:itertools@0.2.2/RevIter";
 
 import Blobify "../../TypeUtils/Blobify";
 import MemoryCmp "../../TypeUtils/MemoryCmp";

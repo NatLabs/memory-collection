@@ -1,11 +1,11 @@
 /// A memory buffer is a data structure that stores a sequence of values in memory.
 
-import Iter "mo:base@.v0.14.11/Iter";
-import Nat "mo:base@.v0.14.11/Nat";
-import Result "mo:base@.v0.14.11/Result";
-import Order "mo:base@.v0.14.11/Order";
+import Iter "mo:base@0.14.11/Iter";
+import Nat "mo:base@0.14.11/Nat";
+import Result "mo:base@0.14.11/Result";
+import Order "mo:base@0.14.11/Order";
 
-import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
 
 module Migrations {
     type Iter<A> = Iter.Iter<A>;

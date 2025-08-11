@@ -1,5 +1,5 @@
 // @testmode wasi
-import { test; suite } "mo:test@.v2.1.1";
+import { test; suite } "mo:test@2.1.1";
 import MemoryBTree "../../src/MemoryBTree/Base";
 import StableMemoryBTree "../../src/MemoryBTree/Stable";
 import Migrations "../../src/MemoryBTree/Migrations";
