@@ -19,6 +19,7 @@ bench = "1.0.0"
 "augmented-btrees@.v0.7.1" = "0.7.1"
 "fuzz@.v1.0.0" = "1.0.0"
 "stableheapbtreemap@.v1.5.0" = "1.5.0"
+'map@.v9.0.1' = "9.0.1"
 
 [toolchain]
 wasmtime = "14.0.4"

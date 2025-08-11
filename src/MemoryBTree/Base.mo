@@ -11,7 +11,6 @@ import Blob "mo:base@.v0.14.11/Blob";
 
 import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
 import RevIter "mo:itertools@.v0.2.2/RevIter";
-import Find "mo:map/Map/modules/find";
 
 import MemoryCmp "../TypeUtils/MemoryCmp";
 import Blobify "../TypeUtils/Blobify";

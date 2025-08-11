@@ -28,11 +28,8 @@ module {
         bench.rows([
             "Memory B+Tree - Text (#BlobCmp)",
             "Memory B+Tree - Text (#GenCmp)",
-            "Memory B+Tree - Candid Text (#BlobCmp)",
-            "Memory B+Tree - Candid Text (#GenCmp)",
             "Memory B+Tree - Nat (#BlobCmp)",
             "Memory B+Tree - Nat (#GenCmp)",
-            "Memory B+Tree - Candid Nat (#GenCmp)",
         ]);
 
         bench.cols([
@@ -48,13 +45,9 @@ module {
 
         let mem_btree_text_gen_cmp = MemoryBTree.new(?128);
         let mem_btree_text_blob_cmp = MemoryBTree.new(?128);
-        let mem_btree_candid_text_gen_cmp = MemoryBTree.new(?128);
-        let mem_btree_candid_text_blob_cmp = MemoryBTree.new(?128);
 
         let mem_btree_nat_gen_cmp = MemoryBTree.new(?128);
         let mem_btree_nat_blob_cmp = MemoryBTree.new(?128);
-        let mem_btree_candid_nat_gen_cmp = MemoryBTree.new(?128);
-        let mem_btree_candid_nat_blob_cmp = MemoryBTree.new(?128);
 
         let entries = Buffer.Buffer<(Text, Text)>(limit);
         let nat_entries = Buffer.Buffer<(Nat, Nat)>(limit);
@@ -115,16 +108,11 @@ module {
         let btree_utils = MemoryBTree.createUtils(TypeUtils.Text, TypeUtils.Text);
         let gen_cmp_text_utils = MemoryBTree.createUtils({ TypeUtils.Text with cmp = #GenCmp(Int8Cmp.Text) }, TypeUtils.Text);
 
-        let candid_text_utils = MemoryBTree.createUtils({ TypeUtils.Text with cmp = TypeUtils.MemoryCmp.Default }, TypeUtils.Candid.Text);
-        let candid_text_gen_cmp_utils = MemoryBTree.createUtils({ TypeUtils.Candid.Text with cmp = #GenCmp(Int8Cmp.Text) }, TypeUtils.Candid.Text);
-
         let nat_btree_utils = MemoryBTree.createUtils({ TypeUtils.Nat with cmp = TypeUtils.MemoryCmp.Default }, TypeUtils.Nat);
         let nat_gen_cmp_utils = MemoryBTree.createUtils(
             { TypeUtils.Nat with cmp = #GenCmp(Int8Cmp.Nat) },
             TypeUtils.Nat,
         );
-
-        let candid_nat_utils = MemoryBTree.createUtils(TypeUtils.Candid.Nat, TypeUtils.Candid.Nat);
 
         bench.runner(
             func(col, row) = switch (col, row) {
@@ -137,14 +125,6 @@ module {
                     run_bench("Memory B+Tree", category, mem_btree_text_gen_cmp, gen_cmp_text_utils, entries, Text.equal);
                 };
 
-                case ("Memory B+Tree - Candid Text (#BlobCmp)", category) {
-                    run_bench("Memory B+Tree", category, mem_btree_candid_text_blob_cmp, candid_text_utils, entries, Text.equal);
-                };
-
-                case ("Memory B+Tree - Candid Text (#GenCmp)", category) {
-                    run_bench("Memory B+Tree", category, mem_btree_candid_text_gen_cmp, candid_text_gen_cmp_utils, entries, Text.equal);
-                };
-
                 case ("Memory B+Tree - Nat (#BlobCmp)", category) {
                     run_bench("Memory B+Tree", category, mem_btree_nat_blob_cmp, nat_btree_utils, nat_entries, Nat.equal);
                 };
@@ -153,9 +133,6 @@ module {
                     run_bench<Nat, Nat>("Memory B+Tree", category, mem_btree_nat_gen_cmp, nat_gen_cmp_utils, nat_entries, Nat.equal);
                 };
 
-                case ("Memory B+Tree - Candid Nat (#GenCmp)", category) {
-                    run_bench("Memory B+Tree", category, mem_btree_candid_nat_gen_cmp, candid_nat_utils, nat_entries, Nat.equal);
-                };
                 case (_) {
                     Debug.trap("Should not reach with row = " # debug_show row # " and col = " # debug_show col);
                 };

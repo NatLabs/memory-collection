@@ -5,7 +5,7 @@ import Debug "mo:base@.v0.14.11/Debug";
 import Iter "mo:base@.v0.14.11/Iter";
 import Nat "mo:base@.v0.14.11/Nat";
 
-import Map "mo:map/Map";
+import Map "mo:map@.v9.0.1/Map";
 
 import MemoryQueue "../src/MemoryQueue"; // "mo:memory_collection/MemoryQueue"
 import TypeUtils "../src/TypeUtils"; // "mo:memory_collection/TypeUtils"
