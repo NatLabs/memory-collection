@@ -1,6 +1,7 @@
 /// The TypeUtils module provides common utilities for a given type.
 /// - Blobify: A function that serializes a value of type A to a blob.
 /// - MemoryCmp: A function that compares two values of type A in memory.
+import Prim "mo:prim";
 
 import BlobifyModule "Blobify";
 import MemoryCmpModule "MemoryCmp";
@@ -34,7 +35,15 @@ module {
 
     public let Nat : TypeUtils<Nat> = {
         blobify = Blobify.Nat;
-        cmp = MemoryCmp.Default;
+        cmp = #BlobCmp(
+            // Backward compatible comparison function for TypeUtils.BigEndian.Nat in v0.4.0
+            func(a : Blob, b : Blob) : Int8 {
+                if (a.size() > b.size()) return 1;
+                if (a.size() < b.size()) return -1;
+
+                Prim.blobCompare(a, b);
+            },
+        );
     };
 
     public let Nat8 : TypeUtils<Nat8> = {
@@ -117,84 +126,30 @@ module {
         cmp = MemoryCmp.Default;
     };
 
-    /// BTree Utils for motoko types using candid serialization
-    public module Candid {
+    public module Legacy {
+
         public let Nat : TypeUtils<Nat> = {
-            blobify = Blobify.Candid.Nat;
-            cmp = MemoryCmp.Nat;
-        };
-
-        public let Nat8 : TypeUtils<Nat8> = {
-            blobify = Blobify.Candid.Nat8;
-            cmp = MemoryCmp.Nat8;
-        };
-
-        // Using #GenCmp because its serialized as little endian
-        // and must be deserialized before it can be compared
-        public let Nat16 : TypeUtils<Nat16> = {
-            blobify = Blobify.Candid.Nat16;
-            cmp = MemoryCmp.Nat16;
-        };
-
-        public let Nat32 : TypeUtils<Nat32> = {
-            blobify = Blobify.Candid.Nat32;
-            cmp = MemoryCmp.Nat32;
-        };
-
-        public let Nat64 : TypeUtils<Nat64> = {
-            blobify = Blobify.Candid.Nat64;
-            cmp = MemoryCmp.Nat64;
+            blobify = Blobify.Legacy.Nat;
+            cmp = MemoryCmp.Legacy.Nat;
         };
 
         public let Int : TypeUtils<Int> = {
-            blobify = Blobify.Candid.Int;
-            cmp = MemoryCmp.Int;
+            blobify = Blobify.Int;
+            cmp = MemoryCmp.Legacy.Int;
         };
 
-        public let Int8 : TypeUtils<Int8> = {
-            blobify = Blobify.Candid.Int8;
-            cmp = MemoryCmp.Int8;
-        };
+        public module BigEndian {
+            public let Nat : TypeUtils<Nat> = {
+                blobify = Blobify.Legacy.BigEndian.Nat;
+                cmp = MemoryCmp.Legacy.BigEndian.Nat;
+            };
 
-        public let Int16 : TypeUtils<Int16> = {
-            blobify = Blobify.Candid.Int16;
-            cmp = MemoryCmp.Int16;
-        };
-
-        public let Int32 : TypeUtils<Int32> = {
-            blobify = Blobify.Candid.Int32;
-            cmp = MemoryCmp.Int32;
-        };
-
-        public let Int64 : TypeUtils<Int64> = {
-            blobify = Blobify.Candid.Int64;
-            cmp = MemoryCmp.Int64;
-        };
-
-        public let Float : TypeUtils<Float> = {
-            blobify = Blobify.Candid.Float;
-            cmp = MemoryCmp.Float;
-        };
-
-        public let Bool : TypeUtils<Bool> = {
-            blobify = Blobify.Candid.Bool;
-            cmp = MemoryCmp.Bool;
-        };
-
-        public let Text : TypeUtils<Text> = {
-            blobify = Blobify.Candid.Text;
-            cmp = MemoryCmp.Text;
-        };
-
-        public let Principal : TypeUtils<Principal> = {
-            blobify = Blobify.Candid.Principal;
-            cmp = MemoryCmp.Principal;
-        };
-
-        public let Char : TypeUtils<Char> = {
-            blobify = Blobify.Candid.Char;
-            cmp = MemoryCmp.Char;
+            public let Int : TypeUtils<Int> = {
+                blobify = Blobify.Int;
+                cmp = MemoryCmp.Legacy.BigEndian.Int;
+            };
         };
 
     };
+
 };

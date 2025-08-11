@@ -1,7 +1,7 @@
-import Debug "mo:base/Debug";
-import Time "mo:base/Time";
-import Float "mo:base/Float";
-import Iter "mo:base/Iter";
+import Debug "mo:base@.v0.14.11/Debug";
+import Time "mo:base@.v0.14.11/Time";
+import Float "mo:base@.v0.14.11/Float";
+import Iter "mo:base@.v0.14.11/Iter";
 
 import MemoryBTree "../src/MemoryBTree"; // "mo:memory_collection/MemoryBTree"
 import TypeUtils "../src/TypeUtils"; // "mo:memory_collection/TypeUtils"

@@ -1,18 +1,18 @@
 // @testmode wasi
-import Buffer "mo:base/Buffer";
-import Debug "mo:base/Debug";
-import Iter "mo:base/Iter";
-import Prelude "mo:base/Prelude";
-import Nat "mo:base/Nat";
-import Array "mo:base/Array";
-import Nat64 "mo:base/Nat64";
+import Buffer "mo:base@.v0.14.11/Buffer";
+import Debug "mo:base@.v0.14.11/Debug";
+import Iter "mo:base@.v0.14.11/Iter";
+import Prelude "mo:base@.v0.14.11/Prelude";
+import Nat "mo:base@.v0.14.11/Nat";
+import Array "mo:base@.v0.14.11/Array";
+import Nat64 "mo:base@.v0.14.11/Nat64";
 
-import { test; suite } "mo:test";
-import Fuzz "mo:fuzz";
-import { MaxBpTree; Cmp } "mo:augmented-btrees";
-import MemoryRegion "mo:memory-region/MemoryRegion";
-import Itertools "mo:itertools/Iter";
-import MaxBpTreeMethods "mo:augmented-btrees/MaxBpTree/Methods";
+import { test; suite } "mo:test@.v2.1.1";
+import Fuzz "mo:fuzz@.v1.0.0";
+import { MaxBpTree; Cmp } "mo:augmented-btrees@.v0.7.1";
+import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
+import Itertools "mo:itertools@.v0.2.2/Iter";
+import MaxBpTreeMethods "mo:augmented-btrees@.v0.7.1/MaxBpTree/Methods";
 
 import MemoryBuffer "../../src/MemoryBuffer/Base";
 
@@ -29,25 +29,8 @@ for (i in Iter.range(0, limit - 1)) {
     order.add(i);
 };
 
-func xorshift128plus(seed : Nat) : { next() : Nat } {
-    var state0 : Nat64 = Nat64.fromNat(seed);
-    var state1 : Nat64 = Nat64.fromNat(seed + 1);
-    if (state0 == 0) state0 := 1;
-    if (state1 == 0) state1 := 2;
+let fuzz = Fuzz.fromSeed(0xdeadbeef);
 
-    {
-        next = func() : Nat {
-            var s1 = state0;
-            let s0 = state1;
-            state0 := s0;
-            s1 ^= s1 << 23 : Nat64;
-            state1 := s1 ^ s0 ^ (s1 >> 18 : Nat64) ^ (s0 >> 5 : Nat64);
-            Nat64.toNat(state1 +% s0); // Use wrapping addition
-        };
-    };
-};
-
-let fuzz = Fuzz.create(xorshift128plus(0xdeadbeef));
 fuzz.buffer.shuffle(order);
 // Utils.shuffle_buffer(fuzz, order);
 

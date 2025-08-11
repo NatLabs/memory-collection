@@ -1,19 +1,19 @@
 /// Branch Node Operations
 
-import Debug "mo:base/Debug";
-import Array "mo:base/Array";
-import Int "mo:base/Int";
-import Nat "mo:base/Nat";
-import Nat8 "mo:base/Nat8";
-import Nat16 "mo:base/Nat16";
-import Nat64 "mo:base/Nat64";
-import Blob "mo:base/Blob";
-import Bool "mo:base/Bool";
-import Float "mo:base/Float";
+import Debug "mo:base@.v0.14.11/Debug";
+import Array "mo:base@.v0.14.11/Array";
+import Int "mo:base@.v0.14.11/Int";
+import Nat "mo:base@.v0.14.11/Nat";
+import Nat8 "mo:base@.v0.14.11/Nat8";
+import Nat16 "mo:base@.v0.14.11/Nat16";
+import Nat64 "mo:base@.v0.14.11/Nat64";
+import Blob "mo:base@.v0.14.11/Blob";
+import Bool "mo:base@.v0.14.11/Bool";
+import Float "mo:base@.v0.14.11/Float";
 
-import MemoryRegion "mo:memory-region/MemoryRegion";
-import RevIter "mo:itertools/RevIter";
-// import Branch "mo:augmented-btrees/BpTree/Branch";
+import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
+import RevIter "mo:itertools@.v0.2.2/RevIter";
+// import Branch "mo:augmented-btrees@.v0.7.1/BpTree/Branch";
 
 import MemoryFns "MemoryFns";
 import T "Types";
@@ -601,7 +601,7 @@ module Branch {
         MemoryRegion.storeNat64(btree.branches, branch_address + MC.PARENT_START, parent);
     };
 
-    public func update_median_key_address(btree : MemoryBTree, parent_address : Nat, child_index : Nat, new_key_address : UniqueId) {
+    public func update_separator_key_address(btree : MemoryBTree, parent_address : Nat, child_index : Nat, new_key_address : UniqueId) {
         var curr_address = parent_address;
         var i = child_index;
 
@@ -630,7 +630,7 @@ module Branch {
                 // elements inserted are always nodes created as a result of split
                 // so their index is always greater than one as new nodes created from
                 // a split operation are always inserted at the right
-                // update_median_key_address(btree, branch, i, key);
+                // update_separator_key_address(btree, branch, i, key);
                 // Debug.trap("Branch.insert(): inserting at index 0 is not allowed");
             } else {
                 let key_offset = get_node_key_offset(branch_address, i - 1);
@@ -681,7 +681,7 @@ module Branch {
 
         let is_elem_added_to_right = child_index >= median;
 
-        var median_key_address = ?child_key_address;
+        var separator_key_address = ?child_key_address;
 
         var offset = if (is_elem_added_to_right) 0 else 1;
         var already_inserted = false;
@@ -698,7 +698,7 @@ module Branch {
         if (not is_elem_added_to_right) {
             let j = i + median - offset : Nat;
 
-            median_key_address := Branch.get_key_address(btree, branch_address, j - 1);
+            separator_key_address := Branch.get_key_address(btree, branch_address, j - 1);
 
             let start_key = get_node_key_offset(branch_address, j);
             let end_key = get_node_key_offset(branch_address, arr_len - 1);
@@ -751,7 +751,7 @@ module Branch {
                 child;
             } else {
                 if (i == 0) {
-                    median_key_address := Branch.get_key_address(btree, branch_address, j - 1);
+                    separator_key_address := Branch.get_key_address(btree, branch_address, j - 1);
                 } else {
                     let ?shifted_key_address = Branch.get_key_address(btree, branch_address, j - 1) else Debug.trap("Branch.split: accessed a null value");
 
@@ -799,8 +799,8 @@ module Branch {
 
         // store the first key of the right node at the end of the keys in left node
         // no need to delete as the value will get overwritten because it exceeds the count position
-        let ?_median_key_address = median_key_address else Debug.trap("Branch.split: median key_block is null");
-        Branch.put_key_address(btree, right_address, btree.node_capacity - 2, _median_key_address);
+        let ?_separator_key_address = separator_key_address else Debug.trap("Branch.split: median key_block is null");
+        Branch.put_key_address(btree, right_address, btree.node_capacity - 2, _separator_key_address);
 
         right_address;
     };
@@ -932,8 +932,8 @@ module Branch {
         if (neighbour_index < branch_index) {
             // Debug.print("redistribute: left neighbour");
             // move data from the left neighbour to the right branch
-            let ?_median_key_address = Branch.get_key_address(btree, parent, neighbour_index) else return Debug.trap("Branch.redistribute: median_key_address should not be null");
-            var median_key_address = _median_key_address;
+            let ?_separator_key_address = Branch.get_key_address(btree, parent, neighbour_index) else return Debug.trap("Branch.redistribute: separator_key_address should not be null");
+            var separator_key_address = _separator_key_address;
 
             Branch.shift(btree, branch, 0, branch_count, data_to_move);
 
@@ -945,39 +945,39 @@ module Branch {
                 let ?child = Branch.get_child(btree, neighbour, j) else return Debug.trap("Branch.redistribute: child should not be null");
                 Branch.remove(btree, neighbour, j);
 
-                // Debug.print("median_key_address: " # debug_show median_key_address);
+                // Debug.print("separator_key_address: " # debug_show separator_key_address);
 
                 let new_index = data_to_move - i - 1 : Nat;
-                Branch.put_key_address(btree, branch, new_index, median_key_address);
+                Branch.put_key_address(btree, branch, new_index, separator_key_address);
                 Branch.put_child(btree, branch, new_index, child);
 
                 let child_subtree_size = if (branch_has_leaves) Leaf.get_count(btree, child) else Branch.get_subtree_size(btree, child);
                 moved_subtree_size += child_subtree_size;
 
-                median_key_address := key_address;
+                separator_key_address := key_address;
 
                 i += 1;
             };
 
-            // Debug.print("parent median_key_address: " # debug_show median_key_address);
-            // Debug.print("parent median_key_blob: " # debug_show median_key_blob);
+            // Debug.print("parent separator_key_address: " # debug_show separator_key_address);
+            // Debug.print("parent separator_key_blob: " # debug_show separator_key_blob);
 
-            Branch.put_key_address(btree, parent, neighbour_index, median_key_address);
+            Branch.put_key_address(btree, parent, neighbour_index, separator_key_address);
 
         } else {
             // Debug.print("redistribute: right neighbour");
             // move data from the right neighbour to the left branch
 
-            let ?_median_key_address = Branch.get_key_address(btree, parent, branch_index) else return Debug.trap("Branch.redistribute: median_key_address should not be null");
-            var median_key_address = _median_key_address;
+            let ?_separator_key_address = Branch.get_key_address(btree, parent, branch_index) else return Debug.trap("Branch.redistribute: separator_key_address should not be null");
+            var separator_key_address = _separator_key_address;
 
             var i = 0;
             while (i < data_to_move) {
 
-                // Debug.print("median_key_address: " # debug_show median_key_address);
+                // Debug.print("separator_key_address: " # debug_show separator_key_address);
 
                 let ?child = Branch.get_child(btree, neighbour, i) else return Debug.trap("Branch.redistribute: child should not be null");
-                Branch.insert(btree, branch, branch_count + i, median_key_address, child);
+                Branch.insert(btree, branch, branch_count + i, separator_key_address, child);
 
                 let child_subtree_size = if (branch_has_leaves) Leaf.get_count(btree, child) else Branch.get_subtree_size(btree, child);
                 moved_subtree_size += child_subtree_size;
@@ -985,12 +985,12 @@ module Branch {
                 let ?key_block = Branch.get_key_address(btree, neighbour, i) else return Debug.trap("Branch.redistribute: key_block should not be null");
                 let ?key_blob = Branch.get_key_blob(btree, neighbour, i) else return Debug.trap("Branch.redistribute: key_blob should not be null");
 
-                median_key_address := key_block;
+                separator_key_address := key_block;
 
                 i += 1;
             };
 
-            // Debug.print("parent median_key_address: " # debug_show median_key_address);
+            // Debug.print("parent separator_key_address: " # debug_show separator_key_address);
 
             // shift keys and children in the right neighbour
             // since we can't shift to the first child index,
@@ -1001,7 +1001,7 @@ module Branch {
             Branch.put_child(btree, neighbour, 0, first_child);
 
             // update median key in parent
-            Branch.put_key_address(btree, parent, branch_index, median_key_address);
+            Branch.put_key_address(btree, parent, branch_index, separator_key_address);
         };
 
         Branch.update_count(btree, branch, branch_count + data_to_move);
@@ -1039,21 +1039,21 @@ module Branch {
         let left_subtree_size = Branch.get_subtree_size(btree, left);
         let right_subtree_size = Branch.get_subtree_size(btree, right);
 
-        let ?_median_key_address = Branch.get_key_address(btree, parent, right_index - 1) else Debug.trap("Branch.merge: median_key_address should not be null");
-        var median_key_address = _median_key_address;
+        let ?_separator_key_address = Branch.get_key_address(btree, parent, right_index - 1) else Debug.trap("Branch.merge: separator_key_address should not be null");
+        var separator_key_address = _separator_key_address;
 
         // Debug.print("left branch before merge: " # debug_show Branch.from_memory(btree, left));
         // Debug.print("right branch before merge: " # debug_show Branch.from_memory(btree, right));
 
         var i = 0;
         label while_loop while (i < right_count) {
-            // Debug.print("median_key_address: " # debug_show median_key_address);
+            // Debug.print("separator_key_address: " # debug_show separator_key_address);
             let ?child = Branch.get_child(btree, right, i) else return Debug.trap("Branch.merge: child should not be null");
-            Branch.insert(btree, left, left_count + i, median_key_address, child);
+            Branch.insert(btree, left, left_count + i, separator_key_address, child);
 
             if (i < (right_count - 1 : Nat)) {
                 let ?key_block = Branch.get_key_address(btree, right, i) else return Debug.trap("Branch.merge: key_block should not be null");
-                median_key_address := key_block;
+                separator_key_address := key_block;
             };
 
             i += 1;

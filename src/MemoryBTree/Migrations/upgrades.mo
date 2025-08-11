@@ -1,12 +1,12 @@
-import Debug "mo:base/Debug";
-import Nat32 "mo:base/Nat32";
-import Nat16 "mo:base/Nat16";
-import Nat64 "mo:base/Nat64";
-import Nat8 "mo:base/Nat8";
-import Iter "mo:base/Iter";
+import Debug "mo:base@.v0.14.11/Debug";
+import Nat32 "mo:base@.v0.14.11/Nat32";
+import Nat16 "mo:base@.v0.14.11/Nat16";
+import Nat64 "mo:base@.v0.14.11/Nat64";
+import Nat8 "mo:base@.v0.14.11/Nat8";
+import Iter "mo:base@.v0.14.11/Iter";
 
-import MemoryRegion "mo:memory-region/MemoryRegion";
-import Itertools "mo:itertools/Iter";
+import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
+import Itertools "mo:itertools@.v0.2.2/Iter";
 
 import V0 "V0";
 import V0_0_1 "V0_0_1";

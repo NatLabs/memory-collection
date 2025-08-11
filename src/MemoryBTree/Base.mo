@@ -1,17 +1,16 @@
-import Debug "mo:base/Debug";
-import Iter "mo:base/Iter";
-import Int "mo:base/Int";
-import Nat "mo:base/Nat";
-import Option "mo:base/Option";
-import Nat8 "mo:base/Nat8";
-import Nat16 "mo:base/Nat16";
-import Nat32 "mo:base/Nat32";
-import Nat64 "mo:base/Nat64";
-import Blob "mo:base/Blob";
+import Debug "mo:base@.v0.14.11/Debug";
+import Iter "mo:base@.v0.14.11/Iter";
+import Int "mo:base@.v0.14.11/Int";
+import Nat "mo:base@.v0.14.11/Nat";
+import Option "mo:base@.v0.14.11/Option";
+import Nat8 "mo:base@.v0.14.11/Nat8";
+import Nat16 "mo:base@.v0.14.11/Nat16";
+import Nat32 "mo:base@.v0.14.11/Nat32";
+import Nat64 "mo:base@.v0.14.11/Nat64";
+import Blob "mo:base@.v0.14.11/Blob";
 
-import MemoryRegion "mo:memory-region/MemoryRegion";
-import RevIter "mo:itertools/RevIter";
-import Find "mo:map/Map/modules/find";
+import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
+import RevIter "mo:itertools@.v0.2.2/RevIter";
 
 import MemoryCmp "../TypeUtils/MemoryCmp";
 import Blobify "../TypeUtils/Blobify";
@@ -376,7 +375,7 @@ module {
         var right_index = Leaf.get_index(btree, right_node_address);
 
         let ?first_key_address = Leaf.get_kv_address(btree, right_node_address, 0) else Debug.trap("insert: first_key_address accessed a null value");
-        var median_key_address = first_key_address;
+        var separator_key_address = first_key_address;
 
         // assert Leaf.get_count(btree, left_node_address) == (btree.node_capacity / 2) + 1;
         // assert Leaf.get_count(btree, right_node_address) == (btree.node_capacity / 2);
@@ -392,7 +391,7 @@ module {
                 // Debug.print("found branch with enough space");
                 // Debug.print("parent before insert: " # debug_show Branch.from_memory(btree, parent_address));
 
-                Branch.insert(btree, parent_address, right_index, median_key_address, right_node_address);
+                Branch.insert(btree, parent_address, right_index, separator_key_address, right_node_address);
                 update_count(btree, btree.count + 1);
 
                 // Debug.print("parent after insert: " # debug_show Branch.from_memory(btree, parent_address));
@@ -402,12 +401,12 @@ module {
 
             // otherwise split parent
             left_node_address := parent_address;
-            right_node_address := Branch.split(btree, left_node_address, right_index, median_key_address, right_node_address);
+            right_node_address := Branch.split(btree, left_node_address, right_index, separator_key_address, right_node_address);
             update_branch_count(btree, btree.branch_count + 1);
 
             let ?first_key_address = Branch.get_key_address(btree, right_node_address, btree.node_capacity - 2) else Debug.trap("4. insert: accessed a null value in first key of branch");
             Branch.set_key_address_to_null(btree, right_node_address, btree.node_capacity - 2);
-            median_key_address := first_key_address;
+            separator_key_address := first_key_address;
 
             right_index := Branch.get_index(btree, right_node_address);
             opt_parent := Branch.get_parent(btree, right_node_address);
@@ -423,7 +422,7 @@ module {
         Branch.update_depth(btree, new_root, new_depth);
         assert Branch.get_depth(btree, new_root) == new_depth;
 
-        Branch.put_key_address(btree, new_root, 0, median_key_address);
+        Branch.put_key_address(btree, new_root, 0, separator_key_address);
 
         Branch.add_child(btree, new_root, left_node_address);
         Branch.add_child(btree, new_root, right_node_address);
@@ -636,9 +635,13 @@ module {
     public func clear(btree : MemoryBTree) {
 
         // the first leaf node should be at the address where the header ends
+        // Leaf.validate() checks that the leaf_address the specified leaf_address is valid (i.e the start of the leaf node)
         let leaf_address = MC.REGION_HEADER_SIZE;
         assert Leaf.validate(btree, leaf_address);
 
+        // remove all key-value pairs from the leaf
+        // this will also deallocate the key and value blocks
+        // but not the leaf node itself
         Leaf.clear(btree, leaf_address);
         assert Leaf.validate(btree, leaf_address);
 
@@ -650,28 +653,25 @@ module {
         update_leaf_count(btree, 1);
 
         let leaf_memory_size = Leaf.get_memory_size(btree.node_capacity);
-        let everything_after_leaf = leaf_address + leaf_memory_size;
+        let leaf_memory_end = leaf_address + leaf_memory_size;
         let leaves_region_size = MemoryRegion.size(btree.leaves);
-        MemoryRegion.deallocateRange(btree.leaves, everything_after_leaf, leaves_region_size);
+        MemoryRegion.deallocateRange(btree.leaves, leaf_memory_end, leaves_region_size);
 
-        assert MemoryRegion.allocated(btree.leaves) == everything_after_leaf;
-        assert MemoryRegion.size(btree.leaves) == everything_after_leaf;
-        assert MemoryRegion.deallocated(btree.leaves) == 0;
-        assert [] == Iter.toArray(MemoryRegion.deallocatedBlocksInRange(btree.leaves, 0, leaves_region_size));
+        assert MemoryRegion.allocated(btree.leaves) == leaf_memory_end;
+        assert MemoryRegion.size(btree.leaves) == MemoryRegion.allocated(btree.leaves) + MemoryRegion.deallocated(btree.leaves);
+        assert [(leaf_memory_end, MemoryRegion.size(btree.leaves) - leaf_memory_end)] == MemoryRegion.getFreeMemory(btree.leaves);
 
         let branches_memory_size = MemoryRegion.size(btree.branches);
         MemoryRegion.deallocateRange(btree.branches, MC.REGION_HEADER_SIZE, branches_memory_size);
         assert MemoryRegion.allocated(btree.branches) == MC.REGION_HEADER_SIZE;
-        assert MemoryRegion.size(btree.branches) == MC.REGION_HEADER_SIZE;
-        assert MemoryRegion.deallocated(btree.branches) == 0;
-        assert [] == Iter.toArray(MemoryRegion.deallocatedBlocksInRange(btree.branches, 0, branches_memory_size));
+        assert MemoryRegion.size(btree.branches) == MemoryRegion.allocated(btree.branches) + MemoryRegion.deallocated(btree.branches);
+        assert [(MC.REGION_HEADER_SIZE, MemoryRegion.size(btree.branches) - MC.REGION_HEADER_SIZE)] == MemoryRegion.getFreeMemory(btree.branches);
 
         let data_memory_size = MemoryRegion.size(btree.data);
         MemoryRegion.deallocateRange(btree.data, MC.REGION_HEADER_SIZE, data_memory_size);
         assert MemoryRegion.allocated(btree.data) == MC.REGION_HEADER_SIZE;
-        assert MemoryRegion.size(btree.data) == MC.REGION_HEADER_SIZE;
-        assert MemoryRegion.deallocated(btree.data) == 0;
-        assert [] == Iter.toArray(MemoryRegion.deallocatedBlocksInRange(btree.data, 0, data_memory_size));
+        assert MemoryRegion.size(btree.data) == MemoryRegion.allocated(btree.data) + MemoryRegion.deallocated(btree.data);
+        assert [(MC.REGION_HEADER_SIZE, MemoryRegion.size(btree.data) - MC.REGION_HEADER_SIZE)] == MemoryRegion.getFreeMemory(btree.data);
 
     };
 
@@ -723,7 +723,7 @@ module {
         if (elem_index == 0) {
             // if the first element is removed then update the parent key
             let ?next_key_address = Leaf.get_kv_address(btree, leaf_address, 0) else Debug.trap("remove: next_key_block is null");
-            Branch.update_median_key_address(btree, parent, leaf_index, next_key_address);
+            Branch.update_separator_key_address(btree, parent, leaf_index, next_key_address);
         };
 
         let min_count = btree.node_capacity / 2;

@@ -1,4 +1,4 @@
-import RevIter "mo:itertools/RevIter";
+import RevIter "mo:itertools@.v0.2.2/RevIter";
 
 import Migrations "Migrations";
 import BaseMemoryBTree "Base";

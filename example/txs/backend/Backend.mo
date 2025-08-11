@@ -1,23 +1,23 @@
 import Prim "mo:prim";
 
-import Array "mo:base/Array";
-import Iter "mo:base/Iter";
-import IC "mo:base/ExperimentalInternetComputer";
-import Principal "mo:base/Principal";
-import Debug "mo:base/Debug";
-import Nat64 "mo:base/Nat64";
-import Nat "mo:base/Nat";
-import Cycles "mo:base/ExperimentalCycles";
-import Buffer "mo:base/Buffer";
-import Option "mo:base/Option";
-import Time "mo:base/Time";
-import Blob "mo:base/Blob";
-import Nat8 "mo:base/Nat8";
-import Int "mo:base/Int";
+import Array "mo:base@.v0.14.11/Array";
+import Iter "mo:base@.v0.14.11/Iter";
+import IC "mo:base@.v0.14.11/ExperimentalInternetComputer";
+import Principal "mo:base@.v0.14.11/Principal";
+import Debug "mo:base@.v0.14.11/Debug";
+import Nat64 "mo:base@.v0.14.11/Nat64";
+import Nat "mo:base@.v0.14.11/Nat";
+import Cycles "mo:base@.v0.14.11/ExperimentalCycles";
+import Buffer "mo:base@.v0.14.11/Buffer";
+import Option "mo:base@.v0.14.11/Option";
+import Time "mo:base@.v0.14.11/Time";
+import Blob "mo:base@.v0.14.11/Blob";
+import Nat8 "mo:base@.v0.14.11/Nat8";
+import Int "mo:base@.v0.14.11/Int";
 
 import Vector "mo:vector";
-import Itertools "mo:itertools/Iter";
-import RevIter "mo:itertools/RevIter";
+import Itertools "mo:itertools@.v0.2.2/Iter";
+import RevIter "mo:itertools@.v0.2.2/RevIter";
 
 import Ledger "ledger";
 import MemoryBTree "mo:memory-collection/MemoryBTree";

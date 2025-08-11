@@ -1,10 +1,10 @@
 // @testmode wasi
-import Buffer "mo:base/Buffer";
-import Iter "mo:base/Iter";
-import Debug "mo:base/Debug";
+import Buffer "mo:base@.v0.14.11/Buffer";
+import Iter "mo:base@.v0.14.11/Iter";
+import Debug "mo:base@.v0.14.11/Debug";
 
-import MemoryRegion "mo:memory-region/MemoryRegion";
-import { test; suite } "mo:test";
+import MemoryRegion "mo:memory-region@.v1.3.2/MemoryRegion";
+import { test; suite } "mo:test@.v2.1.1";
 
 import MemoryQueue "../../src/MemoryQueue/Base";
 import TypeUtils "../../src/TypeUtils";
@@ -54,7 +54,9 @@ suite(
             "clear()",
             func() {
                 MemoryQueue.clear(mem_queue);
-                assert MemoryRegion.size(mem_queue.region) == 64;
+                assert MemoryRegion.allocated(mem_queue.region) == 64;
+                assert MemoryRegion.getFreeMemory(mem_queue.region) == [(64, MemoryRegion.size(mem_queue.region) - 64)];
+                assert MemoryQueue.size(mem_queue) == 0;
             },
         );
 
@@ -83,7 +85,7 @@ suite(
                 assert null == MemoryQueue.peek(mem_queue, queue_utils);
                 assert null == MemoryQueue.pop(mem_queue, queue_utils);
 
-                assert MemoryRegion.size(mem_queue.region) == 64;
+                assert MemoryRegion.allocated(mem_queue.region) == 64;
             },
         );
 

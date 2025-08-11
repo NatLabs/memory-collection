@@ -4,7 +4,7 @@
 
 import Prim "mo:prim";
 
-import Blob "mo:base/Blob";
+import Blob "mo:base@.v0.14.11/Blob";
 
 import Int8Cmp "Int8Cmp";
 module {
@@ -43,4 +43,41 @@ module {
 
     public let Time = Int;
 
+    public module Legacy {
+
+        public let Nat = #GenCmp(Int8Cmp.Nat);
+        public let Int = #GenCmp(Int8Cmp.Int);
+
+        public module BigEndian {
+            public let Nat = #BlobCmp(
+                func(a : Blob, b : Blob) : Int8 {
+                    if (a.size() > b.size()) return 1;
+                    if (a.size() < b.size()) return -1;
+
+                    Prim.blobCompare(a, b);
+                }
+            );
+
+            public let Int = #BlobCmp(
+                func(a : Blob, b : Blob) : Int8 {
+
+                    switch (a.vals().next(), b.vals().next()) {
+                        case (?val_a, ?val_b) {
+                            if (val_a > val_b) return 1;
+                            if (val_a < val_b) return -1;
+                        };
+                        case (null, null) return 0;
+                        case (null, _) return -1;
+                        case (_, null) return 1;
+                    };
+
+                    if (a.size() > b.size()) return 1;
+                    if (a.size() < b.size()) return -1;
+
+                    Prim.blobCompare(a, b);
+                }
+            );
+
+        };
+    };
 };
