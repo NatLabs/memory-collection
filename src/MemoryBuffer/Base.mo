@@ -246,7 +246,7 @@ module MemoryBuffer {
         Nat32.toNat(value_size);
     };
 
-    func update_pointer_at_index<A>(self : MemoryBuffer<A>, index : Nat, mb_address : Nat, mb_size : Nat) {
+    public func _update_pointer_at_index<A>(self : MemoryBuffer<A>, index : Nat, mb_address : Nat, mb_size : Nat) {
         let pointer_address = _get_pointer(self, index);
         MemoryRegion.storeNat64(self.pointers, pointer_address, Nat64.fromNat(mb_address));
         MemoryRegion.storeNat32(self.pointers, pointer_address + 8, Nat32.fromNat(mb_size));
@@ -274,7 +274,7 @@ module MemoryBuffer {
 
         let new_address = MemoryRegion.resize(self.blobs, mb_address, mb_size, new_size);
         // if (mb_size == new_size) assert new_address == mb_address;
-        if (mb_size != new_size) update_pointer_at_index(self, index, new_address, new_size);
+        if (mb_size != new_size) _update_pointer_at_index(self, index, new_address, new_size);
 
         MemoryRegion.storeBlob(self.blobs, new_address, new_blob);
     };
@@ -661,7 +661,7 @@ module MemoryBuffer {
 
         let mb_address = MemoryRegion.addBlob(self.blobs, blob);
         // Debug.print("inserted mb_address = " # debug_show mb_address);
-        update_pointer_at_index(self, index, mb_address, blob.size());
+        _update_pointer_at_index(self, index, mb_address, blob.size());
 
         update_count(self, self.count + 1);
     };
