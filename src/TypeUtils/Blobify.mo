@@ -22,7 +22,7 @@ import PrincipalModule "mo:base@0.14.11/Principal";
 import TimeModule "mo:base@0.14.11/Time";
 import Debug "mo:base@0.14.11/Debug";
 
-import ByteUtils "mo:byte-utils@0.0.1";
+import ByteUtils "mo:byte-utils@0.1.1";
 
 import Utils "../Utils";
 

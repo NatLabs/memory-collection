@@ -623,10 +623,32 @@ module MemoryBuffer {
 
     /// Clears the buffer.
     public func clear<A>(self : MemoryBuffer<A>) {
-        self.count := 0;
-        MemoryRegion.clear(self.pointers);
-        MemoryRegion.clear(self.blobs);
-        init_region_header(self);
+        // Deallocate all memory except the region headers
+        let pointers_memory_size = MemoryRegion.size(self.pointers);
+        MemoryRegion.deallocateRange(self.pointers, REGION_HEADER_SIZE, pointers_memory_size);
+
+        let blobs_memory_size = MemoryRegion.size(self.blobs);
+        MemoryRegion.deallocateRange(self.blobs, REGION_HEADER_SIZE, blobs_memory_size);
+
+        // Reset count
+        update_count(self, 0);
+
+        // Verify the regions are properly cleared
+        assert MemoryRegion.allocated(self.pointers) == REGION_HEADER_SIZE;
+        assert MemoryRegion.allocated(self.blobs) == REGION_HEADER_SIZE;
+        assert MemoryRegion.size(self.pointers) == MemoryRegion.allocated(self.pointers) + MemoryRegion.deallocated(self.pointers);
+        assert MemoryRegion.size(self.blobs) == MemoryRegion.allocated(self.blobs) + MemoryRegion.deallocated(self.blobs);
+
+        // Verify free memory lists
+        let pointers_free_memory_list = MemoryRegion.getFreeMemory(self.pointers);
+        if (pointers_free_memory_list.size() > 0) {
+            assert [(REGION_HEADER_SIZE, MemoryRegion.size(self.pointers) - REGION_HEADER_SIZE)] == pointers_free_memory_list;
+        };
+
+        let blobs_free_memory_list = MemoryRegion.getFreeMemory(self.blobs);
+        if (blobs_free_memory_list.size() > 0) {
+            assert [(REGION_HEADER_SIZE, MemoryRegion.size(self.blobs) - REGION_HEADER_SIZE)] == blobs_free_memory_list;
+        };
     };
 
     public func clone<A>(self : MemoryBuffer<A>) : MemoryBuffer<A> {

@@ -631,7 +631,6 @@ module {
         let value = btree_utils.value.blobify.from_blob(val_blob);
         ?(key, value);
     };
-
     public func clear(btree : MemoryBTree) {
 
         // the first leaf node should be at the address where the header ends
@@ -652,26 +651,47 @@ module {
         update_branch_count(btree, 0);
         update_leaf_count(btree, 1);
 
+        // Debug.print("leaves free memory: " # debug_show MemoryRegion.getFreeMemory(btree.leaves));
+        // Debug.print("leaves stats: " # debug_show MemoryRegion.memoryInfo(btree.leaves));
+
         let leaf_memory_size = Leaf.get_memory_size(btree.node_capacity);
         let leaf_memory_end = leaf_address + leaf_memory_size;
         let leaves_region_size = MemoryRegion.size(btree.leaves);
+        // Debug.print("leaf_memory_end: " # debug_show leaf_memory_end);
+        // Debug.print("leaves_region_size: " # debug_show leaves_region_size);
+
         MemoryRegion.deallocateRange(btree.leaves, leaf_memory_end, leaves_region_size);
 
-        assert MemoryRegion.allocated(btree.leaves) == leaf_memory_end;
         assert MemoryRegion.size(btree.leaves) == MemoryRegion.allocated(btree.leaves) + MemoryRegion.deallocated(btree.leaves);
-        assert [(leaf_memory_end, MemoryRegion.size(btree.leaves) - leaf_memory_end)] == MemoryRegion.getFreeMemory(btree.leaves);
+        // Debug.print("leaves free memory: " # debug_show MemoryRegion.getFreeMemory(btree.leaves));
+        // Debug.print("leaves stats: " # debug_show MemoryRegion.memoryInfo(btree.leaves));
+
+        assert MemoryRegion.allocated(btree.leaves) == MC.REGION_HEADER_SIZE + leaf_memory_size;
+        assert MemoryRegion.isAllocated(btree.leaves, 0, MC.REGION_HEADER_SIZE);
+        assert MemoryRegion.isAllocated(btree.leaves, MC.REGION_HEADER_SIZE, leaf_memory_size);
+
+        let leaves_free_memory_list = MemoryRegion.getFreeMemory(btree.leaves);
+        if (leaves_free_memory_list.size() > 0) {
+            assert [(leaf_memory_end, MemoryRegion.size(btree.leaves) - leaf_memory_end)] == leaves_free_memory_list;
+        };
 
         let branches_memory_size = MemoryRegion.size(btree.branches);
         MemoryRegion.deallocateRange(btree.branches, MC.REGION_HEADER_SIZE, branches_memory_size);
         assert MemoryRegion.allocated(btree.branches) == MC.REGION_HEADER_SIZE;
         assert MemoryRegion.size(btree.branches) == MemoryRegion.allocated(btree.branches) + MemoryRegion.deallocated(btree.branches);
-        assert [(MC.REGION_HEADER_SIZE, MemoryRegion.size(btree.branches) - MC.REGION_HEADER_SIZE)] == MemoryRegion.getFreeMemory(btree.branches);
+        let branches_free_memory_list = MemoryRegion.getFreeMemory(btree.branches);
+        if (branches_free_memory_list.size() > 0) {
+            assert [(MC.REGION_HEADER_SIZE, MemoryRegion.size(btree.branches) - MC.REGION_HEADER_SIZE)] == branches_free_memory_list;
+        };
 
         let data_memory_size = MemoryRegion.size(btree.data);
         MemoryRegion.deallocateRange(btree.data, MC.REGION_HEADER_SIZE, data_memory_size);
         assert MemoryRegion.allocated(btree.data) == MC.REGION_HEADER_SIZE;
         assert MemoryRegion.size(btree.data) == MemoryRegion.allocated(btree.data) + MemoryRegion.deallocated(btree.data);
-        assert [(MC.REGION_HEADER_SIZE, MemoryRegion.size(btree.data) - MC.REGION_HEADER_SIZE)] == MemoryRegion.getFreeMemory(btree.data);
+        let data_free_memory_list = MemoryRegion.getFreeMemory(btree.data);
+        if (data_free_memory_list.size() > 0) {
+            assert [(MC.REGION_HEADER_SIZE, MemoryRegion.size(btree.data) - MC.REGION_HEADER_SIZE)] == data_free_memory_list;
+        };
 
     };
 
