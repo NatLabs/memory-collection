@@ -1,217 +1,217 @@
-import Blob "mo:base@0.14.11/Blob";
-import Buffer "mo:base@0.14.11/Buffer";
-import Array "mo:base@0.14.11/Array";
-import Nat8 "mo:base@0.14.11/Nat8";
-import Nat64 "mo:base@0.14.11/Nat64";
-import Prelude "mo:base@0.14.11/Prelude";
-import Iter "mo:base@0.14.11/Iter";
-import Debug "mo:base@0.14.11/Debug";
-import Result "mo:base@0.14.11/Result";
+import Blob "mo:base@0.16.0/Blob";
+import Buffer "mo:base@0.16.0/Buffer";
+import Array "mo:base@0.16.0/Array";
+import Nat8 "mo:base@0.16.0/Nat8";
+import Nat64 "mo:base@0.16.0/Nat64";
+import Prelude "mo:base@0.16.0/Prelude";
+import Iter "mo:base@0.16.0/Iter";
+import Debug "mo:base@0.16.0/Debug";
+import Result "mo:base@0.16.0/Result";
 
 import Itertools "mo:itertools@0.2.2/Iter";
 module {
 
-    type Buffer<A> = Buffer.Buffer<A>;
-    type Iter<A> = Iter.Iter<A>;
-    type Result<A, B> = Result.Result<A, B>;
+  type Buffer<A> = Buffer.Buffer<A>;
+  type Iter<A> = Iter.Iter<A>;
+  type Result<A, B> = Result.Result<A, B>;
 
-    public let NULL_ADDRESS = 0x00;
+  public let NULL_ADDRESS = 0x00;
 
-    public func sized_iter_to_array<A>(iter : Iter<A>, size : Nat) : [A] {
-        Array.tabulate(
-            size,
-            func(_i : Nat) : A {
-                switch (iter.next()) {
-                    case (null) Debug.trap("sized_iter_to_array: found null before end of iter");
-                    case (?(a)) return a;
-                };
-            },
-        );
-    };
-
-    public func unwrap<T>(optional : ?T, trap_msg : Text) : T {
-        switch (optional) {
-            case (?v) return v;
-            case (_) return Debug.trap(trap_msg);
+  public func sized_iter_to_array<A>(iter : Iter<A>, size : Nat) : [A] {
+    Array.tabulate(
+      size,
+      func(_i : Nat) : A {
+        switch (iter.next()) {
+          case (null) Debug.trap("sized_iter_to_array: found null before end of iter");
+          case (?(a)) return a;
         };
+      },
+    );
+  };
+
+  public func unwrap<T>(optional : ?T, trap_msg : Text) : T {
+    switch (optional) {
+      case (?v) return v;
+      case (_) return Debug.trap(trap_msg);
+    };
+  };
+
+  public func send_error<OldOk, NewOk, Error>(res : Result<OldOk, Error>) : Result<NewOk, Error> {
+    switch (res) {
+      case (#ok(_)) Prelude.unreachable();
+      case (#err(errorMsg)) #err(errorMsg);
+    };
+  };
+
+  public func nat_to_blob(num : Nat, nbytes : Nat) : Blob {
+    var n = num;
+
+    let bytes = Array.reverse(
+      Array.tabulate(
+        nbytes,
+        func(_ : Nat) : Nat8 {
+          if (n == 0) {
+            return 0;
+          };
+
+          let byte = Nat8.fromNat(n % 256);
+          n /= 256;
+          byte;
+        },
+      )
+    );
+
+    return Blob.fromArray(bytes);
+  };
+
+  public func blob_to_nat(blob : Blob) : Nat {
+    var n = 0;
+
+    for (byte in blob.vals()) {
+      n *= 256;
+      n += Nat8.toNat(byte);
     };
 
-    public func send_error<OldOk, NewOk, Error>(res : Result<OldOk, Error>) : Result<NewOk, Error> {
-        switch (res) {
-            case (#ok(_)) Prelude.unreachable();
-            case (#err(errorMsg)) #err(errorMsg);
-        };
+    return n;
+  };
+
+  public func nat_to_bytes(n : Nat) : [Nat8] {
+    var num = n;
+    var nbytes = 0;
+
+    while (num > 0) {
+      num /= 255;
+      nbytes += 1;
     };
 
-    public func nat_to_blob(num : Nat, nbytes : Nat) : Blob {
-        var n = num;
+    num := n;
 
-        let bytes = Array.reverse(
-            Array.tabulate(
-                nbytes,
-                func(_ : Nat) : Nat8 {
-                    if (n == 0) {
-                        return 0;
-                    };
+    let arr = Array.reverse(
+      Array.tabulate(
+        nbytes,
+        func(_ : Nat) : Nat8 {
+          let tmp = num % 255;
+          num /= 255;
+          Nat8.fromNat(tmp);
+        },
+      )
+    );
 
-                    let byte = Nat8.fromNat(n % 256);
-                    n /= 256;
-                    byte;
-                },
-            )
-        );
+    arr;
+  };
 
-        return Blob.fromArray(bytes);
+  public func bytes_to_nat(bytes : Iter.Iter<Nat8>) : Nat {
+    var n = 0;
+    let bytes_arr : [Nat8] = Iter.toArray(bytes);
+
+    var j = bytes_arr.size();
+
+    while (j > 0) {
+      let byte = bytes_arr.get(j - 1);
+      n *= 255;
+      n += Nat8.toNat(byte);
+
+      j -= 1;
     };
 
-    public func blob_to_nat(blob : Blob) : Nat {
-        var n = 0;
+    n;
+  };
 
-        for (byte in blob.vals()) {
-            n *= 256;
-            n += Nat8.toNat(byte);
-        };
+  public func byte_iter_to_nat(iter : Iter<Nat8>) : Nat {
+    var n = 0;
 
-        return n;
+    for (byte in iter) {
+      n *= 256;
+      n += Nat8.toNat(byte);
     };
 
-    public func nat_to_bytes(n : Nat) : [Nat8] {
-        var num = n;
-        var nbytes = 0;
+    return n;
+  };
 
-        while (num > 0) {
-            num /= 255;
-            nbytes += 1;
-        };
+  public func concat_blobs(blobs : [Blob]) : Blob {
+    var total_size = 0;
 
-        num := n;
-
-        let arr = Array.reverse(
-            Array.tabulate(
-                nbytes,
-                func(_ : Nat) : Nat8 {
-                    let tmp = num % 255;
-                    num /= 255;
-                    Nat8.fromNat(tmp);
-                },
-            )
-        );
-
-        arr;
+    var i = 0;
+    while (i < blobs.size()) {
+      total_size += blobs[i].size();
+      i += 1;
     };
 
-    public func bytes_to_nat(bytes : Iter.Iter<Nat8>) : Nat {
-        var n = 0;
-        let bytes_arr : [Nat8] = Iter.toArray(bytes);
+    let nested_bytes = Array.tabulate(
+      blobs.size(),
+      func(i : Nat) : [Nat8] {
+        Blob.toArray(blobs[i]);
+      },
+    );
 
-        var j = bytes_arr.size();
+    let bytes = Array.flatten(nested_bytes);
+    Blob.fromArray(bytes);
+  };
 
-        while (j > 0) {
-            let byte = bytes_arr.get(j - 1);
-            n *= 255;
-            n += Nat8.toNat(byte);
+  public func encode_leb128(n : Nat) : Blob {
+    let nat64_bound = 18_446_744_073_709_551_616;
 
-            j -= 1;
-        };
+    if (n < nat64_bound) {
+      // more performant than the general leb128
+      var n64 : Nat64 = Nat64.fromNat(n);
+      var bit_length = Nat64.toNat(64 - Nat64.bitcountLeadingZero(n64));
+      var nbytes = if (bit_length == 0) 1 else (bit_length + 6) / 7; // div_ceil
 
-        n;
+      let bytes = Array.tabulate(
+        nbytes,
+        func(i : Nat) : Nat8 {
+          let byte = n64 & 0x7F |> Nat64.toNat(_) |> Nat8.fromNat(_);
+          n64 >>= 7;
+
+          if (n64 > 0) return (byte | 0x80);
+
+          return byte;
+        },
+      );
+
+      return Blob.fromArray(bytes);
     };
 
-    public func byte_iter_to_nat(iter : Iter<Nat8>) : Nat {
-        var n = 0;
+    var num = n;
+    var nbytes = 0;
 
-        for (byte in iter) {
-            n *= 256;
-            n += Nat8.toNat(byte);
-        };
-
-        return n;
+    while (num > 0) {
+      num /= 255;
+      nbytes += 1;
     };
 
-    public func concat_blobs(blobs : [Blob]) : Blob {
-        var total_size = 0;
+    num := n;
 
-        var i = 0;
-        while (i < blobs.size()) {
-            total_size += blobs[i].size();
-            i += 1;
-        };
+    let bytes = Array.tabulate(
+      nbytes,
+      func(i : Nat) : Nat8 {
+        var byte = num % 0x80 |> Nat8.fromNat(_);
+        num /= 0x80;
 
-        let nested_bytes = Array.tabulate(
-            blobs.size(),
-            func(i : Nat) : [Nat8] {
-                Blob.toArray(blobs[i]);
-            },
-        );
+        if (num > 0) byte := (byte | 0x80);
+        byte;
+      },
+    );
 
-        let bytes = Array.flatten(nested_bytes);
-        Blob.fromArray(bytes);
+    Blob.fromArray(bytes);
+  };
+
+  public func decode_leb_64(bytes : [Nat8]) : Nat {
+    var n64 : Nat64 = 0;
+    var shift : Nat64 = 0;
+    var i = 0;
+
+    label decoding_leb while (i < bytes.size()) {
+      let byte = bytes[i];
+
+      n64 |= (Nat64.fromNat(Nat8.toNat(byte & 0x7f)) << shift);
+
+      if (byte & 0x80 == 0) break decoding_leb;
+      shift += 7;
+      i += 1;
     };
 
-    public func encode_leb128(n : Nat) : Blob {
-        let nat64_bound = 18_446_744_073_709_551_616;
-
-        if (n < nat64_bound) {
-            // more performant than the general leb128
-            var n64 : Nat64 = Nat64.fromNat(n);
-            var bit_length = Nat64.toNat(64 - Nat64.bitcountLeadingZero(n64));
-            var nbytes = if (bit_length == 0) 1 else (bit_length + 6) / 7; // div_ceil
-
-            let bytes = Array.tabulate(
-                nbytes,
-                func(i : Nat) : Nat8 {
-                    let byte = n64 & 0x7F |> Nat64.toNat(_) |> Nat8.fromNat(_);
-                    n64 >>= 7;
-
-                    if (n64 > 0) return (byte | 0x80);
-
-                    return byte;
-                },
-            );
-
-            return Blob.fromArray(bytes);
-        };
-
-        var num = n;
-        var nbytes = 0;
-
-        while (num > 0) {
-            num /= 255;
-            nbytes += 1;
-        };
-
-        num := n;
-
-        let bytes = Array.tabulate(
-            nbytes,
-            func(i : Nat) : Nat8 {
-                var byte = num % 0x80 |> Nat8.fromNat(_);
-                num /= 0x80;
-
-                if (num > 0) byte := (byte | 0x80);
-                byte;
-            },
-        );
-
-        Blob.fromArray(bytes);
-    };
-
-    public func decode_leb_64(bytes : [Nat8]) : Nat {
-        var n64 : Nat64 = 0;
-        var shift : Nat64 = 0;
-        var i = 0;
-
-        label decoding_leb while (i < bytes.size()) {
-            let byte = bytes[i];
-
-            n64 |= (Nat64.fromNat(Nat8.toNat(byte & 0x7f)) << shift);
-
-            if (byte & 0x80 == 0) break decoding_leb;
-            shift += 7;
-            i += 1;
-        };
-
-        Nat64.toNat(n64);
-    };
+    Nat64.toNat(n64);
+  };
 
 };

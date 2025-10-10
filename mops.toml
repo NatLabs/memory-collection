@@ -7,20 +7,20 @@ keywords = ["stable-memory", "encoding", "persistent"]
 license = "MIT"
 
 [dependencies]
-"base@0.14.11" = "0.14.11"
+"base@0.16.0" = "0.16.0"
 "itertools@0.2.2" = "0.2.2"
 "memory-region@1.3.2" = "1.3.2"
 "buffer-deque@0.1.0" = "0.1.0"
 "byte-utils@0.1.1" = "0.1.1"
 
 [dev-dependencies]
-"test@2.1.1" = "2.1.1"
+test = "2.1.1"
 bench = "1.0.0"
-"augmented-btrees@0.7.1" = "0.7.1"
-"fuzz@1.0.0" = "1.0.0"
-"stableheapbtreemap@1.5.0" = "1.5.0"
-"map@9.0.1" = "9.0.1"
+"augmented-btrees" = "0.7.1"
+"fuzz" = "1.0.0"
+"stableheapbtreemap" = "1.5.0"
+"map" = "9.0.1"
 
 [toolchain]
 wasmtime = "33.0.1"
-moc = "0.14.13"
+moc = "0.16.0"

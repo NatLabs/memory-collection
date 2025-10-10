@@ -1,77 +1,77 @@
-import Nat "mo:base@0.14.11/Nat";
+import Nat "mo:base@0.16.0/Nat";
 
 import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
 import RevIter "mo:itertools@0.2.2/RevIter";
-// import Branch "mo:augmented-btrees@0.7.1/BpTree/Branch";
+// import Branch "mo:augmented-btrees/BpTree/Branch";
 
 import Blobify "../../TypeUtils/Blobify";
 import MemoryCmp "../../TypeUtils/MemoryCmp";
 
 module {
-    public type Address = Nat;
-    type Size = Nat;
+  public type Address = Nat;
+  type Size = Nat;
 
-    public type MemoryBlock = (Address, Size);
+  public type MemoryBlock = (Address, Size);
 
-    type MemoryRegionV1 = MemoryRegion.MemoryRegionV1;
-    type Blobify<A> = Blobify.Blobify<A>;
-    type RevIter<A> = RevIter.RevIter<A>;
+  type MemoryRegionV1 = MemoryRegion.MemoryRegionV1;
+  type Blobify<A> = Blobify.Blobify<A>;
+  type RevIter<A> = RevIter.RevIter<A>;
 
-    public type MemoryCmp<A> = MemoryCmp.MemoryCmp<A>;
+  public type MemoryCmp<A> = MemoryCmp.MemoryCmp<A>;
 
-    public type Leaf = (
-        nats : [var Nat], // [address, index, count]
-        adjacent_nodes : [var ?Nat], // [parent, prev, next] (is_root if parent is null)
-        key_blocks : [var ?(MemoryBlock)], // [... ((key address, key size), key blob)]
-        val_blocks : [var ?(MemoryBlock)],
-        kv_blobs : [var ?(Blob, Blob)],
-        _branch_children_nodes : [var ?Nat], // [... child address]
-        _branch_keys_blobs : [var ?Blob],
-    );
+  public type Leaf = (
+    nats : [var Nat], // [address, index, count]
+    adjacent_nodes : [var ?Nat], // [parent, prev, next] (is_root if parent is null)
+    key_blocks : [var ?(MemoryBlock)], // [... ((key address, key size), key blob)]
+    val_blocks : [var ?(MemoryBlock)],
+    kv_blobs : [var ?(Blob, Blob)],
+    _branch_children_nodes : [var ?Nat], // [... child address]
+    _branch_keys_blobs : [var ?Blob],
+  );
 
-    type Entry<A> = {
-        #Blob : Blob;
-        #Deserialized : (Blob, A);
-    };
+  type Entry<A> = {
+    #Blob : Blob;
+    #Deserialized : (Blob, A);
+  };
 
-    public type Branch = (
-        nats : [var Nat], // [address, index, count, subtree_size]
-        parent : [var ?Nat], // parent
-        key_blocks : [var ?(MemoryBlock)], // [... ((key address, key size), key blob)]
-        _leaf_val_blocks : [var ?(MemoryBlock)],
-        _leaf_kv_blobs : [var ?(Blob, Blob)],
-        children_nodes : [var ?Nat], // [... child address]
-        keys_blobs : [var ?Blob],
-    );
+  public type Branch = (
+    nats : [var Nat], // [address, index, count, subtree_size]
+    parent : [var ?Nat], // parent
+    key_blocks : [var ?(MemoryBlock)], // [... ((key address, key size), key blob)]
+    _leaf_val_blocks : [var ?(MemoryBlock)],
+    _leaf_kv_blobs : [var ?(Blob, Blob)],
+    children_nodes : [var ?Nat], // [... child address]
+    keys_blobs : [var ?Blob],
+  );
 
-    public type Node = {
-        #leaf : Leaf;
-        #branch : Branch;
-    };
+  public type Node = {
+    #leaf : Leaf;
+    #branch : Branch;
+  };
 
-    public type NodeType = {
-        #branch;
-        #leaf;
-    };
+  public type NodeType = {
+    #branch;
+    #leaf;
+  };
 
-    public type MemoryBTree = {
-        is_set : Bool; // is true, only keys are stored
-        node_capacity : Nat;
-        var count : Nat;
-        var root : Nat;
-        var branch_count : Nat; // number of branch nodes
-        var leaf_count : Nat; // number of leaf nodes
-        var depth : Nat;
-        var is_root_a_leaf : Bool;
+  public type MemoryBTree = {
+    is_set : Bool; // is true, only keys are stored
+    node_capacity : Nat;
+    var count : Nat;
+    var root : Nat;
+    var branch_count : Nat; // number of branch nodes
+    var leaf_count : Nat; // number of leaf nodes
+    var depth : Nat;
+    var is_root_a_leaf : Bool;
 
-        metadata : MemoryRegionV1;
-        blocks : MemoryRegionV1;
-        blobs : MemoryRegionV1;
+    metadata : MemoryRegionV1;
+    blocks : MemoryRegionV1;
+    blobs : MemoryRegionV1;
 
-        leaves : MemoryRegionV1;
-        branches : MemoryRegionV1;
-        data : MemoryRegionV1;
+    leaves : MemoryRegionV1;
+    branches : MemoryRegionV1;
+    data : MemoryRegionV1;
 
-    };
+  };
 
 };

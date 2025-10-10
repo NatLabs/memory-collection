@@ -1,18 +1,18 @@
 // @testmode wasi
-import Buffer "mo:base@0.14.11/Buffer";
-import Debug "mo:base@0.14.11/Debug";
-import Iter "mo:base@0.14.11/Iter";
-import Prelude "mo:base@0.14.11/Prelude";
-import Nat "mo:base@0.14.11/Nat";
-import Array "mo:base@0.14.11/Array";
-import Nat64 "mo:base@0.14.11/Nat64";
+import Buffer "mo:base@0.16.0/Buffer";
+import Debug "mo:base@0.16.0/Debug";
+import Iter "mo:base@0.16.0/Iter";
+import Prelude "mo:base@0.16.0/Prelude";
+import Nat "mo:base@0.16.0/Nat";
+import Array "mo:base@0.16.0/Array";
+import Nat64 "mo:base@0.16.0/Nat64";
 
-import { test; suite } "mo:test@2.1.1";
-import Fuzz "mo:fuzz@1.0.0";
-import { MaxBpTree; Cmp } "mo:augmented-btrees@0.7.1";
+import { test; suite } "mo:test";
+import Fuzz "mo:fuzz";
+import { MaxBpTree; Cmp } "mo:augmented-btrees";
 import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
 import Itertools "mo:itertools@0.2.2/Iter";
-import MaxBpTreeMethods "mo:augmented-btrees@0.7.1/MaxBpTree/Methods";
+import MaxBpTreeMethods "mo:augmented-btrees/MaxBpTree/Methods";
 
 import MemoryBuffer "../../src/MemoryBuffer/Base";
 
@@ -26,7 +26,7 @@ let order = Buffer.Buffer<Nat>(limit);
 let values = Buffer.Buffer<Nat>(limit);
 
 for (i in Iter.range(0, limit - 1)) {
-    order.add(i);
+  order.add(i);
 };
 
 let fuzz = Fuzz.fromSeed(0xdeadbeef);
@@ -37,289 +37,289 @@ fuzz.buffer.shuffle(order);
 type MemoryRegion = MemoryRegion.MemoryRegion;
 
 func validate_region(memory_region : MemoryRegion) {
-    if (not MaxBpTreeMethods.validate_max_path(memory_region.free_memory, Cmp.Nat)) {
-        Debug.print("invalid max path discovered at index ");
-        Debug.print("node keys: " # debug_show (MaxBpTree.toNodeKeys(memory_region.free_memory)));
-        Debug.print("node leaves: " # debug_show (MaxBpTree.toLeafNodes(memory_region.free_memory)));
-        assert false;
-    };
+  if (not MaxBpTreeMethods.validate_max_path(memory_region.free_memory, Cmp.Nat)) {
+    Debug.print("invalid max path discovered at index ");
+    Debug.print("node keys: " # debug_show (MaxBpTree.toNodeKeys(memory_region.free_memory)));
+    Debug.print("node leaves: " # debug_show (MaxBpTree.toLeafNodes(memory_region.free_memory)));
+    assert false;
+  };
 
-    if (not MaxBpTreeMethods.validate_subtree_size(memory_region.free_memory)) {
-        Debug.print("invalid subtree size at index ");
-        Debug.print("node keys: " # debug_show (MaxBpTree.toNodeKeys(memory_region.free_memory)));
-        Debug.print("node leaves: " # debug_show (MaxBpTree.toLeafNodes(memory_region.free_memory)));
-        assert false;
-    };
+  if (not MaxBpTreeMethods.validate_subtree_size(memory_region.free_memory)) {
+    Debug.print("invalid subtree size at index ");
+    Debug.print("node keys: " # debug_show (MaxBpTree.toNodeKeys(memory_region.free_memory)));
+    Debug.print("node leaves: " # debug_show (MaxBpTree.toLeafNodes(memory_region.free_memory)));
+    assert false;
+  };
 };
 
 suite(
-    "Memory Buffer",
-    func() {
-        let mbuffer = MemoryBuffer.new<Nat>();
+  "Memory Buffer",
+  func() {
+    let mbuffer = MemoryBuffer.new<Nat>();
 
-        test(
-            "add() to Buffer",
-            func() {
-                for (i in Iter.range(0, limit - 1)) {
-                    MemoryBuffer.add(mbuffer, TypeUtils.Nat, i);
-                    values.add(i);
+    test(
+      "add() to Buffer",
+      func() {
+        for (i in Iter.range(0, limit - 1)) {
+          MemoryBuffer.add(mbuffer, TypeUtils.Nat, i);
+          values.add(i);
 
-                    assert MemoryBuffer.get(mbuffer, TypeUtils.Nat, i) == i;
-                    assert MemoryBuffer.size(mbuffer) == i + 1;
+          assert MemoryBuffer.get(mbuffer, TypeUtils.Nat, i) == i;
+          assert MemoryBuffer.size(mbuffer) == i + 1;
 
-                    // assert MemoryRegion.size(mbuffer.pointers) == 64 + (MemoryBuffer.size(mbuffer) * 12);
-                };
+          // assert MemoryRegion.size(mbuffer.pointers) == 64 + (MemoryBuffer.size(mbuffer) * 12);
+        };
 
-                assert ?(MemoryRegion.size(mbuffer.blobs) - 64) == Itertools.sum(
-                    Iter.map(
-                        MemoryBuffer.blocks(mbuffer),
-                        func((address, size) : (Nat, Nat)) : Nat = size,
-                    ),
-                    Nat.add,
-                );
-            },
+        assert ?(MemoryRegion.size(mbuffer.blobs) - 64) == Itertools.sum(
+          Iter.map(
+            MemoryBuffer.blocks(mbuffer),
+            func((address, size) : (Nat, Nat)) : Nat = size,
+          ),
+          Nat.add,
         );
+      },
+    );
 
-        test(
-            "put() (new == prev) in Buffer",
-            func() {
-                for (i in order.vals()) {
-                    assert MemoryBuffer.get(mbuffer, TypeUtils.Nat, i) == i;
+    test(
+      "put() (new == prev) in Buffer",
+      func() {
+        for (i in order.vals()) {
+          assert MemoryBuffer.get(mbuffer, TypeUtils.Nat, i) == i;
 
-                    MemoryBuffer.put(mbuffer, TypeUtils.Nat, i, i);
-                    validate_region(mbuffer.blobs);
-                    validate_region(mbuffer.pointers);
-                    assert MemoryBuffer.get(mbuffer, TypeUtils.Nat, i) == i;
-                };
-            },
-        );
+          MemoryBuffer.put(mbuffer, TypeUtils.Nat, i, i);
+          validate_region(mbuffer.blobs);
+          validate_region(mbuffer.pointers);
+          assert MemoryBuffer.get(mbuffer, TypeUtils.Nat, i) == i;
+        };
+      },
+    );
 
-        test(
-            "put() new > old",
-            func() {
-                for (i in order.vals()) {
-                    let val = i * 100;
-                    let pointer = MemoryBuffer._get_pointer(mbuffer, i);
-                    let memory_block = MemoryBuffer._get_memory_block(mbuffer, i);
-                    let blob = MemoryBuffer._get_blob(mbuffer, i);
-                    // Debug.print("old " # debug_show (i, pointer, memory_block, blob, TypeUtils.Nat.blobify.to_blob(i)));
-                    assert blob == TypeUtils.Nat.blobify.to_blob(i);
+    test(
+      "put() new > old",
+      func() {
+        for (i in order.vals()) {
+          let val = i * 100;
+          let pointer = MemoryBuffer._get_pointer(mbuffer, i);
+          let memory_block = MemoryBuffer._get_memory_block(mbuffer, i);
+          let blob = MemoryBuffer._get_blob(mbuffer, i);
+          // Debug.print("old " # debug_show (i, pointer, memory_block, blob, TypeUtils.Nat.blobify.to_blob(i)));
+          assert blob == TypeUtils.Nat.blobify.to_blob(i);
 
-                    // Debug.print("node keys: " # debug_show (MaxBpTree.toNodeKeys(mbuffer.blobs.free_memory)));
-                    // Debug.print("leaf nodes: " # debug_show (MaxBpTree.toLeafNodes(mbuffer.blobs.free_memory)));
-                    MemoryBuffer.put(mbuffer, TypeUtils.Nat, i, i * 100);
+          // Debug.print("node keys: " # debug_show (MaxBpTree.toNodeKeys(mbuffer.blobs.free_memory)));
+          // Debug.print("leaf nodes: " # debug_show (MaxBpTree.toLeafNodes(mbuffer.blobs.free_memory)));
+          MemoryBuffer.put(mbuffer, TypeUtils.Nat, i, i * 100);
 
-                    validate_region(mbuffer.blobs);
-                    validate_region(mbuffer.pointers);
+          validate_region(mbuffer.blobs);
+          validate_region(mbuffer.pointers);
 
-                    let serialized = TypeUtils.Nat.blobify.to_blob(val);
+          let serialized = TypeUtils.Nat.blobify.to_blob(val);
 
-                    let new_pointer = MemoryBuffer._get_pointer(mbuffer, i);
-                    let new_memory_block = MemoryBuffer._get_memory_block(mbuffer, i);
-                    let new_blob = MemoryBuffer._get_blob(mbuffer, i);
+          let new_pointer = MemoryBuffer._get_pointer(mbuffer, i);
+          let new_memory_block = MemoryBuffer._get_memory_block(mbuffer, i);
+          let new_blob = MemoryBuffer._get_blob(mbuffer, i);
 
-                    // Debug.print("new " # debug_show (i, new_pointer, new_memory_block, new_blob));
-                    // Debug.print("expected " # debug_show serialized);
-                    assert new_blob == serialized;
-                };
-            },
-        );
+          // Debug.print("new " # debug_show (i, new_pointer, new_memory_block, new_blob));
+          // Debug.print("expected " # debug_show serialized);
+          assert new_blob == serialized;
+        };
+      },
+    );
 
-        test(
-            "put() (new < prev) in Buffer",
-            func() {
+    test(
+      "put() (new < prev) in Buffer",
+      func() {
 
-                for (i in order.vals()) {
+        for (i in order.vals()) {
 
-                    assert MemoryBuffer.get(mbuffer, TypeUtils.Nat, i) == i * 100; // ensures the previous value did not get overwritten
+          assert MemoryBuffer.get(mbuffer, TypeUtils.Nat, i) == i * 100; // ensures the previous value did not get overwritten
 
-                    let new_value = i;
-                    MemoryBuffer.put(mbuffer, TypeUtils.Nat, i, new_value);
-                    // Debug.print("node keys: " # debug_show (MaxBpTree.toNodeKeys(mbuffer.blobs.free_memory)));
-                    // Debug.print("leaf nodes: " # debug_show (MaxBpTree.toLeafNodes(mbuffer.blobs.free_memory)));
-                    validate_region(mbuffer.blobs);
-                    validate_region(mbuffer.pointers);
-                    let received = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
-                    if (received != new_value) {
-                        Debug.print("mismatch at i = " # debug_show i);
-                        Debug.print("(exprected, received) -> " # debug_show (new_value, received));
+          let new_value = i;
+          MemoryBuffer.put(mbuffer, TypeUtils.Nat, i, new_value);
+          // Debug.print("node keys: " # debug_show (MaxBpTree.toNodeKeys(mbuffer.blobs.free_memory)));
+          // Debug.print("leaf nodes: " # debug_show (MaxBpTree.toLeafNodes(mbuffer.blobs.free_memory)));
+          validate_region(mbuffer.blobs);
+          validate_region(mbuffer.pointers);
+          let received = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
+          if (received != new_value) {
+            Debug.print("mismatch at i = " # debug_show i);
+            Debug.print("(exprected, received) -> " # debug_show (new_value, received));
 
-                        assert false;
-                    };
-                };
-            },
-        );
+            assert false;
+          };
+        };
+      },
+    );
 
-        test(
-            "removeLast() from Buffer",
-            func() {
+    test(
+      "removeLast() from Buffer",
+      func() {
 
-                for (i in Iter.range(0, limit - 1)) {
-                    let expected = limit - i - 1;
+        for (i in Iter.range(0, limit - 1)) {
+          let expected = limit - i - 1;
 
-                    let removed = MemoryBuffer.removeLast(mbuffer, TypeUtils.Nat);
+          let removed = MemoryBuffer.removeLast(mbuffer, TypeUtils.Nat);
 
-                    validate_region(mbuffer.blobs);
-                    validate_region(mbuffer.pointers);
-                    // Debug.print("(expected, removed) -> " # debug_show (expected, removed));
-                    assert ?expected == removed;
-                };
-            },
-        );
+          validate_region(mbuffer.blobs);
+          validate_region(mbuffer.pointers);
+          // Debug.print("(expected, removed) -> " # debug_show (expected, removed));
+          assert ?expected == removed;
+        };
+      },
+    );
 
-        test(
-            "add() reallocation",
-            func() {
-                assert MemoryBuffer.size(mbuffer) == 0;
+    test(
+      "add() reallocation",
+      func() {
+        assert MemoryBuffer.size(mbuffer) == 0;
 
-                for (i in Iter.range(0, limit - 1)) {
-                    MemoryBuffer.add(mbuffer, TypeUtils.Nat, i);
+        for (i in Iter.range(0, limit - 1)) {
+          MemoryBuffer.add(mbuffer, TypeUtils.Nat, i);
 
-                    let expected = i;
-                    let received = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
+          let expected = i;
+          let received = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
 
-                    if (expected != received) {
-                        Debug.print("mismatch at i = " # debug_show i);
-                        Debug.print("(exprected, received) -> " # debug_show (expected, received));
-                        assert false;
-                    };
+          if (expected != received) {
+            Debug.print("mismatch at i = " # debug_show i);
+            Debug.print("(exprected, received) -> " # debug_show (expected, received));
+            assert false;
+          };
 
-                    assert MemoryBuffer.size(mbuffer) == i + 1;
-                };
+          assert MemoryBuffer.size(mbuffer) == i + 1;
+        };
 
-            },
-        );
+      },
+    );
 
-        test(
-            "reverse()",
-            func() {
-                let array = MemoryBuffer.toArray(mbuffer, TypeUtils.Nat);
-                MemoryBuffer.reverse(mbuffer);
-                let reversed = Array.reverse(array);
-                assert reversed == MemoryBuffer.toArray(mbuffer, TypeUtils.Nat);
-            },
-        );
+    test(
+      "reverse()",
+      func() {
+        let array = MemoryBuffer.toArray(mbuffer, TypeUtils.Nat);
+        MemoryBuffer.reverse(mbuffer);
+        let reversed = Array.reverse(array);
+        assert reversed == MemoryBuffer.toArray(mbuffer, TypeUtils.Nat);
+      },
+    );
 
-        test(
-            "remove() from Buffer",
-            func() {
-                var size = order.size();
+    test(
+      "remove() from Buffer",
+      func() {
+        var size = order.size();
 
-                for (i in order.vals()) {
-                    assert MemoryBuffer.size(mbuffer) == size;
+        for (i in order.vals()) {
+          assert MemoryBuffer.size(mbuffer) == size;
 
-                    let expected = i;
-                    let j = Nat.min(i, MemoryBuffer.size(mbuffer) - 1);
-                    let removed = MemoryBuffer.remove(mbuffer, TypeUtils.Nat, j);
-                    validate_region(mbuffer.blobs);
-                    validate_region(mbuffer.pointers);
+          let expected = i;
+          let j = Nat.min(i, MemoryBuffer.size(mbuffer) - 1);
+          let removed = MemoryBuffer.remove(mbuffer, TypeUtils.Nat, j);
+          validate_region(mbuffer.blobs);
+          validate_region(mbuffer.pointers);
 
-                    size -= 1;
-                };
+          size -= 1;
+        };
 
-                assert MemoryBuffer.size(mbuffer) == size;
+        assert MemoryBuffer.size(mbuffer) == size;
 
-            },
-        );
+      },
+    );
 
-        test(
-            "insert()",
-            func() {
+    test(
+      "insert()",
+      func() {
 
-                for (i in order.vals()) {
-                    let j = Nat.min(i, MemoryBuffer.size(mbuffer));
-                    // Debug.print("inserting i = " # debug_show i # " at index " # debug_show j);
+        for (i in order.vals()) {
+          let j = Nat.min(i, MemoryBuffer.size(mbuffer));
+          // Debug.print("inserting i = " # debug_show i # " at index " # debug_show j);
 
-                    MemoryBuffer.insert(mbuffer, TypeUtils.Nat, j, i);
-                    let received = MemoryBuffer.get(mbuffer, TypeUtils.Nat, j);
-                    if (received != i) {
-                        Debug.print("mismatch at i = " # debug_show i);
-                        Debug.print("(exprected, received) -> " # debug_show (i, received));
-                        assert false;
-                    };
-                    // assert MemoryBuffer.get(mbuffer, TypeUtils.Nat, j) == i;
-                };
-            },
-        );
+          MemoryBuffer.insert(mbuffer, TypeUtils.Nat, j, i);
+          let received = MemoryBuffer.get(mbuffer, TypeUtils.Nat, j);
+          if (received != i) {
+            Debug.print("mismatch at i = " # debug_show i);
+            Debug.print("(exprected, received) -> " # debug_show (i, received));
+            assert false;
+          };
+          // assert MemoryBuffer.get(mbuffer, TypeUtils.Nat, j) == i;
+        };
+      },
+    );
 
-        test(
-            "shuffle",
-            func() {
-                MemoryBuffer.shuffle(mbuffer);
+    test(
+      "shuffle",
+      func() {
+        MemoryBuffer.shuffle(mbuffer);
 
-                for (i in Iter.range(0, limit - 1)) {
-                    let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
-                };
-            },
-        );
+        for (i in Iter.range(0, limit - 1)) {
+          let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
+        };
+      },
+    );
 
-        test(
-            "sortUnstable",
-            func() {
-                MemoryBuffer.sortUnstable<Nat>(mbuffer, TypeUtils.Nat, MemoryCmp.Nat);
+    test(
+      "sortUnstable",
+      func() {
+        MemoryBuffer.sortUnstable<Nat>(mbuffer, TypeUtils.Nat, MemoryCmp.Nat);
 
-                var prev = MemoryBuffer.get(mbuffer, TypeUtils.Nat, 0);
-                for (i in Iter.range(1, limit - 1)) {
-                    let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
-                    assert prev <= n;
-                    prev := n;
-                };
-            },
-        );
+        var prev = MemoryBuffer.get(mbuffer, TypeUtils.Nat, 0);
+        for (i in Iter.range(1, limit - 1)) {
+          let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
+          assert prev <= n;
+          prev := n;
+        };
+      },
+    );
 
-        test(
-            "clear()",
-            func() {
-                MemoryBuffer.clear(mbuffer);
-                assert MemoryBuffer.size(mbuffer) == 0;
-            },
-        );
+    test(
+      "clear()",
+      func() {
+        MemoryBuffer.clear(mbuffer);
+        assert MemoryBuffer.size(mbuffer) == 0;
+      },
+    );
 
-        test(
-            "addFromIter",
-            func() {
-                let iter = Iter.range(0, limit - 1);
-                MemoryBuffer.addFromIter(mbuffer, TypeUtils.Nat, iter);
-                for (i in Iter.range(0, limit - 1)) {
-                    let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
-                    assert n == i;
-                };
-            },
-        );
+    test(
+      "addFromIter",
+      func() {
+        let iter = Iter.range(0, limit - 1);
+        MemoryBuffer.addFromIter(mbuffer, TypeUtils.Nat, iter);
+        for (i in Iter.range(0, limit - 1)) {
+          let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
+          assert n == i;
+        };
+      },
+    );
 
-        test(
-            "indexOf",
-            func() {
-                let arr : [Nat] = [3, 782, 910, 1289, 4782, 9999];
-                for (i in arr.vals()) {
-                    let index = MemoryBuffer.indexOf<Nat>(mbuffer, TypeUtils.Nat, Nat.equal, i);
-                    assert index == ?i;
-                };
-            },
-        );
+    test(
+      "indexOf",
+      func() {
+        let arr : [Nat] = [3, 782, 910, 1289, 4782, 9999];
+        for (i in arr.vals()) {
+          let index = MemoryBuffer.indexOf<Nat>(mbuffer, TypeUtils.Nat, Nat.equal, i);
+          assert index == ?i;
+        };
+      },
+    );
 
-        test(
-            "items()",
-            func() {
-                let items = MemoryBuffer.items(mbuffer, TypeUtils.Nat);
-                for (i in Iter.range(0, limit - 1)) {
-                    let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
-                    assert ?(i, n) == items.next();
-                };
-            },
-        );
+    test(
+      "items()",
+      func() {
+        let items = MemoryBuffer.items(mbuffer, TypeUtils.Nat);
+        for (i in Iter.range(0, limit - 1)) {
+          let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
+          assert ?(i, n) == items.next();
+        };
+      },
+    );
 
-        test(
-            "tabulate",
-            func() {
-                let mbuffer = MemoryBuffer.tabulate(TypeUtils.Nat, limit, func(i : Nat) : Nat = i);
-                assert MemoryBuffer.size(mbuffer) == limit;
-                for (i in Iter.range(0, limit - 1)) {
-                    let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
-                    assert n == i;
-                };
-            },
-        );
+    test(
+      "tabulate",
+      func() {
+        let mbuffer = MemoryBuffer.tabulate(TypeUtils.Nat, limit, func(i : Nat) : Nat = i);
+        assert MemoryBuffer.size(mbuffer) == limit;
+        for (i in Iter.range(0, limit - 1)) {
+          let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
+          assert n == i;
+        };
+      },
+    );
 
-    },
+  },
 );
