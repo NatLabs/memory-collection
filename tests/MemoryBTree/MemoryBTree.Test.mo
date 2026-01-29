@@ -67,7 +67,7 @@ let random = Itertools.toBuffer<(Nat, Nat)>(
 let sorted = Buffer.clone(random);
 sorted.sort(func(a : (Nat, Nat), b : (Nat, Nat)) : Order = Nat.compare(a.0, b.0));
 
-let btree = MemoryBTree._new_with_options(?8, ?0, false);
+let btree = MemoryBTree._new_with_options(?16, ?0, false);
 let btree_utils = MemoryBTree.createUtils(TypeUtils.Nat, TypeUtils.Nat);
 
 suite(
@@ -521,8 +521,12 @@ suite(
                 for ((key, i) in random.vals()) {
                     // Debug.print("removing " # debug_show key);
                     let val = MemoryBTree.remove(btree, btree_utils, key);
-                    // Debug.print("(i, val): " # debug_show (i, val));
-                    assert ?(1 + i * 10) == val;
+                    let expected_val = ?(1 + i * 10);
+                    if (expected_val != val) {
+                        Debug.print("FAIL: key=" # debug_show key # ", i=" # debug_show i # ", expected=" # debug_show expected_val # ", actual=" # debug_show val);
+                        Debug.print("size before=" # debug_show (random.size() - i) # ", size after=" # debug_show MemoryBTree.size(btree));
+                    };
+                    assert expected_val == val;
 
                     assert MemoryBTree.size(btree) == random.size() - i - 1;
                     // Debug.print("node keys: " # debug_show MemoryBTree.toNodeKeys(btree, btree_utils));

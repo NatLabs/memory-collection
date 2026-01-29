@@ -8,10 +8,10 @@ import Nat16 "mo:base/Nat16";
 import Nat32 "mo:base/Nat32";
 import Nat64 "mo:base/Nat64";
 import Blob "mo:base/Blob";
+import Float "mo:base/Float";
 
 import MemoryRegion "mo:memory-region/MemoryRegion";
 import RevIter "mo:itertools/RevIter";
-import Find "mo:map/Map/modules/find";
 
 import MemoryCmp "../TypeUtils/MemoryCmp";
 import Blobify "../TypeUtils/Blobify";
@@ -46,7 +46,31 @@ module {
     let CACHE_LIMIT = 50_000;
     let DEFAULT_ORDER = 256;
 
+    /// Merge strategy to use for node merging after deletions.
+    /// - #Conservative (Approach 1): Merge only when BOTH nodes are below threshold.
+    ///   Very few merges, separator keys stay stable. Good for read-heavy workloads and tail compression.
+    ///   May leave sparse nodes that never merge if neighbour is above threshold.
+    /// - #Balanced (Approach 3): Merge when EITHER node is below threshold AND combined fits.
+    ///   More merges but better memory efficiency. Cleans up sparse nodes proactively.
+    public let MERGE_STRATEGY : { #Conservative; #Balanced } = #Conservative;
+
+    /// Merge threshold: nodes are considered "sparse" when they have fewer than
+    /// (node_capacity * MERGE_THRESHOLD) elements. Default is 0.25 (1/4 capacity).
+    /// - For #Conservative: merge only when BOTH nodes are below this threshold
+    /// - For #Balanced: merge when EITHER node is below threshold AND combined fits
+    /// Adjust to test different thresholds (e.g., 0.125 for 1/8, 0.5 for 1/2).
+    public let MERGE_THRESHOLD : Float = 0.25;
+
     public func _new_with_options(node_capacity : ?Nat, opt_cache_size : ?Nat, is_set : Bool) : MemoryBTree {
+        switch (node_capacity) {
+            case (?n) {
+                if (n < 16 or n > 4096) {
+                    Debug.trap("MemoryBTree node_capacity must be between 16 and 4096");
+                };
+            };
+            case (null) {};
+        };
+
         let cache_size = Option.get(opt_cache_size, CACHE_LIMIT);
         let btree : MemoryBTree = {
             is_set;
@@ -720,19 +744,44 @@ module {
 
         let leaf_index = Leaf.get_index(btree, leaf_address);
 
-        if (elem_index == 0) {
-            // if the first element is removed then update the parent key
+        // Update separator key if the first element was removed and the leaf is not empty
+        if (elem_index == 0 and Leaf.get_count(btree, leaf_address) > 0) {
             let ?next_key_address = Leaf.get_kv_address(btree, leaf_address, 0) else Debug.trap("remove: next_key_block is null");
             Branch.update_separator_key_address(btree, parent, leaf_index, next_key_address);
         };
 
-        let min_count = btree.node_capacity / 2;
         let leaf_count = Leaf.get_count(btree, leaf_address);
 
-        if (leaf_count >= min_count) return ?prev_val;
+        // Check if we have a neighbour to potentially merge with
+        let ?neighbour = Branch.get_larger_neighbour(btree, parent, leaf_index) else return ?prev_val;
+        let neighbour_count = Leaf.get_count(btree, neighbour);
+        let combined_count = leaf_count + neighbour_count;
 
-        // redistribute entries from larger neighbour to the current leaf below min_count
-        let ?neighbour = Branch.get_larger_neighbour(btree, parent, leaf_index) else Debug.trap("remove: neighbour is null");
+        // Calculate merge threshold based on MERGE_THRESHOLD constant
+        let merge_threshold_count = Float.toInt(Float.fromInt(btree.node_capacity) * MERGE_THRESHOLD) |> Int.abs(_);
+
+        let current_is_empty = leaf_count == 0;
+        let current_below_threshold = leaf_count < merge_threshold_count;
+        let neighbour_below_threshold = neighbour_count < merge_threshold_count;
+        let combined_fits = combined_count <= btree.node_capacity;
+
+        // Determine if merge should occur based on selected strategy
+        // IMPORTANT: Always check combined_fits to prevent node overflow
+        let should_merge = switch (MERGE_STRATEGY) {
+            case (#Conservative) {
+                // Conservative merge: only merge when BOTH nodes are below threshold AND combined fits
+                // This minimizes merges and keeps separator keys stable
+                // Empty nodes are always cleaned up (neighbour is guaranteed to fit)
+                current_is_empty or (current_below_threshold and neighbour_below_threshold and combined_fits);
+            };
+            case (#Balanced) {
+                // Balanced merge: merge when EITHER node is below threshold AND combined fits
+                // This provides better memory efficiency by proactively cleaning up sparse nodes
+                current_is_empty or (current_below_threshold and combined_fits) or (neighbour_below_threshold and combined_fits);
+            };
+        };
+
+        if (not should_merge) return ?prev_val;
 
         let neighbour_index = Leaf.get_index(btree, neighbour);
 
@@ -743,22 +792,16 @@ module {
             leaf_address;
         };
 
-        // let left_index = if (leaf_index < neighbour_index) { leaf_index } else { neighbour_index };
         let right_index = if (leaf_index < neighbour_index) { neighbour_index } else {
             leaf_index;
         };
 
-        // Debug.print("leaf.redistribute");
-
-        if (Leaf.redistribute(btree, leaf_address, neighbour)) {
-
-            let ?key_address = Leaf.get_kv_address(btree, right, 0) else Debug.trap("remove: key_block is null");
-            Branch.put_key_address(btree, parent, right_index - 1, key_address);
-
-            return ?prev_val;
+        let left_index = if (leaf_index < neighbour_index) { leaf_index } else {
+            neighbour_index;
         };
 
-        // Debug.print("merging leaf");
+        // Track if left was empty before merge - we'll need to update its separator key
+        let left_was_empty = Leaf.get_count(btree, left) == 0;
 
         // remove merged leaf from parent
         // Debug.print("remove merged index: " # debug_show right_index);
@@ -767,6 +810,14 @@ module {
         // merge leaf with neighbour
         Leaf.merge(btree, left, right);
         Branch.remove(btree, parent, right_index);
+
+        // If left was empty before merge, its separator key now points to deallocated memory.
+        // Update the separator key to point to the new first key (which came from right).
+        // Note: update_separator_key_address handles left_index == 0 by traversing up the tree.
+        if (left_was_empty) {
+            let ?new_first_key_address = Leaf.get_kv_address(btree, left, 0) else Debug.trap("remove: new_first_key_address is null after merge");
+            Branch.update_separator_key_address(btree, parent, left_index, new_first_key_address);
+        };
 
         // deallocate right leaf that was merged into left
         Leaf.deallocate(btree, right);
@@ -802,27 +853,65 @@ module {
 
         parent := branch_parent;
 
-        while (Branch.get_count(btree, branch) < min_count) {
-            // Debug.print("redistribute branch");
-            // Debug.print("parent before redistribute: " # debug_show Branch.from_memory(btree, parent));
-            // Debug.print("branch before redistribute: " # debug_show Branch.from_memory(btree, branch));
+        label branch_merge_loop while (true) {
+            let branch_count = Branch.get_count(btree, branch);
+            let branch_index = Branch.get_index(btree, branch);
+            let ?neighbour = Branch.get_larger_neighbour(btree, parent, branch_index) else return set_only_child_to_root(parent);
 
-            if (Branch.redistribute(btree, branch)) {
-                // Debug.print("parent after redistribute: " # debug_show Branch.from_memory(btree, parent));
-                // Debug.print("branch after redistribute: " # debug_show Branch.from_memory(btree, branch));
-                return ?prev_val;
+            let neighbour_count = Branch.get_count(btree, neighbour);
+            let combined_count = branch_count + neighbour_count;
+
+            // Calculate merge threshold based on MERGE_THRESHOLD constant
+            let merge_threshold_count = Float.toInt(Float.fromInt(btree.node_capacity) * MERGE_THRESHOLD) |> Int.abs(_);
+
+            let current_is_empty = branch_count == 0;
+            let current_below_threshold = branch_count < merge_threshold_count;
+            let neighbour_below_threshold = neighbour_count < merge_threshold_count;
+            let combined_fits = combined_count <= btree.node_capacity;
+
+            // Determine if merge should occur based on selected strategy (same logic as leaves)
+            // IMPORTANT: Always check combined_fits to prevent node overflow
+            let should_merge = switch (MERGE_STRATEGY) {
+                case (#Conservative) {
+                    // Conservative merge: only merge when BOTH nodes are below threshold AND combined fits
+                    current_is_empty or (current_below_threshold and neighbour_below_threshold and combined_fits);
+                };
+                case (#Balanced) {
+                    // Balanced merge: merge when EITHER node is below threshold AND combined fits
+                    current_is_empty or (current_below_threshold and combined_fits) or (neighbour_below_threshold and combined_fits);
+                };
             };
 
-            // Debug.print("branch after redistribute: " # debug_show Branch.from_memory(btree, branch));
+            if (not should_merge) return ?prev_val;
 
-            // Debug.print("merging branch");
-            // Debug.print("parent before merge: " # debug_show Branch.from_memory(btree, parent));
-            let branch_index = Branch.get_index(btree, branch);
-            let ?neighbour = Branch.get_larger_neighbour(btree, parent, branch_index) else Debug.trap("Branch.merge: neighbour should not be null");
+            // Track if left branch is empty before merge (need to update its separator key after)
+            let neighbour_index = Branch.get_index(btree, neighbour);
+            let left_index = if (neighbour_index < branch_index) neighbour_index else branch_index;
+            let left_branch = if (neighbour_index < branch_index) neighbour else branch;
+            let left_branch_count = Branch.get_count(btree, left_branch);
+            let left_branch_was_empty = left_branch_count == 0;
 
             let merged_branch = Branch.merge(btree, branch, neighbour);
             let merged_branch_index = Branch.get_index(btree, merged_branch);
             Branch.remove(btree, parent, merged_branch_index);
+
+            // If left branch was empty before merge, its separator key points to invalid memory.
+            // Update it to point to the first key of the merged subtree (from the first leaf).
+            if (left_branch_was_empty) {
+                // Get first leaf in the merged branch to find the first key
+                var first_child = left_branch;
+                var has_leaves = Branch.has_leaves(btree, left_branch);
+                while (not has_leaves) {
+                    let ?child = Branch.get_child(btree, first_child, 0) else Debug.trap("branch merge: first child is null");
+                    first_child := child;
+                    has_leaves := Branch.has_leaves(btree, first_child);
+                };
+                // first_child is now a branch with leaves
+                let ?first_leaf = Branch.get_child(btree, first_child, 0) else Debug.trap("branch merge: first leaf is null");
+                let ?first_key_address = Leaf.get_kv_address(btree, first_leaf, 0) else Debug.trap("branch merge: first key is null");
+                Branch.update_separator_key_address(btree, parent, left_index, first_key_address);
+            };
+
             Branch.deallocate(btree, merged_branch);
             update_branch_count(btree, btree.branch_count - 1);
 

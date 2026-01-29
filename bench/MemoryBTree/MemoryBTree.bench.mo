@@ -62,6 +62,7 @@ module {
             "entries()",
             // "scan()",
             "remove()",
+            "random ops",
         ]);
 
         let limit = 10_000;
@@ -78,6 +79,7 @@ module {
 
         let entries = Buffer.Buffer<(Text, Text)>(limit);
         let replacements = Buffer.Buffer<(Text, Text)>(limit);
+        let random_ops = Buffer.Buffer<{ #insert : (Text, Text); #replace : (Text, Text); #remove : Text }>(limit);
 
         for (i in Iter.range(0, limit - 1)) {
             let key = fuzz.text.randomAlphabetic(10);
@@ -89,6 +91,40 @@ module {
             let replace_val = fuzz.text.randomAlphabetic(replaced_size);
 
             replacements.add((key, replace_val));
+        };
+
+        // Generate random operations sequence
+        let inserted_keys = Buffer.Buffer<Text>(limit);
+        for (i in Iter.range(0, limit - 1)) {
+            let op_type = fuzz.nat.randomRange(0, 3);
+
+            // Ensure at least 3 items are inserted first, or buffer is not empty for replace/remove
+            if (inserted_keys.size() < 3 or op_type < 2) {
+                // 50% insert
+                let key = fuzz.text.randomAlphabetic(10);
+                let val = fuzz.text.randomAlphabetic(10);
+                random_ops.add(#insert(key, val));
+                inserted_keys.add(key);
+            } else if (op_type == 2 and inserted_keys.size() > 0) {
+                // 25% replace
+                let idx = if (inserted_keys.size() == 1) 0 else fuzz.nat.randomRange(0, inserted_keys.size() - 1);
+                let key = inserted_keys.get(idx);
+                let val = fuzz.text.randomAlphabetic(fuzz.nat.randomRange(5, 15));
+                random_ops.add(#replace(key, val));
+            } else if (inserted_keys.size() > 0) {
+                // 25% remove
+                let idx = if (inserted_keys.size() == 1) 0 else fuzz.nat.randomRange(0, inserted_keys.size() - 1);
+                let key = inserted_keys.get(idx);
+                random_ops.add(#remove(key));
+                // Swap remove to keep track of remaining keys
+                let last = inserted_keys.removeLast();
+                if (idx < inserted_keys.size()) {
+                    switch (last) {
+                        case (?v) { inserted_keys.put(idx, v) };
+                        case (null) {};
+                    };
+                };
+            };
         };
 
         let sorted = Buffer.clone(entries);
@@ -121,6 +157,21 @@ module {
                 case ("remove()") {
                     for ((k, v) in entries.vals()) {
                         ignore MemoryBTree.remove(mem_btree, btree_utils, k);
+                    };
+                };
+                case ("random ops") {
+                    for (op in random_ops.vals()) {
+                        switch (op) {
+                            case (#insert(key, val)) {
+                                ignore MemoryBTree.insert(mem_btree, btree_utils, key, val);
+                            };
+                            case (#replace(key, val)) {
+                                ignore MemoryBTree.insert(mem_btree, btree_utils, key, val);
+                            };
+                            case (#remove(key)) {
+                                ignore MemoryBTree.remove(mem_btree, btree_utils, key);
+                            };
+                        };
                     };
                 };
                 case (_) {
@@ -166,6 +217,15 @@ module {
                         rbtree.delete(k);
                     };
                 };
+                case ("RBTree", "random ops") {
+                    for (op in random_ops.vals()) {
+                        switch (op) {
+                            case (#insert(key, val)) { rbtree.put(key, val) };
+                            case (#replace(key, val)) { rbtree.put(key, val) };
+                            case (#remove(key)) { rbtree.delete(key) };
+                        };
+                    };
+                };
 
                 case ("BTree", "insert()") {
                     for ((key, val) in entries.vals()) {
@@ -204,6 +264,21 @@ module {
                         ignore BTree.delete(btree, Text.compare, k);
                     };
                 };
+                case ("BTree", "random ops") {
+                    for (op in random_ops.vals()) {
+                        switch (op) {
+                            case (#insert(key, val)) {
+                                ignore BTree.insert(btree, Text.compare, key, val);
+                            };
+                            case (#replace(key, val)) {
+                                ignore BTree.insert(btree, Text.compare, key, val);
+                            };
+                            case (#remove(key)) {
+                                ignore BTree.delete(btree, Text.compare, key);
+                            };
+                        };
+                    };
+                };
                 case ("B+Tree", "insert()") {
                     for ((key, val) in entries.vals()) {
                         ignore BpTree.insert(bptree, Cmp.Text, key, val);
@@ -239,6 +314,21 @@ module {
                 case ("B+Tree", "remove()") {
                     for ((k, v) in entries.vals()) {
                         ignore BpTree.remove(bptree, Cmp.Text, k);
+                    };
+                };
+                case ("B+Tree", "random ops") {
+                    for (op in random_ops.vals()) {
+                        switch (op) {
+                            case (#insert(key, val)) {
+                                ignore BpTree.insert(bptree, Cmp.Text, key, val);
+                            };
+                            case (#replace(key, val)) {
+                                ignore BpTree.insert(bptree, Cmp.Text, key, val);
+                            };
+                            case (#remove(key)) {
+                                ignore BpTree.remove(bptree, Cmp.Text, key);
+                            };
+                        };
                     };
                 };
 
