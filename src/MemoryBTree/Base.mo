@@ -1,6 +1,7 @@
 import Debug "mo:base@0.16.0/Debug";
 import Iter "mo:base@0.16.0/Iter";
 import Int "mo:base@0.16.0/Int";
+import Int64 "mo:base@0.16.0/Int64";
 import Nat "mo:base@0.16.0/Nat";
 import Option "mo:base@0.16.0/Option";
 import Nat8 "mo:base@0.16.0/Nat8";
@@ -20,7 +21,7 @@ import MemoryBlock "modules/MemoryBlock";
 import Branch "modules/Branch";
 import Utils "../Utils";
 import Migrations "Migrations";
-import Leaf "modules/Leaf";
+import LeafModule "modules/Leaf";
 import T "modules/Types";
 import TypeUtils "../TypeUtils";
 import Common "modules/Common";
@@ -43,34 +44,52 @@ module {
 
     public type BTreeUtils<K, V> = T.BTreeUtils<K, V>;
     public type MemoryBTreeStats = T.MemoryBTreeStats;
+    public type MergeStrategy = Migrations.MergeStrategy;
 
-    let CACHE_LIMIT = 50_000;
     let DEFAULT_ORDER = 256;
+    public let Leaf = LeafModule;
 
-    /// Enable tail compression for separator keys.
-    /// When enabled, separator keys are truncated to the minimum length needed to
-    /// distinguish between the last key of the left node and the first key of the right node.
-    /// This can significantly reduce memory usage for keys with common prefixes.
-    public let ENABLE_TAIL_COMPRESSION : Bool = true;
+    /// Options for creating a new MemoryBTree.
+    public type BTreeOptions = {
+        /// The maximum number of children per node. Must be between 16 and 4096.
+        /// Default is 256.
+        node_capacity : ?Nat;
 
-    /// Merge strategy to use for node merging after deletions.
-    /// - #Conservative (Approach 1): Merge only when BOTH nodes are below threshold.
-    ///   Very few merges, separator keys stay stable. Good for read-heavy workloads and tail compression.
-    ///   May leave sparse nodes that never merge if neighbour is above threshold.
-    /// - #Balanced (Approach 3): Merge when EITHER node is below threshold AND combined fits.
-    ///   More merges but better memory efficiency. Cleans up sparse nodes proactively.
-    public let MERGE_STRATEGY : { #Conservative; #Balanced } = #Balanced;
+        /// Enable tail compression for separator keys.
+        /// When enabled, separator keys are truncated to the minimum length needed to
+        /// distinguish between the last key of the left node and the first key of the right node.
+        /// This can significantly reduce memory usage for keys with common prefixes.
+        /// Note: Only works correctly with lexicographic comparison (e.g., Text, Blob keys).
+        /// For numeric types like Nat that use size-based comparison, this should be disabled.
+        /// Default is false.
+        enable_tail_compression : ?Bool;
 
-    /// Merge threshold: nodes are considered "sparse" when they have fewer than
-    /// (node_capacity * MERGE_THRESHOLD) elements. Default is 0.25 (1/4 capacity).
-    /// - For #Conservative: merge only when BOTH nodes are below this threshold
-    /// - For #Balanced: merge when EITHER node is below threshold AND combined fits
-    /// This threshold also affects optimal split position selection when tail compression is enabled:
-    /// splits occur at positions > merge_threshold_count and < (node_capacity - merge_threshold_count)
-    /// to ensure both resulting nodes have enough elements to avoid immediate merging.
-    public let MERGE_THRESHOLD : Float = 0.25;
+        /// Merge strategy to use for node merging after deletions.
+        /// - #Conservative: Merge only when BOTH nodes are below threshold.
+        ///   Very few merges, separator keys stay stable. Good for read-heavy workloads and tail compression.
+        ///   May leave sparse nodes that never merge if neighbour is above threshold.
+        /// - #Balanced: Merge when EITHER node is below threshold AND combined fits.
+        ///   More merges but better memory efficiency. Cleans up sparse nodes proactively.
+        /// Default is #Balanced.
+        merge_strategy : ?MergeStrategy;
 
-    public func _new_with_options(node_capacity : ?Nat, opt_cache_size : ?Nat, is_set : Bool) : MemoryBTree {
+        /// Merge threshold: nodes are considered "sparse" when they have fewer than
+        /// (node_capacity * merge_threshold) elements.
+        /// - For #Conservative: merge only when BOTH nodes are below this threshold
+        /// - For #Balanced: merge when EITHER node is below threshold AND combined fits
+        /// This threshold also affects optimal split position selection when tail compression is enabled:
+        /// splits occur at positions > merge_threshold_count and < (node_capacity - merge_threshold_count)
+        /// to ensure both resulting nodes have enough elements to avoid immediate merging.
+        /// Default is 0.25 (1/4 capacity).
+        merge_threshold : ?Float;
+    };
+
+    public func _new_with_options(options : ?BTreeOptions, is_set : Bool) : MemoryBTree {
+        let node_capacity = switch (options) {
+            case (?opts) opts.node_capacity;
+            case (null) null;
+        };
+
         switch (node_capacity) {
             case (?n) {
                 if (n < 16 or n > 4096) {
@@ -80,7 +99,21 @@ module {
             case (null) {};
         };
 
-        let cache_size = Option.get(opt_cache_size, CACHE_LIMIT);
+        let enable_tail_compression = switch (options) {
+            case (?opts) Option.get(opts.enable_tail_compression, false);
+            case (null) false;
+        };
+
+        let merge_strategy : MergeStrategy = switch (options) {
+            case (?opts) Option.get(opts.merge_strategy, #Balanced);
+            case (null) #Balanced;
+        };
+
+        let merge_threshold = switch (options) {
+            case (?opts) Option.get(opts.merge_threshold, 0.25);
+            case (null) 0.25;
+        };
+
         let btree : MemoryBTree = {
             is_set;
             node_capacity = Option.get(node_capacity, DEFAULT_ORDER);
@@ -97,6 +130,9 @@ module {
             data = MemoryRegion.new();
             values = MemoryRegion.new();
 
+            enable_tail_compression;
+            merge_strategy;
+            merge_threshold;
         };
 
         init_region_header(btree);
@@ -113,12 +149,24 @@ module {
         return btree;
     };
 
-    // public func new_set(node_capacity : ?Nat, cache_size : ?Nat) : MemoryBTree {
-    //     _new_with_options(node_capacity, cache_size, true);
+    // public func new_set(options : ?BTreeOptions) : MemoryBTree {
+    //     _new_with_options(options, true);
     // };
 
+    /// Create a new MemoryBTree with the given options.
+    /// If options is null, default values are used.
+    public func newWithOptions(options : BTreeOptions) : MemoryBTree {
+        _new_with_options(?options, false);
+    };
+
+    /// Create a new MemoryBTree with the given node capacity.
+    /// For more configuration options, use `newWithOptions`.
     public func new(node_capacity : ?Nat) : MemoryBTree {
-        _new_with_options(node_capacity, ?0, false);
+        let options : ?BTreeOptions = switch (node_capacity) {
+            case (?cap) ?{ node_capacity = ?cap; enable_tail_compression = null; merge_strategy = null; merge_threshold = null };
+            case (null) null;
+        };
+        _new_with_options(options, false);
     };
 
     public let POINTER_SIZE = 12;
@@ -140,10 +188,15 @@ module {
             DEPTH_ADDRESS = 30; // 1 byte
             IS_ROOT_A_LEAF_ADDRESS = 31; // 1 byte
             VALUES_REGION_ID_ADDRESS = 32; // 4 bytes
+            // New configuration fields (v1.0.0)
+            ENABLE_TAIL_COMPRESSION_ADDRESS = 36; // 1 byte (0 = false, 1 = true)
+            MERGE_STRATEGY_ADDRESS = 37; // 1 byte (0 = Conservative, 1 = Balanced)
+            MERGE_THRESHOLD_ADDRESS = 38; // 8 bytes (Float stored as Nat64 bits)
+            // Total: 46 bytes used, 18 bytes reserved for future use
 
             // values
             MAGIC : Blob = "BTR";
-            LAYOUT_VERSION : Nat8 = 0;
+            LAYOUT_VERSION : Nat8 = 1; // Updated to version 1 for new fields
         };
 
         VALUES = {
@@ -197,6 +250,10 @@ module {
         MemoryRegion.storeNat8(btree.data, MC.DATA.DEPTH_ADDRESS, 0);
         MemoryRegion.storeNat8(btree.data, MC.DATA.IS_ROOT_A_LEAF_ADDRESS, 0);
         MemoryRegion.storeNat32(btree.data, MC.DATA.VALUES_REGION_ID_ADDRESS, Nat32.fromNat(MemoryRegion.id(btree.values)));
+        // Store new configuration fields
+        MemoryRegion.storeNat8(btree.data, MC.DATA.ENABLE_TAIL_COMPRESSION_ADDRESS, if (btree.enable_tail_compression) 1 else 0);
+        MemoryRegion.storeNat8(btree.data, MC.DATA.MERGE_STRATEGY_ADDRESS, switch (btree.merge_strategy) { case (#Conservative) 0; case (#Balanced) 1 });
+        MemoryRegion.storeNat64(btree.data, MC.DATA.MERGE_THRESHOLD_ADDRESS, Float.toInt64(btree.merge_threshold) |> Int64.toNat64(_));
         assert MemoryRegion.allocated(btree.data) == MC.REGION_HEADER_SIZE;
 
         ignore MemoryRegion.allocate(btree.values, MC.REGION_HEADER_SIZE);
@@ -400,7 +457,7 @@ module {
 
         // split leaf
         var left_node_address = leaf_address;
-        var right_node_address = Leaf.split_with_options(btree, left_node_address, elem_index, kv_address, ENABLE_TAIL_COMPRESSION, MERGE_THRESHOLD);
+        var right_node_address = Leaf.split_with_options(btree, left_node_address, elem_index, kv_address, btree.enable_tail_compression, btree.merge_threshold);
         update_leaf_count(btree, btree.leaf_count + 1);
         // Debug.print("left leaf after split: " # debug_show Leaf.from_memory(btree, left_node_address));
         // Debug.print("right leaf after split: " # debug_show Leaf.from_memory(btree, right_node_address));
@@ -408,8 +465,16 @@ module {
         var opt_parent = Leaf.get_parent(btree, right_node_address);
         var right_index = Leaf.get_index(btree, right_node_address);
 
-        let ?first_key_address = Leaf.get_kv_address(btree, right_node_address, 0) else Debug.trap("insert: first_key_address accessed a null value");
-        var separator_key_address = first_key_address;
+        // Get the separator key using tail compression if enabled
+        let ?right_node_first_key = Leaf.get_key_blob(btree, right_node_address, 0) else Debug.trap("insert: right_node_first_key accessed a null value");
+        let separator_key = if (btree.enable_tail_compression) {
+            let left_node_count = Leaf.get_count(btree, left_node_address);
+            let ?left_node_last_key = Leaf.get_key_blob(btree, left_node_address, left_node_count - 1) else Debug.trap("insert: left_node_last_key accessed a null value");
+            Common.get_tail_compressed_separator(left_node_last_key, right_node_first_key);
+        } else {
+            right_node_first_key;
+        };
+        var separator_key_address = MemoryBlock.Branch.store_key_blob(btree, separator_key);
 
         // assert Leaf.get_count(btree, left_node_address) == (btree.node_capacity / 2) + 1;
         // assert Leaf.get_count(btree, right_node_address) == (btree.node_capacity / 2);
@@ -438,6 +503,8 @@ module {
             right_node_address := Branch.split(btree, left_node_address, right_index, separator_key_address, right_node_address);
             update_branch_count(btree, btree.branch_count + 1);
 
+            // The separator key is temporarily stored in the right node at the last position.
+            // We need to move it to the left node and update the separator key address.
             let ?first_key_address = Branch.get_key_address(btree, right_node_address, btree.node_capacity - 2) else Debug.trap("4. insert: accessed a null value in first key of branch");
             Branch.set_key_address_to_null(btree, right_node_address, btree.node_capacity - 2);
             separator_key_address := first_key_address;
@@ -776,8 +843,22 @@ module {
 
         // Update separator key if the first element was removed and the leaf is not empty
         if (elem_index == 0 and Leaf.get_count(btree, leaf_address) > 0) {
-            let ?next_key_address = Leaf.get_kv_address(btree, leaf_address, 0) else Debug.trap("remove: next_key_block is null");
-            Branch.update_separator_key_address(btree, parent, leaf_index, next_key_address);
+            let ?leaf_first_key = Leaf.get_key_blob(btree, leaf_address, 0) else Debug.trap("remove: leaf_first_key is null");
+
+            // Use tail compression if enabled and there's a previous leaf
+            let separator_key = if (btree.enable_tail_compression) {
+                switch (Leaf.get_prev(btree, leaf_address)) {
+                    case (null) leaf_first_key; // No prev leaf, use full key
+                    case (?prev_leaf_address) {
+                        let prev_count = Leaf.get_count(btree, prev_leaf_address);
+                        let ?prev_last_key = Leaf.get_key_blob(btree, prev_leaf_address, prev_count - 1) else Debug.trap("remove: prev_last_key is null");
+                        Common.get_tail_compressed_separator(prev_last_key, leaf_first_key);
+                    };
+                };
+            } else {
+                leaf_first_key;
+            };
+            Branch.update_separator_key(btree, parent, leaf_index, separator_key);
         };
 
         let leaf_count = Leaf.get_count(btree, leaf_address);
@@ -787,8 +868,8 @@ module {
         let neighbour_count = Leaf.get_count(btree, neighbour);
         let combined_count = leaf_count + neighbour_count;
 
-        // Calculate merge threshold based on MERGE_THRESHOLD constant
-        let merge_threshold_count = Float.toInt(Float.fromInt(btree.node_capacity) * MERGE_THRESHOLD) |> Int.abs(_);
+        // Calculate merge threshold based on btree.merge_threshold
+        let merge_threshold_count = Float.toInt(Float.fromInt(btree.node_capacity) * btree.merge_threshold) |> Int.abs(_);
 
         let current_is_empty = leaf_count == 0;
         let current_below_threshold = leaf_count < merge_threshold_count;
@@ -797,7 +878,7 @@ module {
 
         // Determine if merge should occur based on selected strategy
         // IMPORTANT: Always check combined_fits to prevent node overflow
-        let should_merge = switch (MERGE_STRATEGY) {
+        let should_merge = switch (btree.merge_strategy) {
             case (#Conservative) {
                 // Conservative merge: only merge when BOTH nodes are below threshold AND combined fits
                 // This minimizes merges and keeps separator keys stable
@@ -833,19 +914,37 @@ module {
         let left_was_empty = Leaf.get_count(btree, left) == 0;
 
         // remove merged leaf from parent
-        // Debug.print("remove merged index: " # debug_show right_index);
+        // Debug.print("remove merged index: " # debug_show right_index # ", address: " # debug_show right);
         // Debug.print("parent: " # debug_show Branch.from_memory(btree, parent));
 
         // merge leaf with neighbour
         Leaf.merge(btree, left, right);
-        Branch.remove(btree, parent, right_index);
+        let removed_key_address = Branch.remove(btree, parent, right_index);
+
+        // Deallocate the key that was separating the merged leaves
+        MemoryBlock.Branch.remove_key_blob(btree, removed_key_address);
 
         // If left was empty before merge, its separator key now points to deallocated memory.
         // Update the separator key to point to the new first key (which came from right).
-        // Note: update_separator_key_address handles left_index == 0 by traversing up the tree.
+        // Note: We must use update_separator_key (not update_separator_key_address) because
+        // branch keys are stored independently with a different memory layout than leaf kv entries.
         if (left_was_empty) {
-            let ?new_first_key_address = Leaf.get_kv_address(btree, left, 0) else Debug.trap("remove: new_first_key_address is null after merge");
-            Branch.update_separator_key_address(btree, parent, left_index, new_first_key_address);
+            let ?new_first_key_blob = Leaf.get_key_blob(btree, left, 0) else Debug.trap("remove: new_first_key_blob is null after merge");
+
+            // Use tail compression if enabled and there's a previous leaf
+            let separator_key = if (btree.enable_tail_compression) {
+                switch (Leaf.get_prev(btree, left)) {
+                    case (null) new_first_key_blob; // No prev leaf, use full key
+                    case (?prev_leaf_address) {
+                        let prev_count = Leaf.get_count(btree, prev_leaf_address);
+                        let ?prev_last_key = Leaf.get_key_blob(btree, prev_leaf_address, prev_count - 1) else Debug.trap("remove: prev_last_key is null after merge");
+                        Common.get_tail_compressed_separator(prev_last_key, new_first_key_blob);
+                    };
+                };
+            } else {
+                new_first_key_blob;
+            };
+            Branch.update_separator_key(btree, parent, left_index, separator_key);
         };
 
         // deallocate right leaf that was merged into left
@@ -870,6 +969,10 @@ module {
                 update_root(btree, child);
                 update_is_root_a_leaf(btree, child_is_leaf);
                 update_depth(btree, btree.depth - 1);
+
+                Branch.deallocate(btree, parent);
+                update_branch_count(btree, btree.branch_count - 1);
+
                 return ?prev_val;
 
             } else {
@@ -890,8 +993,8 @@ module {
             let neighbour_count = Branch.get_count(btree, neighbour);
             let combined_count = branch_count + neighbour_count;
 
-            // Calculate merge threshold based on MERGE_THRESHOLD constant
-            let merge_threshold_count = Float.toInt(Float.fromInt(btree.node_capacity) * MERGE_THRESHOLD) |> Int.abs(_);
+            // Calculate merge threshold based on btree.merge_threshold
+            let merge_threshold_count = Float.toInt(Float.fromInt(btree.node_capacity) * btree.merge_threshold) |> Int.abs(_);
 
             let current_is_empty = branch_count == 0;
             let current_below_threshold = branch_count < merge_threshold_count;
@@ -900,7 +1003,7 @@ module {
 
             // Determine if merge should occur based on selected strategy (same logic as leaves)
             // IMPORTANT: Always check combined_fits to prevent node overflow
-            let should_merge = switch (MERGE_STRATEGY) {
+            let should_merge = switch (btree.merge_strategy) {
                 case (#Conservative) {
                     // Conservative merge: only merge when BOTH nodes are below threshold AND combined fits
                     current_is_empty or (current_below_threshold and neighbour_below_threshold and combined_fits);
@@ -922,10 +1025,16 @@ module {
 
             let merged_branch = Branch.merge(btree, branch, neighbour);
             let merged_branch_index = Branch.get_index(btree, merged_branch);
-            Branch.remove(btree, parent, merged_branch_index);
+            let removed_key_address = Branch.remove(btree, parent, merged_branch_index);
+
+            // The separator key is transferred to the merged branch during merge,
+            // so it should not be deallocated here
+            // MemoryBlock.Branch.remove_key_blob(btree, removed_key_address);
 
             // If left branch was empty before merge, its separator key points to invalid memory.
             // Update it to point to the first key of the merged subtree (from the first leaf).
+            // Note: We must use update_separator_key (not update_separator_key_address) because
+            // branch keys are stored independently with a different memory layout than leaf kv entries.
             if (left_branch_was_empty) {
                 // Get first leaf in the merged branch to find the first key
                 var first_child = left_branch;
@@ -937,8 +1046,8 @@ module {
                 };
                 // first_child is now a branch with leaves
                 let ?first_leaf = Branch.get_child(btree, first_child, 0) else Debug.trap("branch merge: first leaf is null");
-                let ?first_key_address = Leaf.get_kv_address(btree, first_leaf, 0) else Debug.trap("branch merge: first key is null");
-                Branch.update_separator_key_address(btree, parent, left_index, first_key_address);
+                let ?first_key_blob = Leaf.get_key_blob(btree, first_leaf, 0) else Debug.trap("branch merge: first key is null");
+                Branch.update_separator_key(btree, parent, left_index, first_key_blob);
             };
 
             Branch.deallocate(btree, merged_branch);

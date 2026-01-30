@@ -307,38 +307,6 @@ module {
                     };
                 };
 
-                case ("MotokoStableBTree", "insert()") {
-                    for ((key, val) in entries.vals()) {
-                        ignore stable_btree.insert(key, tconv_10, val, tconv_10);
-                    };
-                };
-                case ("MotokoStableBTree", "replace()") {
-                    for ((key, val) in entries.vals()) {
-                        ignore stable_btree.insert(key, tconv_10, val, tconv_10);
-                    };
-                };
-                case ("MotokoStableBTree", "get()") {
-                    for (i in Iter.range(0, limit - 1)) {
-                        let (key, val) = entries.get(i);
-                        ignore stable_btree.get(key, tconv_10, tconv_10);
-                    };
-                };
-                case ("MotokoStableBTree", "entries()") {
-                    var i = 0;
-                    for (kv in stable_btree.iter(tconv_10, tconv_10)) {
-                        i += 1;
-                    };
-
-                    assert Nat64.fromNat(i) == stable_btree.getLength();
-                    Debug.print("Size: " # debug_show (i, stable_btree.getLength()));
-                };
-                case ("MotokoStableBTree", "scan()") {};
-                case ("MotokoStableBTree", "remove()") {
-                    for ((k, v) in entries.vals()) {
-                        ignore stable_btree.remove(k, tconv_10, tconv_10);
-                    };
-                };
-
                 case ("Memory B+Tree (#BlobCmp)", category) {
                     run_bench("Memory B+Tree", category, mem_btree_blob_cmp, btree_utils);
                 };

@@ -49,7 +49,6 @@ module {
         let limit = 10_000;
 
         let bptree = BpTree.new<Text, Text>(?32);
-        let stable_btree = BTreeMap.new<Text, Text>(BTreeMapMemory.RegionMemory(Region.new()), tconv_10, tconv_10);
         let mem_btree_order_16 = MemoryBTree.new(?16);
         let mem_btree_order_32 = MemoryBTree.new(?32);
         let mem_btree_order_64 = MemoryBTree.new(?64);
