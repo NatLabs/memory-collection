@@ -31,7 +31,7 @@ type MemoryBlock = MemoryBTree.MemoryBlock;
 let { nhash } = Map;
 let fuzz = Fuzz.fromSeed(0xdeadbeef);
 
-let limit = 8_000;
+let limit = 10_000;
 
 let nat_gen_iter : Iter<Nat> = {
     next = func() : ?Nat = ?fuzz.nat.randomRange(1, limit ** 2);
@@ -90,7 +90,7 @@ func btree_tests(node_capacity : Nat) {
 
                     };
 
-                    // assert Methods.validate_memory(btree, btree_utils);
+                    assert Methods.validate_memory(btree, btree_utils);
 
                     // Debug.print("entries: " # debug_show Iter.toArray(MemoryBTree.entries(btree, btree_utils)));
 
@@ -118,7 +118,7 @@ func btree_tests(node_capacity : Nat) {
                         prev := key;
                     };
 
-                    // assert Methods.validate_memory(btree, btree_utils);
+                    assert Methods.validate_memory(btree, btree_utils);
                 },
             );
 
@@ -330,7 +330,7 @@ func btree_tests(node_capacity : Nat) {
 
                     assert i == sorted.size();
 
-                    // assert Methods.validate_memory(btree, btree_utils);
+                    assert Methods.validate_memory(btree, btree_utils);
 
                 },
             );
@@ -402,7 +402,7 @@ func btree_tests(node_capacity : Nat) {
                     let size = MemoryBTree.size(btree);
                     let mem_blocks = Buffer.Buffer<(MemoryBlock, MemoryBlock)>(8);
                     let blobs = Buffer.Buffer<(Blob, Blob)>(8);
-                    // assert Methods.validate_memory(btree, btree_utils);
+                    assert Methods.validate_memory(btree, btree_utils);
 
                     for ((key, i) in random.vals()) {
 
@@ -466,7 +466,7 @@ func btree_tests(node_capacity : Nat) {
                         assert MemoryBTree.size(btree) == size;
                     };
 
-                    // assert Methods.validate_memory(btree, btree_utils);
+                    assert Methods.validate_memory(btree, btree_utils);
 
                     var i = 0;
                     for ((key, _val) in random.vals()) {
@@ -502,7 +502,7 @@ func btree_tests(node_capacity : Nat) {
                 "remove() random",
                 func() {
 
-                    // assert Methods.validate_memory(btree, btree_utils);
+                    assert Methods.validate_memory(btree, btree_utils);
 
                     // for ((key, i) in random.vals()) {
                     //     assert ?(1 + i * 10) == MemoryBTree.get(btree, btree_utils, key);
@@ -528,7 +528,7 @@ func btree_tests(node_capacity : Nat) {
                         // Debug.print("leaf nodes after: " # debug_show Iter.toArray(MemoryBTree.leafNodes(btree, btree_utils)));
                     };
 
-                    // assert Methods.validate_memory(btree, btree_utils);
+                    assert Methods.validate_memory(btree, btree_utils);
 
                 },
 
@@ -561,12 +561,12 @@ func btree_tests(node_capacity : Nat) {
                     MemoryBTree.clear(btree);
                     assert MemoryBTree.size(btree) == 0;
 
-                    // assert Methods.validate_memory(btree, btree_utils);
+                    assert Methods.validate_memory(btree, btree_utils);
 
                     MemoryBTree.clear(btree);
                     assert MemoryBTree.size(btree) == 0;
 
-                    // assert Methods.validate_memory(btree, btree_utils);
+                    assert Methods.validate_memory(btree, btree_utils);
 
                     // Check `allocated` (not `size`) - see "check for memory leaks" test for explanation
                     assert MemoryRegion.allocated(btree.data) == MemoryBTree.MC.REGION_HEADER_SIZE;
@@ -629,7 +629,7 @@ func btree_tests(node_capacity : Nat) {
                         prev := key;
                     };
 
-                    // assert Methods.validate_memory(btree, btree_utils);
+                    assert Methods.validate_memory(btree, btree_utils);
 
                 },
             );
@@ -652,7 +652,7 @@ func btree_tests(node_capacity : Nat) {
                         // Debug.print("leaf nodes: " # debug_show Iter.toArray(MemoryBTree.leafNodes(btree, btree_utils)));
                     };
 
-                    // assert Methods.validate_memory(btree, btree_utils);
+                    assert Methods.validate_memory(btree, btree_utils);
 
                 },
 
@@ -664,12 +664,12 @@ func btree_tests(node_capacity : Nat) {
                     MemoryBTree.clear(btree);
                     assert MemoryBTree.size(btree) == 0;
 
-                    // assert Methods.validate_memory(btree, btree_utils);
+                    assert Methods.validate_memory(btree, btree_utils);
 
                     MemoryBTree.clear(btree);
                     assert MemoryBTree.size(btree) == 0;
 
-                    // assert Methods.validate_memory(btree, btree_utils);
+                    assert Methods.validate_memory(btree, btree_utils);
                 },
 
             );

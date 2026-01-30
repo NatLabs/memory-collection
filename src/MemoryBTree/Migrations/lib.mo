@@ -1,5 +1,7 @@
 import Debug "mo:base@0.16.0/Debug";
 import Nat32 "mo:base@0.16.0/Nat32";
+import Float "mo:base@0.16.0/Float";
+import Int "mo:base@0.16.0/Int";
 
 import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
 
@@ -30,6 +32,10 @@ module Migrations {
       };
       case (#v0_0_1(v0_0_1)) {
         // Migrate from v0_0_1 to v1_0_0 with default values for new fields
+        let default_merge_threshold = 0.25;
+        let merge_threshold_count : Nat = Float.toInt(Float.fromInt(v0_0_1.node_capacity) * default_merge_threshold)
+          |> Int.abs(_);
+        
         #v1_0_0({
           is_set = v0_0_1.is_set;
           node_capacity = v0_0_1.node_capacity;
@@ -44,9 +50,8 @@ module Migrations {
           data = v0_0_1.data;
           values = v0_0_1.values;
           // Default values for new fields
-          enable_tail_compression = false;
-          merge_strategy = #Balanced;
-          merge_threshold = 0.25;
+          is_tail_compression_enabled = false;
+          var merge_threshold_count;
         });
       };
       case (#v1_0_0(v1_0_0)) versions;

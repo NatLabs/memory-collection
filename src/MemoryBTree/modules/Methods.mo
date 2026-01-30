@@ -733,27 +733,25 @@ module Methods {
           assert address == leaf.0 [Leaf.AC.ADDRESS];
           assert depth == 1;
 
-          let (left_separator_key, right_separator_key) = switch (Leaf.get_parent(btree, address)) {
+          // Get separator key blobs from parent (may be tail-compressed, so compare as blobs)
+          let (left_separator_key_blob, right_separator_key_blob) = switch (Leaf.get_parent(btree, address)) {
             case (?parent) {
-              var left_separator_key : ?Nat = null;
-              var right_separator_key : ?Nat = null;
+              var left_sep : ?Blob = null;
+              var right_sep : ?Blob = null;
 
               if (index > 0) {
-                let ?left_separator_key_blob = Branch.get_key_blob(btree, parent, index - 1) else Debug.trap("1. validate: accessed a null value");
-                left_separator_key := ?btree_utils.key.blobify.from_blob(left_separator_key_blob);
-
+                let ?blob = Branch.get_key_blob(btree, parent, index - 1) else Debug.trap("1. validate: accessed a null value");
+                left_sep := ?blob;
               };
 
               let parent_count = Branch.get_count(btree, parent);
 
               if (index + 1 < parent_count) {
-                let ?right_separator_key_blob = Branch.get_key_blob(btree, parent, index) else Debug.trap("2. validate: accessed a null value");
-                right_separator_key := ?btree_utils.key.blobify.from_blob(right_separator_key_blob);
-
+                let ?blob = Branch.get_key_blob(btree, parent, index) else Debug.trap("2. validate: accessed a null value");
+                right_sep := ?blob;
               };
 
-              (left_separator_key, right_separator_key);
-
+              (left_sep, right_sep);
             };
             case (null) (null, null);
           };
@@ -783,16 +781,18 @@ module Methods {
               };
             };
 
-            switch (left_separator_key) {
-              case (?left_separator_key) {
-                assert left_separator_key <= key;
+            // Compare leaf key blob against parent separator blobs
+            // Separator may be tail-compressed (a prefix), so compare as blobs
+            switch (left_separator_key_blob) {
+              case (?left_sep) {
+                assert Blob.compare(left_sep, key_blob) != #greater;
               };
               case (null) {};
             };
 
-            switch (right_separator_key) {
-              case (?right_separator_key) {
-                assert key < right_separator_key;
+            switch (right_separator_key_blob) {
+              case (?right_sep) {
+                assert Blob.compare(key_blob, right_sep) == #less;
               };
               case (null) {};
             };
@@ -820,69 +820,67 @@ module Methods {
           assert address == branch.0 [Branch.AC.ADDRESS];
           assert subtree_size == branch.0 [Branch.AC.SUBTREE_SIZE];
 
-          let (left_separator_key, right_separator_key) = switch (Branch.get_parent(btree, address)) {
+          // Get separator key blobs from parent (may be tail-compressed, so compare as blobs)
+          let (left_separator_key_blob, right_separator_key_blob) = switch (Branch.get_parent(btree, address)) {
             case (?parent) {
-              var left_separator_key : ?Nat = null;
-              var right_separator_key : ?Nat = null;
+              var left_sep : ?Blob = null;
+              var right_sep : ?Blob = null;
 
               if (index > 0) {
-                let ?left_separator_key_blob = Branch.get_key_blob(btree, parent, index - 1) else Debug.trap("7. validate: accessed a null value");
-                left_separator_key := ?btree_utils.key.blobify.from_blob(left_separator_key_blob);
-
+                let ?blob = Branch.get_key_blob(btree, parent, index - 1) else Debug.trap("7. validate: accessed a null value");
+                left_sep := ?blob;
               };
 
               let parent_count = Branch.get_count(btree, parent);
 
               if (index + 1 < parent_count) {
-                let ?right_separator_key_blob = Branch.get_key_blob(btree, parent, index) else Debug.trap("8. validate: accessed a null value");
-                right_separator_key := ?btree_utils.key.blobify.from_blob(right_separator_key_blob);
-
+                let ?blob = Branch.get_key_blob(btree, parent, index) else Debug.trap("8. validate: accessed a null value");
+                right_sep := ?blob;
               };
 
-              (left_separator_key, right_separator_key);
-
+              (left_sep, right_sep);
             };
             case (null) (null, null);
           };
 
           var i = 0;
 
-          var opt_prev_key : ?Nat = null;
+          var opt_prev_key_blob : ?Blob = null;
 
           while (i < count) {
             if (i + 1 < count) {
               let ?key_blob = Branch.get_key_blob(btree, address, i) else Debug.trap("9. validate: accessed a null value");
-              let key = btree_utils.key.blobify.from_blob(key_blob);
 
               assert ?key_blob == branch.6 [i];
 
-              switch (opt_prev_key) {
+              // Compare branch keys as blobs (may be tail-compressed)
+              switch (opt_prev_key_blob) {
                 case (null) {};
-                case (?prev_key) if (prev_key >= key) {
+                case (?prev_key_blob) if (Blob.compare(prev_key_blob, key_blob) != #less) {
                   Debug.print("key mismatch at index: " # debug_show i);
-                  Debug.print("prev: " # debug_show prev_key);
-                  Debug.print("key: " # debug_show key);
+                  Debug.print("prev: " # debug_show prev_key_blob);
+                  Debug.print("key: " # debug_show key_blob);
                   Branch.display(btree, btree_utils, address);
 
                   assert false;
                 };
               };
 
-              switch (left_separator_key) {
-                case (?left_separator_key) {
-                  assert left_separator_key <= key;
+              switch (left_separator_key_blob) {
+                case (?left_sep) {
+                  assert Blob.compare(left_sep, key_blob) != #greater;
                 };
                 case (null) {};
               };
 
-              switch (right_separator_key) {
-                case (?right_separator_key) {
-                  assert key < right_separator_key;
+              switch (right_separator_key_blob) {
+                case (?right_sep) {
+                  assert Blob.compare(key_blob, right_sep) == #less;
                 };
                 case (null) {};
               };
 
-              opt_prev_key := ?key;
+              opt_prev_key_blob := ?key_blob;
             };
 
             let ?child = Branch.get_child(btree, address, i) else Debug.trap("10. validate: accessed a null value");

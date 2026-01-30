@@ -715,9 +715,18 @@ module Branch {
         Branch.insert(btree, branch_address, i, key_address, child_address);
     };
 
+    /// Split a branch node, inserting new child at child_index
     public func split(btree : MemoryBTree, branch_address : Nat, child_index : Nat, child_key_address : UniqueId, child : Nat) : Nat {
 
         let arr_len = btree.node_capacity;
+        
+        // Use simple median split for branches
+        // Note: Unlike leaf splits, we don't use optimal split position here because
+        // branch separator keys are already tail-compressed from their original leaf splits.
+        // Finding an "optimal" position adds overhead without benefit.
+        // At the avg node capacity of 256, branch nodes only account for about 1% of total nodes.
+        // No need to optimize this further.
+        
         let median = (arr_len / 2) + 1;
 
         let is_elem_added_to_right = child_index >= median;

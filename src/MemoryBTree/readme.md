@@ -287,19 +287,21 @@ This region contains a 64 byte fixed header with information about the tree like
   | DEPTH              | 30     | 1    | Nat8  | -             | Number of levels from the root node to the leaf nodes |
   | IS_ROOT_A_LEAF     | 31     | 1    | Nat8  | -             | Flag to indicate if the root is a leaf node           |
   | VALUES REGION ID   | 32     | 4    | Nat32 | -             | Id of the values region                               |
-  | RESERVED           | 36     | 28   | -     | -             | Extra space for future use                            |
+  | IS_TAIL_COMPRESSION_ENABLED | 36     | 1    | Nat8  | -             | Flag to indicate if tail compression is enabled       |
+  | Merge Threshold Count   | 37     | 3    | Nat24 | -             | Minimum number of elements in a node before merging    |
+  | RESERVED           | 40     | 24   | -     | -             | Extra space for future use                            |
 
 - Key Block
 
   The key block stores a reference counter for the entry, the address pointer to the value block, the serialized key and their size. 
 
-  | Field           | Offset | Size (In bytes) | Type  | Default Value | Description          |
-  | --------------- | ------ | --------------- | ----- | ------------- | -------------------- |
-  | REFERENCE_COUNT | 0      | 1               | Nat8  | -             | Reference count      |
-  | KEY_SIZE        | 1      | 2               | Nat16 | -             | Size of the key      |
-  | VAL_POINTER     | 3      | 8               | Nat64 | -             | Pointer to the value in the values region|
-  | VALUE_SIZE      | 11     | 4               | Nat32 | -             | Size of the value    |
-  | KEY_BLOB        | 15     | -               | Blob  | -             | Serialized key       |
+  | Field           | Offset | Size (In bytes) | Type  | Default Value | Description                               |
+  | --------------- | ------ | --------------- | ----- | ------------- | ----------------------------------------- |
+  | REFERENCE_COUNT | 0      | 1               | Nat8  | -             | Reference count                           |
+  | KEY_SIZE        | 1      | 2               | Nat16 | -             | Size of the key                           |
+  | VAL_POINTER     | 3      | 8               | Nat64 | -             | Pointer to the value in the values region |
+  | VALUE_SIZE      | 11     | 4               | Nat32 | -             | Size of the value                         |
+  | KEY_BLOB        | 15     | -               | Blob  | -             | Serialized key                            |
 
 #### Values Region
 
@@ -307,12 +309,12 @@ This region contains a 64 byte fixed header followed by a sequence of serialized
 
 - Header Section
 
-  | Field              | Offset | Size | Type  | Default Value | Description                    |
-  | ------------------ | ------ | ---- | ----- | ------------- | ------------------------------ |
-  | MAGIC              | 0      | 3    | Blob  | `"VLS"`       | Magic number                   |
-  | LAYOUT VERSION     | 3      | 1    | Nat8  | `0`           | Layout version                 |
-  | DATA REGION ID     | 4      | 4    | Nat32 | -             | Id of the data region          |
-  | RESERVED           | 8      | 56   | -     | -             | Extra space for future use     |
+  | Field          | Offset | Size | Type  | Default Value | Description                |
+  | -------------- | ------ | ---- | ----- | ------------- | -------------------------- |
+  | MAGIC          | 0      | 3    | Blob  | `"VLS"`       | Magic number               |
+  | LAYOUT VERSION | 3      | 1    | Nat8  | `0`           | Layout version             |
+  | DATA REGION ID | 4      | 4    | Nat32 | -             | Id of the data region      |
+  | RESERVED       | 8      | 56   | -     | -             | Extra space for future use |
 
 - Value Block
 

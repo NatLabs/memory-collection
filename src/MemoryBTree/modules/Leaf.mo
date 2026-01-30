@@ -560,16 +560,15 @@ module Leaf {
   /// - leaf_address: Address of the leaf node being split
   /// - elem_index: Position where new element would be inserted (0 to node_capacity)
   /// - new_key_blob: The key blob of the element being inserted
-  /// - merge_threshold: The merge threshold ratio (e.g., 0.25 for 25%)
+  /// - merge_threshold_count: The minimum number of elements allowed in a node before merging
   ///
   /// Returns: The optimal split index (first element of right node after split)
-  public func get_optimal_split_position(btree : MemoryBTree, leaf_address : Nat, elem_index : Nat, new_key_blob : Blob, merge_threshold : Float) : Nat {
+  public func get_optimal_split_position(btree : MemoryBTree, leaf_address : Nat, elem_index : Nat, new_key_blob : Blob) : Nat {
     let node_capacity = btree.node_capacity;
+    let merge_threshold_count = btree.merge_threshold_count;
+    
     // After split, we have node_capacity + 1 total elements (including the new one)
     let total_after_insert = node_capacity + 1;
-
-    // Minimum elements each side should have to avoid immediate merge
-    let merge_threshold_count = Int.abs(Float.toInt(Float.ceil(Float.fromInt(node_capacity) * merge_threshold)));
 
     // Split position = first index of right node
     // Left node will have indices 0..(split_pos - 1), so split_pos elements
@@ -587,9 +586,6 @@ module Leaf {
       return (node_capacity / 2) + 1;
     };
 
-    var best_split = min_split;
-    var smallest_prefix_len = (2 ** 64); // Start with a large value
-
     // Helper function to get a key at a virtual index
     // Virtual indices: 0..node_capacity (inclusive), where the new element is at elem_index
     func get_key_at_virtual_index(virtual_index : Nat) : Blob {
@@ -606,45 +602,48 @@ module Leaf {
       };
     };
 
-    // Loop through valid split positions to find the one with smallest prefix length
-    var split_pos = min_split;
-    while (split_pos <= max_split) {
-      // For split at split_pos:
-      // - Last key of left node is at virtual index (split_pos - 1)
-      // - First key of right node (separator) is at virtual index split_pos
+    // Binary search for optimal split position by comparing prefix lengths
+    // L represents the key index before the leftmost candidate split position
+    // R represents the key index at the rightmost candidate split position
+    var L = min_split - 1;
+    var R = max_split;
 
-      let left_last_key = get_key_at_virtual_index(split_pos - 1);
-      let right_first_key = get_key_at_virtual_index(split_pos);
-
-      let prefix_len = Common.get_prefix_length(left_last_key, right_first_key);
-
-      if (prefix_len < smallest_prefix_len) {
-        smallest_prefix_len := prefix_len;
-        best_split := split_pos;
+    while (L + 1 < R) {
+      let mid = (L + R) / 2;
+      
+      // Compare prefix length on left side vs right side of mid
+      let left_key = get_key_at_virtual_index(L);
+      let mid_key = get_key_at_virtual_index(mid);
+      let right_key = get_key_at_virtual_index(R);
+      
+      let left_prefix_len = Common.get_prefix_length(left_key, mid_key);
+      let right_prefix_len = Common.get_prefix_length(mid_key, right_key);
+      
+      // For sorted keys, prefix(key[L], key[mid]) represents the minimum prefix
+      // achievable by any split in range (L, mid], and prefix(key[mid], key[R])
+      // represents the minimum for range (mid, R]
+      // We prefer leftmost position when equal, so search left half when <=
+      if (left_prefix_len <= right_prefix_len) {
+        R := mid;
+      } else {
+        L := mid;
       };
-
-      split_pos += 1;
     };
 
     // Return the virtual split position
-    // split_with_options expects median to represent how many elements go to left node
-    // (which equals the virtual index of the first element in right node)
-    best_split;
+    // R is the optimal split position (first element of right node after split)
+    R;
   };
 
+  /// Split a leaf node, inserting new_id at elem_index
+  /// When tail compression is enabled, uses optimal split position based on merge_threshold_count
   public func split(btree : MemoryBTree, leaf_address : Nat, elem_index : Nat, new_id : UniqueId) : Nat {
-    split_with_options(btree, leaf_address, elem_index, new_id, false, 0.25);
-  };
-
-  /// Split with tail compression support
-  /// When enable_tail_compression is true, uses optimal split position based on merge_threshold
-  public func split_with_options(btree : MemoryBTree, leaf_address : Nat, elem_index : Nat, new_id : UniqueId, enable_tail_compression : Bool, merge_threshold : Float) : Nat {
     let arr_len = btree.node_capacity;
 
     // Determine split point (separator_index = first index of right node after split)
-    let median = if (enable_tail_compression) {
+    let median = if (btree.is_tail_compression_enabled) {
       let new_key_blob = MemoryBlock.get_key_blob(btree, new_id);
-      get_optimal_split_position(btree, leaf_address, elem_index, new_key_blob, merge_threshold);
+      get_optimal_split_position(btree, leaf_address, elem_index, new_key_blob);
     } else {
       (arr_len / 2) + 1;
     };

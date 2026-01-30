@@ -51,19 +51,17 @@ module V1_0_0 {
     /// This can significantly reduce memory usage for keys with common prefixes.
     /// Note: Only works correctly with lexicographic comparison (e.g., Text, Blob keys).
     /// For numeric types like Nat that use size-based comparison, this should be disabled.
-    enable_tail_compression : Bool;
+    is_tail_compression_enabled : Bool;
 
-    /// Merge strategy to use for node merging after deletions.
-    merge_strategy : MergeStrategy;
-
-    /// Merge threshold: nodes are considered "sparse" when they have fewer than
-    /// (node_capacity * merge_threshold) elements. Default is 0.25 (1/4 capacity).
+    /// Merge threshold count: number of elements left in a node before merging is allowed.
+    /// Calculated from the original merge_threshold float by multiplying with node_capacity.
+    /// Nodes are considered "sparse" when they have fewer than merge_threshold_count elements.
     /// - For #Conservative: merge only when BOTH nodes are below this threshold
     /// - For #Balanced: merge when EITHER node is below threshold AND combined fits
     /// This threshold also affects optimal split position selection when tail compression is enabled:
     /// splits occur at positions > merge_threshold_count and < (node_capacity - merge_threshold_count)
     /// to ensure both resulting nodes have enough elements to avoid immediate merging.
-    merge_threshold : Float;
+    var merge_threshold_count : Nat;
   };
 
   public type Leaf = (
