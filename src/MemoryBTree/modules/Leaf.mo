@@ -16,6 +16,7 @@ import MemoryBlock "MemoryBlock";
 import T "Types";
 import Migrations "../Migrations";
 import Utils "../../Utils";
+import Common "Common";
 
 module Leaf {
   public type Leaf = Migrations.Leaf;
@@ -543,9 +544,110 @@ module Leaf {
     MemoryRegion.storeNat64(btree.leaves, id_offset, Nat64.fromNat(new_id));
   };
 
+  /// Calculates the optimal split position for a B-tree leaf node when inserting a new key.
+  /// This function finds the best place to split a full leaf node, optimizing for tail compression.
+  ///
+  /// The function searches within a range bounded by merge_threshold to ensure both resulting
+  /// nodes have enough elements to avoid immediate merging after deletions:
+  /// - min_split_index = merge_threshold_count + 1 (ensures left node has at least threshold elements)
+  /// - max_split_index = node_capacity - merge_threshold_count (ensures right node has at least threshold elements)
+  ///
+  /// Within this range, it finds the position where the separator (first key of right node) has
+  /// the smallest common prefix with the last key of the left node, maximizing tail compression benefit.
+  ///
+  /// Parameters:
+  /// - btree: The B-tree instance
+  /// - leaf_address: Address of the leaf node being split
+  /// - elem_index: Position where new element would be inserted (0 to node_capacity)
+  /// - new_key_blob: The key blob of the element being inserted
+  /// - merge_threshold: The merge threshold ratio (e.g., 0.25 for 25%)
+  ///
+  /// Returns: The optimal split index (first element of right node after split)
+  public func get_optimal_split_position(btree : MemoryBTree, leaf_address : Nat, elem_index : Nat, new_key_blob : Blob, merge_threshold : Float) : Nat {
+    let node_capacity = btree.node_capacity;
+    // After split, we have node_capacity + 1 total elements (including the new one)
+    let total_after_insert = node_capacity + 1;
+
+    // Minimum elements each side should have to avoid immediate merge
+    let merge_threshold_count = Int.abs(Float.toInt(Float.ceil(Float.fromInt(node_capacity) * merge_threshold)));
+
+    // Split position = first index of right node
+    // Left node will have indices 0..(split_pos - 1), so split_pos elements
+    // Right node will have indices split_pos..(total_after_insert - 1), so (total_after_insert - split_pos) elements
+    //
+    // Constraints:
+    // - Left must have at least merge_threshold_count elements: split_pos >= merge_threshold_count + 1
+    // - Right must have at least merge_threshold_count elements: total_after_insert - split_pos >= merge_threshold_count
+    //   => split_pos <= total_after_insert - merge_threshold_count
+    let min_split = merge_threshold_count + 1;
+    let max_split = total_after_insert - merge_threshold_count;
+
+    // Default to median if range is invalid
+    if (min_split > max_split) {
+      return (node_capacity / 2) + 1;
+    };
+
+    var best_split = min_split;
+    var smallest_prefix_len = (2 ** 64); // Start with a large value
+
+    // Helper function to get a key at a virtual index
+    // Virtual indices: 0..node_capacity (inclusive), where the new element is at elem_index
+    func get_key_at_virtual_index(virtual_index : Nat) : Blob {
+      if (virtual_index == elem_index) {
+        new_key_blob;
+      } else {
+        let actual_index = if (virtual_index > elem_index) {
+          virtual_index - 1;
+        } else {
+          virtual_index;
+        };
+        let ?kv_address = get_kv_address(btree, leaf_address, actual_index) else Debug.trap("get_optimal_split_position: null kv_address at virtual index " # debug_show (virtual_index));
+        MemoryBlock.get_key_blob(btree, kv_address);
+      };
+    };
+
+    // Loop through valid split positions to find the one with smallest prefix length
+    var split_pos = min_split;
+    while (split_pos <= max_split) {
+      // For split at split_pos:
+      // - Last key of left node is at virtual index (split_pos - 1)
+      // - First key of right node (separator) is at virtual index split_pos
+
+      let left_last_key = get_key_at_virtual_index(split_pos - 1);
+      let right_first_key = get_key_at_virtual_index(split_pos);
+
+      let prefix_len = Common.get_prefix_length(left_last_key, right_first_key);
+
+      if (prefix_len < smallest_prefix_len) {
+        smallest_prefix_len := prefix_len;
+        best_split := split_pos;
+      };
+
+      split_pos += 1;
+    };
+
+    // Return the virtual split position
+    // split_with_options expects median to represent how many elements go to left node
+    // (which equals the virtual index of the first element in right node)
+    best_split;
+  };
+
   public func split(btree : MemoryBTree, leaf_address : Nat, elem_index : Nat, new_id : UniqueId) : Nat {
+    split_with_options(btree, leaf_address, elem_index, new_id, false, 0.25);
+  };
+
+  /// Split with tail compression support
+  /// When enable_tail_compression is true, uses optimal split position based on merge_threshold
+  public func split_with_options(btree : MemoryBTree, leaf_address : Nat, elem_index : Nat, new_id : UniqueId, enable_tail_compression : Bool, merge_threshold : Float) : Nat {
     let arr_len = btree.node_capacity;
-    let median = (arr_len / 2) + 1;
+
+    // Determine split point (separator_index = first index of right node after split)
+    let median = if (enable_tail_compression) {
+      let new_key_blob = MemoryBlock.get_key_blob(btree, new_id);
+      get_optimal_split_position(btree, leaf_address, elem_index, new_key_blob, merge_threshold);
+    } else {
+      (arr_len / 2) + 1;
+    };
 
     let is_elem_added_to_right = elem_index >= median;
 

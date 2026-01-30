@@ -23,6 +23,7 @@ import Migrations "Migrations";
 import Leaf "modules/Leaf";
 import T "modules/Types";
 import TypeUtils "../TypeUtils";
+import Common "modules/Common";
 
 module {
     type Address = Nat;
@@ -46,19 +47,27 @@ module {
     let CACHE_LIMIT = 50_000;
     let DEFAULT_ORDER = 256;
 
+    /// Enable tail compression for separator keys.
+    /// When enabled, separator keys are truncated to the minimum length needed to
+    /// distinguish between the last key of the left node and the first key of the right node.
+    /// This can significantly reduce memory usage for keys with common prefixes.
+    public let ENABLE_TAIL_COMPRESSION : Bool = true;
+
     /// Merge strategy to use for node merging after deletions.
     /// - #Conservative (Approach 1): Merge only when BOTH nodes are below threshold.
     ///   Very few merges, separator keys stay stable. Good for read-heavy workloads and tail compression.
     ///   May leave sparse nodes that never merge if neighbour is above threshold.
     /// - #Balanced (Approach 3): Merge when EITHER node is below threshold AND combined fits.
     ///   More merges but better memory efficiency. Cleans up sparse nodes proactively.
-    public let MERGE_STRATEGY : { #Conservative; #Balanced } = #Conservative;
+    public let MERGE_STRATEGY : { #Conservative; #Balanced } = #Balanced;
 
     /// Merge threshold: nodes are considered "sparse" when they have fewer than
     /// (node_capacity * MERGE_THRESHOLD) elements. Default is 0.25 (1/4 capacity).
     /// - For #Conservative: merge only when BOTH nodes are below this threshold
     /// - For #Balanced: merge when EITHER node is below threshold AND combined fits
-    /// Adjust to test different thresholds (e.g., 0.125 for 1/8, 0.5 for 1/2).
+    /// This threshold also affects optimal split position selection when tail compression is enabled:
+    /// splits occur at positions > merge_threshold_count and < (node_capacity - merge_threshold_count)
+    /// to ensure both resulting nodes have enough elements to avoid immediate merging.
     public let MERGE_THRESHOLD : Float = 0.25;
 
     public func _new_with_options(node_capacity : ?Nat, opt_cache_size : ?Nat, is_set : Bool) : MemoryBTree {
@@ -391,7 +400,7 @@ module {
 
         // split leaf
         var left_node_address = leaf_address;
-        var right_node_address = Leaf.split(btree, left_node_address, elem_index, kv_address);
+        var right_node_address = Leaf.split_with_options(btree, left_node_address, elem_index, kv_address, ENABLE_TAIL_COMPRESSION, MERGE_THRESHOLD);
         update_leaf_count(btree, btree.leaf_count + 1);
         // Debug.print("left leaf after split: " # debug_show Leaf.from_memory(btree, left_node_address));
         // Debug.print("right leaf after split: " # debug_show Leaf.from_memory(btree, right_node_address));

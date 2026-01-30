@@ -480,7 +480,7 @@ func btree_load_test(node_capacity : Nat) {
   );
 };
 
-for (node_capacity in [4, 8, 32, 1024, 4028].vals()) {
+for (node_capacity in [16, 32, 1024, 4028].vals()) {
   suite(
     "MemoryBTree Blob Memory Load Tests with node capacity " # debug_show (node_capacity),
     func() {

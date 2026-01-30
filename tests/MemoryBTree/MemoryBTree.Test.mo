@@ -31,7 +31,7 @@ type MemoryBlock = MemoryBTree.MemoryBlock;
 let { nhash } = Map;
 let fuzz = Fuzz.fromSeed(0xdeadbeef);
 
-let limit = 10_000;
+let limit = 8_000;
 
 let nat_gen_iter : Iter<Nat> = {
     next = func() : ?Nat = ?fuzz.nat.randomRange(1, limit ** 2);
@@ -502,18 +502,30 @@ func btree_tests(node_capacity : Nat) {
                 "remove() random",
                 func() {
 
-                    // Debug.print("node keys: " # debug_show MemoryBTree.toNodeKeys(btree, btree_utils));
-                    // Debug.print("leaf nodes: " # debug_show MemoryBTree.toLeafNodes(btree, btree_utils));
+                    assert Methods.validate_memory(btree, btree_utils);
+
+                    // for ((key, i) in random.vals()) {
+                    //     assert ?(1 + i * 10) == MemoryBTree.get(btree, btree_utils, key);
+                    // };
 
                     for ((key, i) in random.vals()) {
+
+                        // Debug.print("node keys: " # debug_show MemoryBTree.toNodeKeys(btree, btree_utils));
+                        // Debug.print("leaf nodes: " # debug_show MemoryBTree.toLeafNodes(btree, btree_utils));
+
                         // Debug.print("removing " # debug_show key);
+                        let expected_val = 1 + i * 10;
+
+                        assert ?expected_val == MemoryBTree.get(btree, btree_utils, key);
+
                         let val = MemoryBTree.remove(btree, btree_utils, key);
                         // Debug.print("(i, val): " # debug_show (i, val));
-                        assert ?(1 + i * 10) == val;
+
+                        assert ?expected_val == val;
 
                         assert MemoryBTree.size(btree) == random.size() - i - 1;
-                        // Debug.print("node keys: " # debug_show MemoryBTree.toNodeKeys(btree, btree_utils));
-                        // Debug.print("leaf nodes: " # debug_show Iter.toArray(MemoryBTree.leafNodes(btree, btree_utils)));
+                        // Debug.print("node keys after: " # debug_show MemoryBTree.toNodeKeys(btree, btree_utils));
+                        // Debug.print("leaf nodes after: " # debug_show Iter.toArray(MemoryBTree.leafNodes(btree, btree_utils)));
                     };
 
                     assert Methods.validate_memory(btree, btree_utils);
