@@ -1,7 +1,7 @@
 // @testmode wasi
-import Buffer "mo:base@0.16.0/Buffer";
-import Iter "mo:base@0.16.0/Iter";
-import Debug "mo:base@0.16.0/Debug";
+import Buffer "mo:base@0.14.13/Buffer";
+import Iter "mo:base@0.14.13/Iter";
+import Debug "mo:base@0.14.13/Debug";
 
 import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
 import { test; suite } "mo:test";

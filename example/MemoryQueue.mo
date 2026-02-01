@@ -1,9 +1,9 @@
-import Buffer "mo:base@0.16.0/Buffer";
-import Principal "mo:base@0.16.0/Principal";
-import Timer "mo:base@0.16.0/Timer";
-import Debug "mo:base@0.16.0/Debug";
-import Iter "mo:base@0.16.0/Iter";
-import Nat "mo:base@0.16.0/Nat";
+import Buffer "mo:base@0.14.13/Buffer";
+import Principal "mo:base@0.14.13/Principal";
+import Timer "mo:base@0.14.13/Timer";
+import Debug "mo:base@0.14.13/Debug";
+import Iter "mo:base@0.14.13/Iter";
+import Nat "mo:base@0.14.13/Nat";
 
 import Map "mo:map/Map";
 

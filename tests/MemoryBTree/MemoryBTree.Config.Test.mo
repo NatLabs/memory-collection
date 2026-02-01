@@ -12,15 +12,12 @@
 /// memory usage differences.
 
 import { test; suite } "mo:test";
-import Debug "mo:base@0.16.0/Debug";
-import Iter "mo:base@0.16.0/Iter";
-import Buffer "mo:base@0.16.0/Buffer";
-import Nat "mo:base@0.16.0/Nat";
-import Nat64 "mo:base@0.16.0/Nat64";
-import Int "mo:base@0.16.0/Int";
-import Float "mo:base@0.16.0/Float";
-import Text "mo:base@0.16.0/Text";
-import Array "mo:base@0.16.0/Array";
+import Debug "mo:base@0.14.13/Debug";
+import Iter "mo:base@0.14.13/Iter";
+import Buffer "mo:base@0.14.13/Buffer";
+import Nat "mo:base@0.14.13/Nat";
+import Float "mo:base@0.14.13/Float";
+import Text "mo:base@0.14.13/Text";
 
 import Fuzz "mo:fuzz";
 import Itertools "mo:itertools@0.2.2/Iter";

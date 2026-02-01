@@ -1,11 +1,11 @@
 // @testmode wasi
 import { test; suite } "mo:test";
-import Debug "mo:base@0.16.0/Debug";
-import Iter "mo:base@0.16.0/Iter";
-import Buffer "mo:base@0.16.0/Buffer";
-import Nat "mo:base@0.16.0/Nat";
-import Blob "mo:base@0.16.0/Blob";
-import Order "mo:base@0.16.0/Order";
+import Debug "mo:base@0.14.13/Debug";
+import Iter "mo:base@0.14.13/Iter";
+import Buffer "mo:base@0.14.13/Buffer";
+import Nat "mo:base@0.14.13/Nat";
+import Blob "mo:base@0.14.13/Blob";
+import Order "mo:base@0.14.13/Order";
 
 import Fuzz "mo:fuzz";
 import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";

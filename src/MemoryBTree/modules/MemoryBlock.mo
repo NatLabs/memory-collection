@@ -1,10 +1,10 @@
-import Nat "mo:base@0.16.0/Nat";
-import Blob "mo:base@0.16.0/Blob";
-import Nat64 "mo:base@0.16.0/Nat64";
-import Nat16 "mo:base@0.16.0/Nat16";
-import Nat8 "mo:base@0.16.0/Nat8";
-import Nat32 "mo:base@0.16.0/Nat32";
-import Debug "mo:base@0.16.0/Debug";
+import Nat "mo:base@0.14.13/Nat";
+import Blob "mo:base@0.14.13/Blob";
+import Nat64 "mo:base@0.14.13/Nat64";
+import Nat16 "mo:base@0.14.13/Nat16";
+import Nat8 "mo:base@0.14.13/Nat8";
+import Nat32 "mo:base@0.14.13/Nat32";
+import Debug "mo:base@0.14.13/Debug";
 
 import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
 import RevIter "mo:itertools@0.2.2/RevIter";

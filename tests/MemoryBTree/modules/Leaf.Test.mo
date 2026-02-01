@@ -1,10 +1,10 @@
 // @testmode wasi
 import { test; suite } "mo:test";
-import Debug "mo:base@0.16.0/Debug";
-import Iter "mo:base@0.16.0/Iter";
-import Nat "mo:base@0.16.0/Nat";
-import Blob "mo:base@0.16.0/Blob";
-import Text "mo:base@0.16.0/Text";
+import Debug "mo:base@0.14.13/Debug";
+import Iter "mo:base@0.14.13/Iter";
+import Nat "mo:base@0.14.13/Nat";
+import Blob "mo:base@0.14.13/Blob";
+import Text "mo:base@0.14.13/Text";
 
 import MemoryBTree "../../../src/MemoryBTree/Base";
 import Leaf "../../../src/MemoryBTree/modules/Leaf";

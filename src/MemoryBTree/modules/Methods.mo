@@ -1,10 +1,10 @@
-import Debug "mo:base@0.16.0/Debug";
-import Array "mo:base@0.16.0/Array";
-import Iter "mo:base@0.16.0/Iter";
-import Int "mo:base@0.16.0/Int";
-import Nat "mo:base@0.16.0/Nat";
-import Blob "mo:base@0.16.0/Blob";
-import Buffer "mo:base@0.16.0/Buffer";
+import Debug "mo:base@0.14.13/Debug";
+import Array "mo:base@0.14.13/Array";
+import Iter "mo:base@0.14.13/Iter";
+import Int "mo:base@0.14.13/Int";
+import Nat "mo:base@0.14.13/Nat";
+import Blob "mo:base@0.14.13/Blob";
+import Buffer "mo:base@0.14.13/Buffer";
 
 import RevIter "mo:itertools@0.2.2/RevIter";
 import BufferDeque "mo:buffer-deque@0.1.0/BufferDeque";

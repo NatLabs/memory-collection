@@ -1,11 +1,11 @@
 // @testmode wasi
-import Buffer "mo:base@0.16.0/Buffer";
-import Debug "mo:base@0.16.0/Debug";
-import Iter "mo:base@0.16.0/Iter";
-import Prelude "mo:base@0.16.0/Prelude";
-import Nat "mo:base@0.16.0/Nat";
-import Array "mo:base@0.16.0/Array";
-import Nat64 "mo:base@0.16.0/Nat64";
+import Buffer "mo:base@0.14.13/Buffer";
+import Debug "mo:base@0.14.13/Debug";
+import Iter "mo:base@0.14.13/Iter";
+import Prelude "mo:base@0.14.13/Prelude";
+import Nat "mo:base@0.14.13/Nat";
+import Array "mo:base@0.14.13/Array";
+import Nat64 "mo:base@0.14.13/Nat64";
 
 import { test; suite } "mo:test";
 import Fuzz "mo:fuzz";

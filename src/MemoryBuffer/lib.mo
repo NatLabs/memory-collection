@@ -27,9 +27,9 @@
 ///   assert buffer.removeLast() == ?9;
 /// ```
 
-import Iter "mo:base@0.16.0/Iter";
-import Order "mo:base@0.16.0/Order";
-import Nat "mo:base@0.16.0/Nat";
+import Iter "mo:base@0.14.13/Iter";
+import Order "mo:base@0.14.13/Order";
+import Nat "mo:base@0.14.13/Nat";
 
 import RevIter "mo:itertools@0.2.2/RevIter";
 

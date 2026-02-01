@@ -1,9 +1,9 @@
-import Iter "mo:base@0.16.0/Iter";
-import Nat8 "mo:base@0.16.0/Nat8";
-import Nat64 "mo:base@0.16.0/Nat64";
-import Debug "mo:base@0.16.0/Debug";
-import Blob "mo:base@0.16.0/Blob";
-import TextModule "mo:base@0.16.0/Text";
+import Iter "mo:base@0.14.13/Iter";
+import Nat8 "mo:base@0.14.13/Nat8";
+import Nat64 "mo:base@0.14.13/Nat64";
+import Debug "mo:base@0.14.13/Debug";
+import Blob "mo:base@0.14.13/Blob";
+import TextModule "mo:base@0.14.13/Text";
 
 import Itertools "mo:itertools@0.2.2/Iter";
 import Blobify "../TypeUtils/Blobify";

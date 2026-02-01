@@ -1,7 +1,7 @@
-import Debug "mo:base@0.16.0/Debug";
-import Nat32 "mo:base@0.16.0/Nat32";
-import Float "mo:base@0.16.0/Float";
-import Int "mo:base@0.16.0/Int";
+import Debug "mo:base@0.14.13/Debug";
+import Nat32 "mo:base@0.14.13/Nat32";
+import Float "mo:base@0.14.13/Float";
+import Int "mo:base@0.14.13/Int";
 
 import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
 

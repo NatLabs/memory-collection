@@ -1,10 +1,10 @@
-import Iter "mo:base@0.16.0/Iter";
-import Debug "mo:base@0.16.0/Debug";
-import Nat "mo:base@0.16.0/Nat";
-import Nat64 "mo:base@0.16.0/Nat64";
-import Region "mo:base@0.16.0/Region";
-import Buffer "mo:base@0.16.0/Buffer";
-import Text "mo:base@0.16.0/Text";
+import Iter "mo:base@0.14.13/Iter";
+import Debug "mo:base@0.14.13/Debug";
+import Nat "mo:base@0.14.13/Nat";
+import Nat64 "mo:base@0.14.13/Nat64";
+import Region "mo:base@0.14.13/Region";
+import Buffer "mo:base@0.14.13/Buffer";
+import Text "mo:base@0.14.13/Text";
 
 import Bench "mo:bench";
 import Fuzz "mo:fuzz";

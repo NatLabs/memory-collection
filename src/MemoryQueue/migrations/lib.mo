@@ -1,4 +1,4 @@
-import Debug "mo:base@0.16.0/Debug";
+import Debug "mo:base@0.14.13/Debug";
 
 import V0 "V0";
 

@@ -15,8 +15,8 @@
 /// import TypeUtils "mo:memory-collections/TypeUtils";
 /// ```
 
-import Iter "mo:base@0.16.0/Iter";
-import Nat "mo:base@0.16.0/Nat";
+import Iter "mo:base@0.14.13/Iter";
+import Nat "mo:base@0.14.13/Nat";
 
 import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
 

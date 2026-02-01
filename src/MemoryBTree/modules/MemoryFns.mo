@@ -1,6 +1,6 @@
-import Int "mo:base@0.16.0/Int";
-import Region "mo:base@0.16.0/Region";
-import Nat64 "mo:base@0.16.0/Nat64";
+import Int "mo:base@0.14.13/Int";
+import Region "mo:base@0.14.13/Region";
+import Nat64 "mo:base@0.14.13/Nat64";
 
 module {
 

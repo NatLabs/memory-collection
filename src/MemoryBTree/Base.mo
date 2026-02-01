@@ -1,15 +1,15 @@
-import Debug "mo:base@0.16.0/Debug";
-import Iter "mo:base@0.16.0/Iter";
-import Int "mo:base@0.16.0/Int";
-import Int64 "mo:base@0.16.0/Int64";
-import Nat "mo:base@0.16.0/Nat";
-import Option "mo:base@0.16.0/Option";
-import Nat8 "mo:base@0.16.0/Nat8";
-import Nat16 "mo:base@0.16.0/Nat16";
-import Nat32 "mo:base@0.16.0/Nat32";
-import Nat64 "mo:base@0.16.0/Nat64";
-import Blob "mo:base@0.16.0/Blob";
-import Float "mo:base@0.16.0/Float";
+import Debug "mo:base@0.14.13/Debug";
+import Iter "mo:base@0.14.13/Iter";
+import Int "mo:base@0.14.13/Int";
+import Int64 "mo:base@0.14.13/Int64";
+import Nat "mo:base@0.14.13/Nat";
+import Option "mo:base@0.14.13/Option";
+import Nat8 "mo:base@0.14.13/Nat8";
+import Nat16 "mo:base@0.14.13/Nat16";
+import Nat32 "mo:base@0.14.13/Nat32";
+import Nat64 "mo:base@0.14.13/Nat64";
+import Blob "mo:base@0.14.13/Blob";
+import Float "mo:base@0.14.13/Float";
 
 import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
 import RevIter "mo:itertools@0.2.2/RevIter";

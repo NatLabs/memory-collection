@@ -1,12 +1,12 @@
-import Blob "mo:base@0.16.0/Blob";
-import Buffer "mo:base@0.16.0/Buffer";
-import Array "mo:base@0.16.0/Array";
-import Nat8 "mo:base@0.16.0/Nat8";
-import Nat64 "mo:base@0.16.0/Nat64";
-import Prelude "mo:base@0.16.0/Prelude";
-import Iter "mo:base@0.16.0/Iter";
-import Debug "mo:base@0.16.0/Debug";
-import Result "mo:base@0.16.0/Result";
+import Blob "mo:base@0.14.13/Blob";
+import Buffer "mo:base@0.14.13/Buffer";
+import Array "mo:base@0.14.13/Array";
+import Nat8 "mo:base@0.14.13/Nat8";
+import Nat64 "mo:base@0.14.13/Nat64";
+import Prelude "mo:base@0.14.13/Prelude";
+import Iter "mo:base@0.14.13/Iter";
+import Debug "mo:base@0.14.13/Debug";
+import Result "mo:base@0.14.13/Result";
 
 import Itertools "mo:itertools@0.2.2/Iter";
 module {

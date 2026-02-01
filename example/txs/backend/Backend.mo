@@ -1,19 +1,19 @@
 import Prim "mo:prim";
 
-import Array "mo:base@0.16.0/Array";
-import Iter "mo:base@0.16.0/Iter";
-import IC "mo:base@0.16.0/ExperimentalInternetComputer";
-import Principal "mo:base@0.16.0/Principal";
-import Debug "mo:base@0.16.0/Debug";
-import Nat64 "mo:base@0.16.0/Nat64";
-import Nat "mo:base@0.16.0/Nat";
-import Cycles "mo:base@0.16.0/ExperimentalCycles";
-import Buffer "mo:base@0.16.0/Buffer";
-import Option "mo:base@0.16.0/Option";
-import Time "mo:base@0.16.0/Time";
-import Blob "mo:base@0.16.0/Blob";
-import Nat8 "mo:base@0.16.0/Nat8";
-import Int "mo:base@0.16.0/Int";
+import Array "mo:base@0.14.13/Array";
+import Iter "mo:base@0.14.13/Iter";
+import IC "mo:base@0.14.13/ExperimentalInternetComputer";
+import Principal "mo:base@0.14.13/Principal";
+import Debug "mo:base@0.14.13/Debug";
+import Nat64 "mo:base@0.14.13/Nat64";
+import Nat "mo:base@0.14.13/Nat";
+import Cycles "mo:base@0.14.13/ExperimentalCycles";
+import Buffer "mo:base@0.14.13/Buffer";
+import Option "mo:base@0.14.13/Option";
+import Time "mo:base@0.14.13/Time";
+import Blob "mo:base@0.14.13/Blob";
+import Nat8 "mo:base@0.14.13/Nat8";
+import Int "mo:base@0.14.13/Int";
 
 import Vector "mo:vector";
 import Itertools "mo:itertools@0.2.2/Iter";

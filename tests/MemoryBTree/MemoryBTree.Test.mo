@@ -1,15 +1,15 @@
 // @testmode wasi
 import { test; suite } "mo:test";
-import Debug "mo:base@0.16.0/Debug";
-import Iter "mo:base@0.16.0/Iter";
-import Buffer "mo:base@0.16.0/Buffer";
-import Nat32 "mo:base@0.16.0/Nat32";
-import Nat64 "mo:base@0.16.0/Nat64";
-import Nat "mo:base@0.16.0/Nat";
-import Order "mo:base@0.16.0/Order";
-import Array "mo:base@0.16.0/Array";
-import Blob "mo:base@0.16.0/Blob";
-import Nat8 "mo:base@0.16.0/Nat8";
+import Debug "mo:base@0.14.13/Debug";
+import Iter "mo:base@0.14.13/Iter";
+import Buffer "mo:base@0.14.13/Buffer";
+import Nat32 "mo:base@0.14.13/Nat32";
+import Nat64 "mo:base@0.14.13/Nat64";
+import Nat "mo:base@0.14.13/Nat";
+import Order "mo:base@0.14.13/Order";
+import Array "mo:base@0.14.13/Array";
+import Blob "mo:base@0.14.13/Blob";
+import Nat8 "mo:base@0.14.13/Nat8";
 
 import Fuzz "mo:fuzz";
 import Itertools "mo:itertools@0.2.2/Iter";

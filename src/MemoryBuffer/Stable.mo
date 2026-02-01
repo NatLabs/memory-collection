@@ -1,7 +1,7 @@
-import Iter "mo:base@0.16.0/Iter";
-import Nat "mo:base@0.16.0/Nat";
-import Result "mo:base@0.16.0/Result";
-import Order "mo:base@0.16.0/Order";
+import Iter "mo:base@0.14.13/Iter";
+import Nat "mo:base@0.14.13/Nat";
+import Result "mo:base@0.14.13/Result";
+import Order "mo:base@0.14.13/Order";
 
 import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
 import RevIter "mo:itertools@0.2.2/RevIter";
