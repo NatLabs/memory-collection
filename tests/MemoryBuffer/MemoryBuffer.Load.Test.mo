@@ -8,7 +8,7 @@ import Result "mo:base@0.14.13/Result";
 import { test; suite } "mo:test";
 import Fuzz "mo:fuzz";
 import { MaxBpTree; Cmp } "mo:augmented-btrees";
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.4.0/MemoryRegion";
 import Itertools "mo:itertools@0.2.2/Iter";
 import MaxBpTreeMethods "mo:augmented-btrees/MaxBpTree/Methods";
 import BpTree "mo:augmented-btrees/BpTree";

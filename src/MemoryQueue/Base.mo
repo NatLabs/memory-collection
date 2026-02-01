@@ -5,7 +5,7 @@ import Nat8 "mo:base@0.14.13/Nat8";
 import Nat32 "mo:base@0.14.13/Nat32";
 import Nat64 "mo:base@0.14.13/Nat64";
 
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.4.0/MemoryRegion";
 
 import Blobify "../TypeUtils/Blobify";
 import TypeUtils "../TypeUtils";

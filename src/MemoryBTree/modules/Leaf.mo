@@ -9,7 +9,7 @@ import Nat64 "mo:base@0.14.13/Nat64";
 import Int "mo:base@0.14.13/Int";
 import Float "mo:base@0.14.13/Float";
 
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.4.0/MemoryRegion";
 
 import MemoryFns "MemoryFns";
 import MemoryBlock "MemoryBlock";

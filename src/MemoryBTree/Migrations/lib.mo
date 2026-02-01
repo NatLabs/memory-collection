@@ -3,7 +3,7 @@ import Nat32 "mo:base@0.14.13/Nat32";
 import Float "mo:base@0.14.13/Float";
 import Int "mo:base@0.14.13/Int";
 
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.4.0/MemoryRegion";
 
 import V0 "V0";
 import V0_0_1 "V0_0_1";

@@ -8,7 +8,7 @@ import Blob "mo:base@0.14.13/Blob";
 import Order "mo:base@0.14.13/Order";
 
 import Fuzz "mo:fuzz";
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.4.0/MemoryRegion";
 import { MaxBpTree; Cmp } "mo:augmented-btrees";
 import MaxBpTreeMethods "mo:augmented-btrees/MaxBpTree/Methods";
 import BpTree "mo:augmented-btrees/BpTree";

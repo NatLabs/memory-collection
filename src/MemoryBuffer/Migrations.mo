@@ -5,7 +5,7 @@ import Nat "mo:base@0.14.13/Nat";
 import Result "mo:base@0.14.13/Result";
 import Order "mo:base@0.14.13/Order";
 
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.4.0/MemoryRegion";
 
 module Migrations {
   type Iter<A> = Iter.Iter<A>;

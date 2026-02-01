@@ -14,7 +14,7 @@ import Nat8 "mo:base@0.14.13/Nat8";
 import Fuzz "mo:fuzz";
 import Itertools "mo:itertools@0.2.2/Iter";
 import Map "mo:map/Map";
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.4.0/MemoryRegion";
 
 import MemoryBTree "../../src/MemoryBTree/Base";
 import TypeUtils "../../src/TypeUtils";

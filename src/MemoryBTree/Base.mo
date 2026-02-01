@@ -11,7 +11,7 @@ import Nat64 "mo:base@0.14.13/Nat64";
 import Blob "mo:base@0.14.13/Blob";
 import Float "mo:base@0.14.13/Float";
 
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.4.0/MemoryRegion";
 import RevIter "mo:itertools@0.2.2/RevIter";
 
 import MemoryCmp "../TypeUtils/MemoryCmp";

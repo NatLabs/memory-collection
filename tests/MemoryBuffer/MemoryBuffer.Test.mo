@@ -10,7 +10,7 @@ import Nat64 "mo:base@0.14.13/Nat64";
 import { test; suite } "mo:test";
 import Fuzz "mo:fuzz";
 import { MaxBpTree; Cmp } "mo:augmented-btrees";
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.4.0/MemoryRegion";
 import Itertools "mo:itertools@0.2.2/Iter";
 import MaxBpTreeMethods "mo:augmented-btrees/MaxBpTree/Methods";
 

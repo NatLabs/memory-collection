@@ -5,7 +5,7 @@ import Nat64 "mo:base@0.14.13/Nat64";
 import Nat8 "mo:base@0.14.13/Nat8";
 import Iter "mo:base@0.14.13/Iter";
 
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.4.0/MemoryRegion";
 import Itertools "mo:itertools@0.2.2/Iter";
 
 import V0 "V0";

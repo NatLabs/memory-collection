@@ -6,7 +6,7 @@ import Nat8 "mo:base@0.14.13/Nat8";
 import Nat32 "mo:base@0.14.13/Nat32";
 import Debug "mo:base@0.14.13/Debug";
 
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.4.0/MemoryRegion";
 import RevIter "mo:itertools@0.2.2/RevIter";
 
 import Migrations "../Migrations";
