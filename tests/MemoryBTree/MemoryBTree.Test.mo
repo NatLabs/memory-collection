@@ -54,8 +54,9 @@ sorted.sort(func(a : (Nat, Nat), b : (Nat, Nat)) : Order = Nat.compare(a.0, b.0)
 
 let btree_utils = MemoryBTree.createUtils(TypeUtils.Nat, TypeUtils.Nat);
 
-func btree_tests(node_capacity : Nat) {
-    let btree = MemoryBTree.new(?node_capacity);
+func btree_tests(memory_btree_options : MemoryBTree.BTreeOptions) {
+    let btree = MemoryBTree.newWithOptions(memory_btree_options);
+    Debug.print("BTree config: " # debug_show MemoryBTree.config(btree));
 
     suite(
         "MemoryBTree",
@@ -504,19 +505,16 @@ func btree_tests(node_capacity : Nat) {
 
                     assert Methods.validate_memory(btree, btree_utils);
 
-                    // for ((key, i) in random.vals()) {
-                    //     assert ?(1 + i * 10) == MemoryBTree.get(btree, btree_utils, key);
-                    // };
-
                     for ((key, i) in random.vals()) {
 
                         // Debug.print("node keys: " # debug_show MemoryBTree.toNodeKeys(btree, btree_utils));
-                        // Debug.print("leaf nodes: " # debug_show MemoryBTree.toLeafNodes(btree, btree_utils));
+                        // Debug.print("btree.leaf_count before toLeafNodes: " # debug_show MemoryBTree.leafCount(btree));
 
                         // Debug.print("removing " # debug_show key);
                         let expected_val = 1 + i * 10;
 
-                        assert ?expected_val == MemoryBTree.get(btree, btree_utils, key);
+                        let result = MemoryBTree.get(btree, btree_utils, key);
+                        assert ?expected_val == result;
 
                         let val = MemoryBTree.remove(btree, btree_utils, key);
                         // Debug.print("(i, val): " # debug_show (i, val));
@@ -526,9 +524,12 @@ func btree_tests(node_capacity : Nat) {
                         assert MemoryBTree.size(btree) == random.size() - i - 1;
                         // Debug.print("node keys after: " # debug_show MemoryBTree.toNodeKeys(btree, btree_utils));
                         // Debug.print("leaf nodes after: " # debug_show Iter.toArray(MemoryBTree.leafNodes(btree, btree_utils)));
+
                     };
 
                     assert Methods.validate_memory(btree, btree_utils);
+
+                    assert MemoryBTree.size(btree) == 0;
 
                 },
 
@@ -538,12 +539,12 @@ func btree_tests(node_capacity : Nat) {
                 "check for memory leaks",
                 func() {
 
-                    Debug.print("checking for memory leaks");
-                    Debug.print("data info: " # debug_show MemoryRegion.memoryInfo(btree.data));
-                    Debug.print("values info: " # debug_show MemoryRegion.memoryInfo(btree.values));
-                    Debug.print("leaves info: " # debug_show MemoryRegion.memoryInfo(btree.leaves));
-                    Debug.print("branches info: " # debug_show MemoryRegion.memoryInfo(btree.branches));
-
+                    Debug.print("Final memory regions stats:");
+                    Debug.print("data: " # debug_show MemoryRegion.memoryInfo(btree.data));
+                    Debug.print("values: " # debug_show MemoryRegion.memoryInfo(btree.values));
+                    Debug.print("leaves: " # debug_show MemoryRegion.memoryInfo(btree.leaves));
+                    Debug.print("branches: " # debug_show MemoryRegion.memoryInfo(btree.branches));
+                    
                     // Check `allocated` (not `size`) because MemoryRegion doesn't shrink when memory is deallocated
                     // - `size` = high-water mark (total memory ever used, includes deallocated holes)
                     // - `allocated` = currently in-use memory (what we care about for leak detection)
@@ -586,12 +587,15 @@ func btree_tests(node_capacity : Nat) {
                     // Debug.print("random size " # debug_show random.size());
                     label for_loop for ((k, i) in random.vals()) {
 
+
+                        // Debug.print("keys " # debug_show (MemoryBTree.toNodeKeys(btree, btree_utils)));
+                        // Debug.print("leafs " # debug_show (MemoryBTree.toLeafNodes(btree, btree_utils)));
+                        // Debug.print("inserting " # debug_show k  # " at index " # debug_show i);
+                        // Debug.print("key blob: " # debug_show (btree_utils.key.blobify.to_blob(k)));
+
                         ignore Map.put(map, nhash, k, i);
                         ignore MemoryBTree.insert(btree, btree_utils, k, i);
                         assert MemoryBTree.size(btree) == i + 1;
-
-                        // Debug.print("keys " # debug_show MemoryBTree.toNodeKeys(btree));
-                        // Debug.print("leafs " # debug_show MemoryBTree.toLeafNodes(btree));
 
                         let subtree_size = if (btree.is_root_a_leaf) Leaf.get_count(btree, btree.root) else Branch.get_subtree_size(btree, btree.root);
 
@@ -674,15 +678,300 @@ func btree_tests(node_capacity : Nat) {
 
             );
 
+            test(
+                "random ops (insert, replace, remove) - single ops",
+                func() {
+                    // Track inserted keys and their values
+                    let inserted_keys = Buffer.Buffer<Nat>(limit);
+                    let map = Map.new<Nat, Nat>();
+
+                    // Phase 1: Fill the btree up to the limit using the pre-generated random data
+                    for ((key, val) in random.vals()) {
+                        ignore Map.put(map, nhash, key, val);
+                        ignore MemoryBTree.insert(btree, btree_utils, key, val);
+                        inserted_keys.add(key);
+                    };
+
+                    let initial_size = MemoryBTree.size(btree);
+                    assert initial_size == limit;
+                    assert Methods.validate_memory(btree, btree_utils);
+
+                    // Verify all inserted keys are retrievable
+                    for ((key, val) in random.vals()) {
+                        let got = MemoryBTree.get(btree, btree_utils, key);
+                        if (?val != got) {
+                            Debug.print("Phase 1 verification failed for key " # debug_show key # ": expected " # debug_show val # ", got " # debug_show got);
+                            assert false;
+                        };
+                    };
+
+                    // Phase 2: Random operations for another iteration of the limit size
+                    for (i in Iter.range(0, limit - 1)) {
+                        let op_type = fuzz.nat.randomRange(0, 2); // 0 = insert, 1 = replace, 2 = remove
+
+                        if (inserted_keys.size() < 3 or op_type == 0) {
+                            // Insert a new key
+                            let new_key = fuzz.nat.randomRange(1, limit ** 2);
+                            let new_val = limit + i;
+
+                            let prev = MemoryBTree.insert(btree, btree_utils, new_key, new_val);
+                            ignore Map.put(map, nhash, new_key, new_val);
+
+                            if (prev == null) {
+                                // New key was inserted
+                                inserted_keys.add(new_key);
+                            };
+
+                            // Verify the value was set correctly
+                            let got = MemoryBTree.get(btree, btree_utils, new_key);
+                            if (?new_val != got) {
+                                Debug.print("Insert verification failed for key " # debug_show new_key # ": expected " # debug_show new_val # ", got " # debug_show got);
+                                assert false;
+                            };
+
+                        } else if (op_type == 1) {
+                            // Replace an existing key's value
+                            let idx = fuzz.nat.randomRange(0, inserted_keys.size() - 1);
+                            let key = inserted_keys.get(idx);
+                            let old_val = Map.get(map, nhash, key);
+                            let new_val = limit * 2 + i;
+
+                            let prev = MemoryBTree.insert(btree, btree_utils, key, new_val);
+                            ignore Map.put(map, nhash, key, new_val);
+
+                            // Verify the previous value matches
+                            if (prev != old_val) {
+                                Debug.print("Replace returned wrong previous value for key " # debug_show key # ": expected " # debug_show old_val # ", got " # debug_show prev);
+                                assert false;
+                            };
+
+                            // Verify the new value is set
+                            let got = MemoryBTree.get(btree, btree_utils, key);
+                            if (?new_val != got) {
+                                Debug.print("Replace verification failed for key " # debug_show key # ": expected " # debug_show new_val # ", got " # debug_show got);
+                                assert false;
+                            };
+
+                        } else {
+                            // Remove an existing key
+                            let idx = fuzz.nat.randomRange(0, inserted_keys.size() - 1);
+                            let key = inserted_keys.get(idx);
+                            let expected_val = Map.get(map, nhash, key);
+
+                            let removed_val = MemoryBTree.remove(btree, btree_utils, key);
+                            ignore Map.remove(map, nhash, key);
+
+                            // Verify the removed value matches
+                            if (removed_val != expected_val) {
+                                Debug.print("Remove returned wrong value for key " # debug_show key # ": expected " # debug_show expected_val # ", got " # debug_show removed_val);
+                                assert false;
+                            };
+
+                            // Verify the key is no longer in the btree
+                            let got = MemoryBTree.get(btree, btree_utils, key);
+                            if (got != null) {
+                                Debug.print("Key " # debug_show key # " still exists after removal with value " # debug_show got);
+                                assert false;
+                            };
+
+                            // Swap remove from inserted_keys buffer
+                            let last = inserted_keys.removeLast();
+                            if (idx < inserted_keys.size()) {
+                                switch (last) {
+                                    case (?v) { inserted_keys.put(idx, v) };
+                                    case (null) {};
+                                };
+                            };
+                        };
+                    };
+
+                    assert Methods.validate_memory(btree, btree_utils);
+
+                    // Final verification: check all remaining keys match the map
+                    assert MemoryBTree.size(btree) == Map.size(map);
+
+                    for (key in inserted_keys.vals()) {
+                        let expected = Map.get(map, nhash, key);
+                        let got = MemoryBTree.get(btree, btree_utils, key);
+                        if (expected != got) {
+                            Debug.print("Final verification failed for key " # debug_show key # ": expected " # debug_show expected # ", got " # debug_show got);
+                            assert false;
+                        };
+                    };
+
+                    // Clean up for next test
+                    MemoryBTree.clear(btree);
+                    assert MemoryBTree.size(btree) == 0;
+                },
+            );
+
+            test(
+                "random ops (insert, replace, remove) - batch ops",
+                func() {
+                    // Track inserted keys and their values
+                    let inserted_keys = Buffer.Buffer<Nat>(limit);
+                    let map = Map.new<Nat, Nat>();
+
+                    // Phase 1: Fill the btree up to the limit using the pre-generated random data
+                    for ((key, val) in random.vals()) {
+                        ignore Map.put(map, nhash, key, val);
+                        ignore MemoryBTree.insert(btree, btree_utils, key, val);
+                        inserted_keys.add(key);
+                    };
+
+                    let initial_size = MemoryBTree.size(btree);
+                    assert initial_size == limit;
+                    assert Methods.validate_memory(btree, btree_utils);
+
+                    // Verify all inserted keys are retrievable
+                    for ((key, val) in random.vals()) {
+                        let got = MemoryBTree.get(btree, btree_utils, key);
+                        if (?val != got) {
+                            Debug.print("Phase 1 verification failed for key " # debug_show key # ": expected " # debug_show val # ", got " # debug_show got);
+                            assert false;
+                        };
+                    };
+
+                    // Phase 2: Random operations in batches (10% of limit per batch)
+                    let batch_size = limit / 10; // 1K operations per batch
+                    let num_batches = 10; // Total of 10K operations (limit)
+                    var op_counter = 0;
+
+                    for (batch_num in Iter.range(0, num_batches - 1)) {
+                        let op_type = fuzz.nat.randomRange(0, 2); // 0 = insert, 1 = replace, 2 = remove
+
+                        if (op_type == 0) {
+                            // Batch insert
+                            for (j in Iter.range(0, batch_size - 1)) {
+                                let new_key = fuzz.nat.randomRange(1, limit ** 2);
+                                let new_val = limit + op_counter;
+
+                                let prev = MemoryBTree.insert(btree, btree_utils, new_key, new_val);
+                                ignore Map.put(map, nhash, new_key, new_val);
+
+                                if (prev == null) {
+                                    inserted_keys.add(new_key);
+                                };
+
+                                let got = MemoryBTree.get(btree, btree_utils, new_key);
+                                if (?new_val != got) {
+                                    Debug.print("Insert verification failed for key " # debug_show new_key # ": expected " # debug_show new_val # ", got " # debug_show got);
+                                    assert false;
+                                };
+
+                                op_counter += 1;
+                            };
+
+                        } else if (op_type == 1) {
+                            // Batch replace
+                            for (j in Iter.range(0, batch_size - 1)) {
+                                if (inserted_keys.size() == 0) {
+                                    // Nothing to replace, skip
+                                    op_counter += 1;
+                                } else {
+                                    let idx = fuzz.nat.randomRange(0, inserted_keys.size() - 1);
+                                    let key = inserted_keys.get(idx);
+                                    let old_val = Map.get(map, nhash, key);
+                                    let new_val = limit * 2 + op_counter;
+
+                                    let prev = MemoryBTree.insert(btree, btree_utils, key, new_val);
+                                    ignore Map.put(map, nhash, key, new_val);
+
+                                    if (prev != old_val) {
+                                        Debug.print("Replace returned wrong previous value for key " # debug_show key # ": expected " # debug_show old_val # ", got " # debug_show prev);
+                                        assert false;
+                                    };
+
+                                    let got = MemoryBTree.get(btree, btree_utils, key);
+                                    if (?new_val != got) {
+                                        Debug.print("Replace verification failed for key " # debug_show key # ": expected " # debug_show new_val # ", got " # debug_show got);
+                                        assert false;
+                                    };
+
+                                    op_counter += 1;
+                                };
+                            };
+
+                        } else {
+                            // Batch remove
+                            for (j in Iter.range(0, batch_size - 1)) {
+                                if (inserted_keys.size() == 0) {
+                                    // Nothing to remove, skip
+                                    op_counter += 1;
+                                } else {
+                                    let idx = fuzz.nat.randomRange(0, inserted_keys.size() - 1);
+                                    let key = inserted_keys.get(idx);
+                                    let expected_val = Map.get(map, nhash, key);
+
+                                    let removed_val = MemoryBTree.remove(btree, btree_utils, key);
+                                    ignore Map.remove(map, nhash, key);
+
+                                    if (removed_val != expected_val) {
+                                        Debug.print("Remove returned wrong value for key " # debug_show key # ": expected " # debug_show expected_val # ", got " # debug_show removed_val);
+                                        assert false;
+                                    };
+
+                                    let got = MemoryBTree.get(btree, btree_utils, key);
+                                    if (got != null) {
+                                        Debug.print("Key " # debug_show key # " still exists after removal with value " # debug_show got);
+                                        assert false;
+                                    };
+
+                                    // Swap remove from inserted_keys buffer
+                                    let last = inserted_keys.removeLast();
+                                    if (idx < inserted_keys.size()) {
+                                        switch (last) {
+                                            case (?v) { inserted_keys.put(idx, v) };
+                                            case (null) {};
+                                        };
+                                    };
+
+                                    op_counter += 1;
+                                };
+                            };
+                        };
+
+                        // Validate memory after each batch
+                        assert Methods.validate_memory(btree, btree_utils);
+                    };
+
+                    // Final verification: check all remaining keys match the map
+                    assert MemoryBTree.size(btree) == Map.size(map);
+
+                    for (key in inserted_keys.vals()) {
+                        let expected = Map.get(map, nhash, key);
+                        let got = MemoryBTree.get(btree, btree_utils, key);
+                        if (expected != got) {
+                            Debug.print("Final verification failed for key " # debug_show key # ": expected " # debug_show expected # ", got " # debug_show got);
+                            assert false;
+                        };
+                    };
+
+                    // Clean up for next test configuration
+                    MemoryBTree.clear(btree);
+                    assert MemoryBTree.size(btree) == 0;
+                },
+            );
+
         },
     );
 };
 
-for (node_capacity in [16, 32, 1024, 4028].vals()) {
-    suite(
-        "MemoryBTree with node capacity " # debug_show (node_capacity),
-        func() {
-            btree_tests(node_capacity);
-        },
-    );
+for (node_capacity in [4, 32].vals()) {
+    for (merge_threshold in [0.125, 0.25, 0.5].vals()) {
+        for (is_tail_compression_enabled in [true, false].vals()) {
+            let options = {
+                node_capacity = ?node_capacity;
+                merge_threshold = ?merge_threshold;
+                is_tail_compression_enabled = ?is_tail_compression_enabled;
+            };
+
+            suite(
+                "MemoryBTree with node capacity " # debug_show (node_capacity) # ", merge threshold " # debug_show (merge_threshold) # ", tail compression " # debug_show (is_tail_compression_enabled),
+                func() {
+                    btree_tests(options);
+                },
+            );
+        };
+    };
 };

@@ -8,6 +8,7 @@ import Nat16 "mo:base@0.14.13/Nat16";
 import Nat64 "mo:base@0.14.13/Nat64";
 import Int "mo:base@0.14.13/Int";
 import Float "mo:base@0.14.13/Float";
+import Blob "mo:base@0.14.13/Blob";
 
 import MemoryRegion "mo:memory-region@1.4.0/MemoryRegion";
 
@@ -64,7 +65,7 @@ module Leaf {
 
   public let MAGIC : Blob = "LND";
 
-  public let DEPTH : Nat8 = 0;
+  public let DEPTH : Nat8 = 1;
 
   public let NODE_TYPE : Nat8 = 1; // leaf
 
@@ -84,7 +85,7 @@ module Leaf {
     let leaf_address = MemoryRegion.allocate(btree.leaves, bytes_per_node);
 
     MemoryRegion.storeBlob(btree.leaves, leaf_address, Leaf.MAGIC);
-    MemoryRegion.storeNat8(btree.leaves, leaf_address + Leaf.DEPTH_START, Leaf.DEPTH); // layout version
+    MemoryRegion.storeNat8(btree.leaves, leaf_address + Leaf.DEPTH_START, Leaf.DEPTH); // depth
 
     MemoryRegion.storeNat16(btree.leaves, leaf_address + Leaf.INDEX_START, 0); // node's position in parent node
     MemoryRegion.storeNat16(btree.leaves, leaf_address + Leaf.COUNT_START, 0); // number of elements in the node
@@ -108,13 +109,13 @@ module Leaf {
     leaf_address;
   };
 
-  public func validate(btree : MemoryBTree, address : Nat) : Bool {
-    let magic_number = get_magic(btree, address);
+  public func validate(btree : MemoryBTree, leaf_address : Nat) : Bool {
+    let magic_number = get_magic(btree, leaf_address);
     // Debug.print("received magic " # debug_show (magic_number, MAGIC));
 
     let is_valid_node = (magic_number) == MAGIC;
 
-    let depth = get_depth(btree, address);
+    let depth = get_depth(btree, leaf_address);
     // Debug.print("received depth " # debug_show (depth));
 
     let is_leaf_depth = depth == 1;
@@ -123,7 +124,8 @@ module Leaf {
 
   };
 
-  public func from_memory(btree : MemoryBTree, address : Nat) : Leaf {
+  public func from_memory(btree : MemoryBTree, leaf_address : Nat) : Leaf {
+    // assert Leaf.validate(btree, address);
 
     let leaf : Leaf = (
       [var 0, 0, 0, 0],
@@ -135,39 +137,39 @@ module Leaf {
       Array.init(btree.node_capacity, null),
     );
 
-    from_memory_into(btree, address, leaf, true);
+    from_memory_into(btree, leaf_address, leaf, true);
 
     leaf;
   };
 
-  public func from_memory_into(btree : MemoryBTree, address : Nat, leaf : Leaf, load_keys : Bool) {
-    assert MemoryRegion.loadBlob(btree.leaves, address, MAGIC_SIZE) == MAGIC;
-    // assert MemoryRegion.loadNat8(btree.leaves, address + DEPTH_START) == DEPTH;
-    // assert MemoryRegion.loadNat8(btree.leaves, address + NODE_TYPE_START) == NODE_TYPE;
+  public func from_memory_into(btree : MemoryBTree, leaf_address : Nat, leaf : Leaf, load_keys : Bool) {
+    assert MemoryRegion.loadBlob(btree.leaves, leaf_address, MAGIC_SIZE) == MAGIC;
+    // assert MemoryRegion.loadNat8(btree.leaves, leaf_address + DEPTH_START) == DEPTH;
+    // assert MemoryRegion.loadNat8(btree.leaves, leaf_address + NODE_TYPE_START) == NODE_TYPE;
 
-    leaf.0 [AC.ADDRESS] := address;
-    leaf.0 [AC.INDEX] := MemoryRegion.loadNat16(btree.leaves, address + INDEX_START) |> Nat16.toNat(_);
-    leaf.0 [AC.COUNT] := MemoryRegion.loadNat16(btree.leaves, address + COUNT_START) |> Nat16.toNat(_);
+    leaf.0 [AC.ADDRESS] := leaf_address;
+    leaf.0 [AC.INDEX] := MemoryRegion.loadNat16(btree.leaves, leaf_address + INDEX_START) |> Nat16.toNat(_);
+    leaf.0 [AC.COUNT] := MemoryRegion.loadNat16(btree.leaves, leaf_address + COUNT_START) |> Nat16.toNat(_);
 
     leaf.1 [AC.PARENT] := do {
-      let p = MemoryRegion.loadNat64(btree.leaves, address + PARENT_START);
+      let p = MemoryRegion.loadNat64(btree.leaves, leaf_address + PARENT_START);
       if (p == NULL_ADDRESS) null else ?Nat64.toNat(p);
     };
 
     leaf.1 [AC.PREV] := do {
-      let n = MemoryRegion.loadNat64(btree.leaves, address + PREV_START);
+      let n = MemoryRegion.loadNat64(btree.leaves, leaf_address + PREV_START);
       if (n == NULL_ADDRESS) null else ?Nat64.toNat(n);
     };
 
     leaf.1 [AC.NEXT] := do {
-      let n = MemoryRegion.loadNat64(btree.leaves, address + NEXT_START);
+      let n = MemoryRegion.loadNat64(btree.leaves, leaf_address + NEXT_START);
       if (n == NULL_ADDRESS) null else ?Nat64.toNat(n);
     };
 
     var i = 0;
 
     label while_loop while (i < leaf.0 [AC.COUNT]) {
-      let key_address : Nat = get_kv_address(btree, address, i) |> Utils.unwrap(_, "Leaf.from_memory_into: key_address is null");
+      let key_address : Nat = get_kv_address(btree, leaf_address, i) |> Utils.unwrap(_, "Leaf.from_memory_into: key_address is null");
       // Debug.print("cmp: " # debug_show (key_address, NULL_ADDRESS));
       // Debug.print("is null = " # debug_show (Nat64.fromNat(key_address) == NULL_ADDRESS));
       // Debug.print("is null = " # debug_show (Nat64.equal(Nat64.fromNat(key_address), NULL_ADDRESS)));
@@ -213,108 +215,67 @@ module Leaf {
 
   };
 
-  // func calc_heuristic(btree : MemoryBTree) : Float {
-  //     let cache_capacity = Float.fromInt(LruCache.capacity(btree.nodes_cache));
-  //     let cache_size = Float.fromInt(LruCache.size(btree.nodes_cache));
-  //     let branch_count = Float.fromInt(btree.branch_count);
-  //     let leaf_count = Float.fromInt(btree.leaf_count);
-  //     let nodes_count = (branch_count + leaf_count);
 
-  //     let space_left = cache_capacity - cache_size;
-  //     let nodes_not_in_cache = nodes_count - cache_size;
 
-  //     var heuristic : Float = 0;
-
-  //     if (space_left == 0) return 0;
-  //     if (cache_capacity < branch_count) return 0;
-  //     if (nodes_not_in_cache < space_left) {
-  //         heuristic := 2;
-  //     } else {
-  //         heuristic := 10 - (((nodes_not_in_cache - space_left) / space_left) * 5.0) + 2.0;
-  //     };
-
-  //     return 10 - heuristic;
-  // };
-
-  // public func add_to_cache(btree : MemoryBTree, address : Nat) {
-  //     if (LruCache.capacity(btree.nodes_cache) == 0) return;
-
-  //     // update node to first position in cache
-  //     switch (LruCache.get(btree.nodes_cache, nhash, address)) {
-  //         case (? #leaf(_)) return;
-  //         case (? #branch(_)) Debug.trap("Leaf.add_to_cache: returned branch instead of leaf");
-  //         case (_) {};
-  //     };
-
-  //     // loading to the heap is expensive,
-  //     // so we want to limit the number of nodes we load into the cache
-  //     // this is a nice heuristic that does that
-  //     // performs well when cache is full
-  //     let heuristic = calc_heuristic(btree);
-  //     if (Float.fromInt(address % 10) >= heuristic) return;
-
-  //     let leaf : Leaf = if (LruCache.size(btree.nodes_cache) == LruCache.capacity(btree.nodes_cache)) {
-  //         let ?prev_address = LruCache.lastKey(btree.nodes_cache) else Debug.trap("Leaf.add_to_cache: last is null");
-  //         let ? #leaf(node) or ? #branch(node) = LruCache.peek(btree.nodes_cache, nhash, prev_address) else Debug.trap("Leaf.add_to_cache: leaf is null");
-  //         from_memory_into(btree, address, node, true);
-  //         node;
-  //     } else {
-  //         // loads from stable memory and adds to cache
-  //         Leaf.from_memory(btree, address);
-  //     };
-
-  //     LruCache.put(btree.nodes_cache, nhash, address, #leaf(leaf));
-  // };
-
-  public func display(btree : MemoryBTree, btree_utils : BTreeUtils<Nat, Nat>, leaf_address : Nat) {};
-
-  public func get_count(btree : MemoryBTree, address : Nat) : Nat {
-
-    MemoryRegion.loadNat16(btree.leaves, address + COUNT_START) |> Nat16.toNat(_);
+  public func display(btree : MemoryBTree, btree_utils : BTreeUtils<Nat, Nat>, leaf_address : Nat) {
   };
 
-  public func get_kv_address(btree : MemoryBTree, address : Nat, i : Nat) : ?UniqueId {
-    let kv_address_offset = get_kv_address_offset(address, i);
+  public func get_count(btree : MemoryBTree, leaf_address : Nat) : Nat {
+    // assert Leaf.validate(btree, leaf_address);
+
+    MemoryRegion.loadNat16(btree.leaves, leaf_address + COUNT_START) |> Nat16.toNat(_);
+  };
+
+  public func get_kv_address(btree : MemoryBTree, leaf_address : Nat, i : Nat) : ?UniqueId {
+    // assert Leaf.validate(btree, leaf_address);
+    let kv_address_offset = get_kv_address_offset(leaf_address, i);
     let opt_id = MemoryRegion.loadNat64(btree.leaves, kv_address_offset);
 
     if (opt_id == NULL_ADDRESS) null else ?(Nat64.toNat(opt_id));
   };
 
-  public func get_key_block(btree : MemoryBTree, address : Nat, i : Nat) : ?MemoryBlock {
-    let ?id = get_kv_address(btree, address, i) else return null;
+  public func get_key_block(btree : MemoryBTree, leaf_address : Nat, i : Nat) : ?MemoryBlock {
+    // assert Leaf.validate(btree, leaf_address);
+    let ?id = get_kv_address(btree, leaf_address, i) else return null;
     ?MemoryBlock.get_key_block(btree, id);
   };
 
-  public func get_val_block(btree : MemoryBTree, address : Nat, i : Nat) : ?MemoryBlock {
-    let ?id = get_kv_address(btree, address, i) else return null;
+  public func get_val_block(btree : MemoryBTree, leaf_address : Nat, i : Nat) : ?MemoryBlock {
+    // assert Leaf.validate(btree, leaf_address);
+    let ?id = get_kv_address(btree, leaf_address, i) else return null;
     ?MemoryBlock.get_val_block(btree, id);
   };
 
-  public func get_key_blob(btree : MemoryBTree, address : Nat, i : Nat) : ?(Blob) {
-    let ?id = get_kv_address(btree, address, i) else return null;
+  public func get_key_blob(btree : MemoryBTree, leaf_address : Nat, i : Nat) : ?(Blob) {
+    // assert Leaf.validate(btree, leaf_address);
+    let ?id = get_kv_address(btree, leaf_address, i) else return null;
     ?MemoryBlock.get_key_blob(btree, id);
   };
 
-  public func set_key_to_null(btree : MemoryBTree, address : Nat, i : Nat) {
+  public func set_key_to_null(btree : MemoryBTree, leaf_address : Nat, i : Nat) {
+    // assert Leaf.validate(btree, leaf_address);
 
-    let id_offset = get_kv_address_offset(address, i);
+    let id_offset = get_kv_address_offset(leaf_address, i);
     MemoryRegion.storeNat64(btree.leaves, id_offset, NULL_ADDRESS);
   };
 
-  public func get_val_blob(btree : MemoryBTree, address : Nat, index : Nat) : ?(Blob) {
+  public func get_val_blob(btree : MemoryBTree, leaf_address : Nat, index : Nat) : ?(Blob) {
+    // assert Leaf.validate(btree, leaf_address);
 
-    let ?id = get_kv_address(btree, address, index) else return null;
+    let ?id = get_kv_address(btree, leaf_address, index) else return null;
     ?MemoryBlock.get_val_blob(btree, id);
   };
 
-  public func set_kv_to_null(btree : MemoryBTree, address : Nat, i : Nat) {
+  public func set_kv_to_null(btree : MemoryBTree, leaf_address : Nat, i : Nat) {
+    // assert Leaf.validate(btree, leaf_address);
 
-    let key_offset = get_kv_address_offset(address, i);
+    let key_offset = get_kv_address_offset(leaf_address, i);
     MemoryRegion.storeNat64(btree.leaves, key_offset, NULL_ADDRESS);
   };
 
-  public func get_kv_blobs(btree : MemoryBTree, address : Nat, index : Nat) : ?(Blob, Blob) {
-    let ?id = get_kv_address(btree, address, index) else return null;
+  public func get_kv_blobs(btree : MemoryBTree, leaf_address : Nat, index : Nat) : ?(Blob, Blob) {
+    // assert Leaf.validate(btree, leaf_address);
+    let ?id = get_kv_address(btree, leaf_address, index) else return null;
     // Debug.print("get_kv_blobs: id = " # debug_show id);
     let key_blob = MemoryBlock.get_key_blob(btree, id);
     let val_blob = MemoryBlock.get_val_blob(btree, id);
@@ -323,42 +284,47 @@ module Leaf {
 
   };
 
-  public func get_depth(btree : MemoryBTree, address : Nat) : Nat {
-    let depth = MemoryRegion.loadNat8(btree.leaves, address + DEPTH_START) |> Nat8.toNat(_);
+  public func get_depth(btree : MemoryBTree, leaf_address : Nat) : Nat {
+    let depth = MemoryRegion.loadNat8(btree.leaves, leaf_address + DEPTH_START) |> Nat8.toNat(_);
 
     depth;
   };
 
-  public func get_magic(btree : MemoryBTree, address : Nat) : Blob {
-    MemoryRegion.loadBlob(btree.leaves, address, MAGIC_SIZE);
+  public func get_magic(btree : MemoryBTree, leaf_address : Nat) : Blob {
+    MemoryRegion.loadBlob(btree.leaves, leaf_address, MAGIC_SIZE);
   };
 
-  public func get_parent(btree : MemoryBTree, address : Nat) : ?Nat {
+  public func get_parent(btree : MemoryBTree, leaf_address : Nat) : ?Nat {
+    // assert Leaf.validate(btree, leaf_address);
 
-    let parent = MemoryRegion.loadNat64(btree.leaves, address + PARENT_START);
+    let parent = MemoryRegion.loadNat64(btree.leaves, leaf_address + PARENT_START);
     if (parent == NULL_ADDRESS) return null;
     ?Nat64.toNat(parent);
   };
 
-  public func get_index(btree : MemoryBTree, address : Nat) : Nat {
-    MemoryRegion.loadNat16(btree.leaves, address + INDEX_START) |> Nat16.toNat(_);
+  public func get_index(btree : MemoryBTree, leaf_address : Nat) : Nat {
+    // assert Leaf.validate(btree, leaf_address);
+    MemoryRegion.loadNat16(btree.leaves, leaf_address + INDEX_START) |> Nat16.toNat(_);
   };
 
-  public func get_next(btree : MemoryBTree, address : Nat) : ?Nat {
+  public func get_next(btree : MemoryBTree, leaf_address : Nat) : ?Nat {
+    // assert Leaf.validate(btree, leaf_address);
 
-    let next = MemoryRegion.loadNat64(btree.leaves, address + NEXT_START);
+    let next = MemoryRegion.loadNat64(btree.leaves, leaf_address + NEXT_START);
     if (next == NULL_ADDRESS) return null;
     ?Nat64.toNat(next);
   };
 
-  public func get_prev(btree : MemoryBTree, address : Nat) : ?Nat {
+  public func get_prev(btree : MemoryBTree, leaf_address : Nat) : ?Nat {
+    // assert Leaf.validate(btree, leaf_address);
 
-    let prev = MemoryRegion.loadNat64(btree.leaves, address + PREV_START);
+    let prev = MemoryRegion.loadNat64(btree.leaves, leaf_address + PREV_START);
     if (prev == NULL_ADDRESS) return null;
     ?Nat64.toNat(prev);
   };
 
-  public func binary_search<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, address : Nat, cmp : (K, K) -> Int8, search_key : K, arr_len : Nat) : Int {
+  public func binary_search<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, leaf_address : Nat, cmp : (K, K) -> Int8, search_key : K, arr_len : Nat) : Int {
+    // assert Leaf.validate(btree, leaf_address);
     if (arr_len == 0) return -1; // should insert at index Int.abs(i + 1)
     var l = 0;
 
@@ -368,7 +334,7 @@ module Leaf {
     while (l < r) {
       let mid = (l + r) / 2;
 
-      let ?key_blob = Leaf.get_key_blob(btree, address, mid) else Debug.trap("1. binary_search_blob_seq: accessed a null value");
+      let ?key_blob = Leaf.get_key_blob(btree, leaf_address, mid) else Debug.trap("1. binary_search_blob_seq: accessed a null value");
       let key = btree_utils.key.blobify.from_blob(key_blob);
 
       let result = cmp(search_key, key);
@@ -391,7 +357,7 @@ module Leaf {
     // [0,  1,  2]
     //  |   |   |
     // -1, -2, -3
-    switch (Leaf.get_key_blob(btree, address, insertion)) {
+    switch (Leaf.get_key_blob(btree, leaf_address, insertion)) {
       case (?(key_blob)) {
         let key = btree_utils.key.blobify.from_blob(key_blob);
         let result = cmp(search_key, key);
@@ -409,7 +375,8 @@ module Leaf {
     };
   };
 
-  public func binary_search_blob_seq(btree : MemoryBTree, address : Nat, cmp : (Blob, Blob) -> Int8, search_key : Blob, arr_len : Nat) : Int {
+  public func binary_search_blob_seq(btree : MemoryBTree, leaf_address : Nat, cmp : (Blob, Blob) -> Int8, search_key : Blob, arr_len : Nat) : Int {
+    // assert Leaf.validate(btree, leaf_address);
     if (arr_len == 0) return -1; // should insert at index Int.abs(i + 1)
     var l = 0;
 
@@ -419,7 +386,7 @@ module Leaf {
     while (l < r) {
       let mid = (l + r) / 2;
 
-      let ?key_blob = Leaf.get_key_blob(btree, address, mid) else Debug.trap("1. binary_search_blob_seq: accessed a null value");
+      let ?key_blob = Leaf.get_key_blob(btree, leaf_address, mid) else Debug.trap("1. binary_search_blob_seq: accessed a null value");
       let result = cmp(search_key, key_blob);
 
       if (result == -1) {
@@ -439,7 +406,7 @@ module Leaf {
     // [0,  1,  2]
     //  |   |   |
     // -1, -2, -3
-    switch (Leaf.get_key_blob(btree, address, insertion)) {
+    switch (Leaf.get_key_blob(btree, leaf_address, insertion)) {
       case (?(key_blob)) {
         let result = cmp(search_key, key_blob);
 
@@ -456,51 +423,58 @@ module Leaf {
     };
   };
 
-  public func update_count(btree : MemoryBTree, address : Nat, new_count : Nat) {
+  public func update_count(btree : MemoryBTree, leaf_address : Nat, new_count : Nat) {
+    // assert Leaf.validate(btree, leaf_address);
 
-    MemoryRegion.storeNat16(btree.leaves, address + COUNT_START, Nat16.fromNat(new_count));
+    MemoryRegion.storeNat16(btree.leaves, leaf_address + COUNT_START, Nat16.fromNat(new_count));
   };
 
-  public func update_depth(btree : MemoryBTree, address : Nat, new_depth : Nat) {
-    MemoryRegion.storeNat8(btree.leaves, address + DEPTH_START, Nat8.fromNat(new_depth));
+  public func update_depth(btree : MemoryBTree, leaf_address : Nat, new_depth : Nat) {
+    // assert Leaf.validate(btree, leaf_address);
+    MemoryRegion.storeNat8(btree.leaves, leaf_address + DEPTH_START, Nat8.fromNat(new_depth));
   };
 
-  public func update_index(btree : MemoryBTree, address : Nat, new_index : Nat) {
+  public func update_index(btree : MemoryBTree, leaf_address : Nat, new_index : Nat) {
+    // assert Leaf.validate(btree, leaf_address);
 
-    MemoryRegion.storeNat16(btree.leaves, address + INDEX_START, Nat16.fromNat(new_index));
+    MemoryRegion.storeNat16(btree.leaves, leaf_address + INDEX_START, Nat16.fromNat(new_index));
   };
 
-  public func update_parent(btree : MemoryBTree, address : Nat, opt_parent : ?Nat) {
+  public func update_parent(btree : MemoryBTree, leaf_address : Nat, opt_parent : ?Nat) {
+    // assert Leaf.validate(btree, leaf_address);
 
     let parent = switch (opt_parent) {
       case (null) NULL_ADDRESS;
       case (?_parent) Nat64.fromNat(_parent);
     };
 
-    MemoryRegion.storeNat64(btree.leaves, address + PARENT_START, parent);
+    MemoryRegion.storeNat64(btree.leaves, leaf_address + PARENT_START, parent);
   };
 
-  public func update_next(btree : MemoryBTree, address : Nat, opt_next : ?Nat) {
+  public func update_next(btree : MemoryBTree, leaf_address : Nat, opt_next : ?Nat) {
+    // assert Leaf.validate(btree, leaf_address);
 
     let next = switch (opt_next) {
       case (null) NULL_ADDRESS;
       case (?_next) Nat64.fromNat(_next);
     };
 
-    MemoryRegion.storeNat64(btree.leaves, address + NEXT_START, next);
+    MemoryRegion.storeNat64(btree.leaves, leaf_address + NEXT_START, next);
   };
 
-  public func update_prev(btree : MemoryBTree, address : Nat, opt_prev : ?Nat) {
+  public func update_prev(btree : MemoryBTree, leaf_address : Nat, opt_prev : ?Nat) {
+    // assert Leaf.validate(btree, leaf_address);
 
     let prev = switch (opt_prev) {
       case (null) NULL_ADDRESS;
       case (?_prev) Nat64.fromNat(_prev);
     };
 
-    MemoryRegion.storeNat64(btree.leaves, address + PREV_START, prev);
+    MemoryRegion.storeNat64(btree.leaves, leaf_address + PREV_START, prev);
   };
 
   public func clear(btree : MemoryBTree, leaf_address : Nat) {
+    // assert Leaf.validate(btree, leaf_address);
     Leaf.update_index(btree, leaf_address, 0);
     Leaf.update_count(btree, leaf_address, 0);
     Leaf.update_parent(btree, leaf_address, null);
@@ -509,6 +483,7 @@ module Leaf {
   };
 
   public func insert(btree : MemoryBTree, leaf_address : Nat, index : Nat, new_id : UniqueId) {
+    // assert Leaf.validate(btree, leaf_address);
     let count = Leaf.get_count(btree, leaf_address);
 
     assert index <= count and count < btree.node_capacity;
@@ -525,6 +500,7 @@ module Leaf {
   };
 
   public func insert_with_count(btree : MemoryBTree, leaf_address : Nat, index : Nat, new_id : UniqueId, count : Nat) {
+    // assert Leaf.validate(btree, leaf_address);
     assert index <= count and count < btree.node_capacity;
 
     let start = get_kv_address_offset(leaf_address, index);
@@ -539,6 +515,7 @@ module Leaf {
   };
 
   public func put(btree : MemoryBTree, leaf_address : Nat, index : Nat, new_id : UniqueId) {
+    // assert Leaf.validate(btree, leaf_address);
 
     let id_offset = get_kv_address_offset(leaf_address, index);
     MemoryRegion.storeNat64(btree.leaves, id_offset, Nat64.fromNat(new_id));
@@ -638,6 +615,7 @@ module Leaf {
   /// Split a leaf node, inserting new_id at elem_index
   /// When tail compression is enabled, uses optimal split position based on merge_threshold_count
   public func split(btree : MemoryBTree, leaf_address : Nat, elem_index : Nat, new_id : UniqueId) : Nat {
+    // assert Leaf.validate(btree, leaf_address);
     let arr_len = btree.node_capacity;
 
     // Determine split point (separator_index = first index of right node after split)
@@ -731,6 +709,7 @@ module Leaf {
   };
 
   public func shift(btree : MemoryBTree, leaf_address : Nat, start : Nat, end : Nat, offset : Int) {
+    // assert Leaf.validate(btree, leaf_address);
     if (offset == 0) return;
 
     let _start = get_kv_address_offset(leaf_address, start);
@@ -741,86 +720,112 @@ module Leaf {
   };
 
   public func remove(btree : MemoryBTree, leaf_address : Nat, index : Nat) {
+    // assert Leaf.validate(btree, leaf_address);
     let count = Leaf.get_count(btree, leaf_address);
 
     Leaf.shift(btree, leaf_address, index + 1, count, -1); // updates the cache
     Leaf.update_count(btree, leaf_address, count - 1); // updates the cache as well
   };
 
-  public func redistribute(btree : MemoryBTree, leaf : Nat, neighbour : Nat) : Bool {
-    let leaf_count = Leaf.get_count(btree, leaf);
-    let neighbour_count = Leaf.get_count(btree, neighbour);
+  // public func redistribute(btree : MemoryBTree, leaf : Nat, neighbour : Nat) : Bool {
+  //   let leaf_count = Leaf.get_count(btree, leaf);
+  //   let neighbour_count = Leaf.get_count(btree, neighbour);
 
-    let sum_count = leaf_count + neighbour_count;
-    let min_count_for_both_nodes = btree.node_capacity;
+  //   let sum_count = leaf_count + neighbour_count;
+  //   let min_count_for_both_nodes = btree.node_capacity;
 
-    if (sum_count < min_count_for_both_nodes) return false; // not enough entries to distribute
+  //   if (sum_count < min_count_for_both_nodes) return false; // not enough entries to distribute
 
-    // Debug.print("redistribute: leaf_count = " # debug_show leaf_count);
-    // Debug.print("redistribute: neighbour_count = " # debug_show neighbour_count);
+  //   // Debug.print("redistribute: leaf_count = " # debug_show leaf_count);
+  //   // Debug.print("redistribute: neighbour_count = " # debug_show neighbour_count);
 
-    let data_to_move = (sum_count / 2) - leaf_count : Nat;
+  //   let data_to_move = (sum_count / 2) - leaf_count : Nat;
 
-    // Debug.print("data_to_move = " # debug_show data_to_move);
+  //   // Debug.print("data_to_move = " # debug_show data_to_move);
 
-    let leaf_index = Leaf.get_index(btree, leaf);
-    let neighbour_index = Leaf.get_index(btree, neighbour);
+  //   let leaf_index = Leaf.get_index(btree, leaf);
+  //   let neighbour_index = Leaf.get_index(btree, neighbour);
 
-    // distribute data between adjacent nodes
-    if (neighbour_index < leaf_index) {
-      // neighbour is before leaf
-      // Debug.print("neighbour is before leaf");
+  //   // distribute data between adjacent nodes
+  //   if (neighbour_index < leaf_index) {
+  //     // neighbour is before leaf
+  //     // Debug.print("neighbour is before leaf");
 
-      Leaf.shift(btree, leaf, 0, leaf_count, data_to_move);
+  //     Leaf.shift(btree, leaf, 0, leaf_count, data_to_move);
 
-      let start = get_kv_address_offset(neighbour, neighbour_count - data_to_move);
-      let end = get_kv_address_offset(neighbour, neighbour_count);
+  //     let start = get_kv_address_offset(neighbour, neighbour_count - data_to_move);
+  //     let end = get_kv_address_offset(neighbour, neighbour_count);
 
-      let new_start = get_kv_address_offset(leaf, 0);
+  //     let new_start = get_kv_address_offset(leaf, 0);
 
-      var blob_slice = MemoryRegion.loadBlob(btree.leaves, start, end - start);
-      MemoryRegion.storeBlob(btree.leaves, new_start, blob_slice);
-    } else {
-      // adj_node is after leaf_node
-      // Debug.print("neighbour is after leaf_node");
+  //     var blob_slice = MemoryRegion.loadBlob(btree.leaves, start, end - start);
+  //     MemoryRegion.storeBlob(btree.leaves, new_start, blob_slice);
+  //   } else {
+  //     // adj_node is after leaf_node
+  //     // Debug.print("neighbour is after leaf_node");
 
-      let start = get_kv_address_offset(neighbour, 0);
-      let end = get_kv_address_offset(neighbour, data_to_move);
+  //     let start = get_kv_address_offset(neighbour, 0);
+  //     let end = get_kv_address_offset(neighbour, data_to_move);
 
-      let new_start = get_kv_address_offset(leaf, leaf_count);
+  //     let new_start = get_kv_address_offset(leaf, leaf_count);
 
-      var blob_slice = MemoryRegion.loadBlob(btree.leaves, start, end - start);
-      MemoryRegion.storeBlob(btree.leaves, new_start, blob_slice);
+  //     var blob_slice = MemoryRegion.loadBlob(btree.leaves, start, end - start);
+  //     MemoryRegion.storeBlob(btree.leaves, new_start, blob_slice);
 
-      Leaf.shift(btree, neighbour, data_to_move, neighbour_count, -data_to_move);
+  //     Leaf.shift(btree, neighbour, data_to_move, neighbour_count, -data_to_move);
 
-    };
+  //   };
 
-    Leaf.update_count(btree, leaf, leaf_count + data_to_move);
-    Leaf.update_count(btree, neighbour, neighbour_count - data_to_move);
+  //   Leaf.update_count(btree, leaf, leaf_count + data_to_move);
+  //   Leaf.update_count(btree, neighbour, neighbour_count - data_to_move);
 
-    // Debug.print("end redistribution");
-    true;
-  };
+  //   // Debug.print("end redistribution");
+  //   true;
+  // };
 
   // only deallocates the memory allocated in the metadata region
   // the values stored in the blob region are not deallocated
   // as they could have been moved to a different leaf node
   public func deallocate(btree : MemoryBTree, leaf : Nat) {
+    // assert Leaf.validate(btree, leaf);
+
     let memory_size = Leaf.get_memory_size(btree.node_capacity);
+
+
+    // deallocate the memory region
     MemoryRegion.deallocate(btree.leaves, leaf, memory_size);
   };
 
-  public func merge(btree : MemoryBTree, leaf : Nat, neighbour : Nat) {
+  public func unlink(btree : MemoryBTree, leaf : Nat) {
+    // assert Leaf.validate(btree, leaf);
+    let prev_opt = Leaf.get_prev(btree, leaf);
+    let next_opt = Leaf.get_next(btree, leaf);
+
+    switch (prev_opt) {
+      case (?prev) Leaf.update_next(btree, prev, next_opt);
+      case (_) {};
+    };
+
+    switch (next_opt) {
+      case (?next) Leaf.update_prev(btree, next, prev_opt);
+      case (_) {};
+    };
+  };
+
+  public func merge(btree : MemoryBTree, leaf : Nat, neighbour : Nat) : (Nat, Nat) {
+    // assert Leaf.validate(btree, leaf);
+    // assert Leaf.validate(btree, neighbour);
     let leaf_index = Leaf.get_index(btree, leaf);
     let neighbour_index = Leaf.get_index(btree, neighbour);
 
     var left = leaf;
     var right = neighbour;
-
-    if (leaf_index > neighbour_index) {
+    let right_index = if (leaf_index > neighbour_index) {
       left := neighbour;
       right := leaf;
+      leaf_index;
+    } else {
+      neighbour_index;
     };
 
     let left_count = Leaf.get_count(btree, left);
@@ -835,21 +840,12 @@ module Leaf {
 
     Leaf.update_count(btree, left, left_count + right_count);
 
-    // update leaf pointers
-    // a <=> b <=> c
-    // delete b
-    // a <=> c
+    Leaf.unlink(btree, right);
 
-    let a = left;
-    let _b = right;
-    let opt_c = Leaf.get_next(btree, right);
+    // set right node's count to empty
+    Leaf.update_count(btree, right, 0);
 
-    Leaf.update_next(btree, a, opt_c);
-    switch (opt_c) {
-      case (?c) Leaf.update_prev(btree, c, ?a);
-      case (_) {};
-    };
-
+    (right, right_index);
   };
 
 };

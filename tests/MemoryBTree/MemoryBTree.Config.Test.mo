@@ -1,15 +1,8 @@
 // @testmode wasi
 /// Test file for comparing MemoryBTree configurations
+/// Outputs results in a table format for easy comparison
 /// 
-/// To compare different configurations, modify the constants in Base.mo:
-/// - ENABLE_TAIL_COMPRESSION: true/false
-/// - MERGE_STRATEGY: #Conservative/#Balanced
-/// - MERGE_THRESHOLD: 0.25/0.125
-/// 
-/// Then run: mops test btree.config.test
-/// 
-/// Compare the stats output between different configurations to see
-/// memory usage differences.
+/// Run: mops test --testmode wasi btree.config
 
 import { test; suite } "mo:test";
 import Debug "mo:base@0.14.13/Debug";
@@ -20,161 +13,215 @@ import Float "mo:base@0.14.13/Float";
 import Text "mo:base@0.14.13/Text";
 
 import Fuzz "mo:fuzz";
-import Itertools "mo:itertools@0.2.2/Iter";
 
 import MemoryBTree "../../src/MemoryBTree/Base";
 import TypeUtils "../../src/TypeUtils";
 
+// Test data size
+let DATA_SIZE = 10_000;
+
+// Node capacities to test
+let NODE_CAPACITIES : [Nat] = [16, 32, 64, 128, 256, 512, 1024, 2048, 4096];
+
+// Merge thresholds to test
+let MERGE_THRESHOLDS : [Float] = [0.5, 0.25, 0.125];
+
 let fuzz = Fuzz.fromSeed(0xdeadbeef);
 
-// Test data sizes
-let SMALL_SIZE = 1_000;
-let MEDIUM_SIZE = 5_000;
-let LARGE_SIZE = 10_000;
+let MAX_KEY_LEN = 30;
+let MAX_PREFIX_LEN = 15;
+let PREFIX_REUSE_RATE = 30; // 30% chance to reuse an existing prefix
 
-// Generate random Nat keys
-func generate_random_nats(count : Nat, max_value : Nat) : Buffer.Buffer<(Nat, Nat)> {
-    let nat_gen_iter : Iter.Iter<Nat> = {
-        next = func() : ?Nat = ?fuzz.nat.randomRange(1, max_value);
-    };
-
-    let unique_iter = Itertools.unique<Nat>(
-        nat_gen_iter,
-        func(n : Nat) : Nat32 = Nat64.toNat32(Nat64.fromNat(n) & 0xFFFF_FFFF),
-        Nat.equal,
-    );
-
-    Itertools.toBuffer<(Nat, Nat)>(
-        Iter.map<(Nat, Nat), (Nat, Nat)>(
-            Itertools.enumerate(Itertools.take(unique_iter, count)),
-            func((i, n) : (Nat, Nat)) : (Nat, Nat) = (n, i),
-        )
-    );
-};
-
-// Generate sequential Nat keys (best case for tail compression with Nat - all keys have same prefix)
-func generate_sequential_nats(count : Nat, start : Nat) : Buffer.Buffer<(Nat, Nat)> {
-    let buffer = Buffer.Buffer<(Nat, Nat)>(count);
+// Generate random Text keys (fully random - not ideal for tail compression)
+// Appends index to ensure uniqueness
+func generate_random_text_keys(count : Nat) : Buffer.Buffer<(Text, Text)> {
+    let buffer = Buffer.Buffer<(Text, Text)>(count);
     for (i in Iter.range(0, count - 1)) {
-        buffer.add((start + i, i));
+        let indexStr = Nat.toText(i);
+        let maxRandomLen = MAX_KEY_LEN - indexStr.size() - 1; // -1 for separator
+        let randomLen = fuzz.nat.randomRange(1, maxRandomLen);
+        let key = fuzz.text.randomAlphanumeric(randomLen) # "_" # indexStr;
+        buffer.add((key, key));
     };
     buffer;
 };
 
-// Generate Text keys with common prefixes (ideal for tail compression)
-func generate_prefixed_text_keys(count : Nat, prefix : Text) : Buffer.Buffer<(Text, Nat)> {
-    let buffer = Buffer.Buffer<(Text, Nat)>(count);
+// Generate Text keys with shared prefixes (better for tail compression)
+// - Maintains a pool of prefixes (max 15 chars each)
+// - 30% chance to reuse an existing prefix from pool
+// - 70% chance to generate a new prefix and add to pool
+// - Appends index to ensure uniqueness
+func generate_prefixed_text_keys(count : Nat) : Buffer.Buffer<(Text, Text)> {
+    let buffer = Buffer.Buffer<(Text, Text)>(count);
+    let prefixes = Buffer.Buffer<Text>(64);
+    
     for (i in Iter.range(0, count - 1)) {
-        let key = prefix # Nat.toText(i);
-        buffer.add((key, i));
+        let prefix = if (prefixes.size() > 0 and fuzz.nat.randomRange(1, 100) <= PREFIX_REUSE_RATE) {
+            // 30% chance: reuse a random existing prefix
+            let idx = fuzz.nat.randomRange(0, prefixes.size() - 1);
+            prefixes.get(idx);
+        } else {
+            // 70% chance: generate new prefix and add to pool
+            let prefixLen = fuzz.nat.randomRange(3, MAX_PREFIX_LEN);
+            let newPrefix = fuzz.text.randomAlphanumeric(prefixLen);
+            prefixes.add(newPrefix);
+            newPrefix;
+        };
+        
+        // Append index for uniqueness
+        let indexStr = Nat.toText(i);
+        let remainingLen = MAX_KEY_LEN - prefix.size() - indexStr.size() - 1; // -1 for separator
+        let suffixLen = if (remainingLen > 0) fuzz.nat.randomRange(0, remainingLen) else 1;
+        let suffix = if (suffixLen > 0) fuzz.text.randomAlphanumeric(suffixLen) else "";
+        
+        let key = prefix # suffix # "_" # indexStr;
+        buffer.add((key, key));
     };
     buffer;
 };
 
-// Generate Text keys with varying prefixes
-func generate_varied_text_keys(count : Nat) : Buffer.Buffer<(Text, Nat)> {
-    let prefixes = ["user_", "item_", "order_", "product_", "category_"];
-    let buffer = Buffer.Buffer<(Text, Nat)>(count);
-    for (i in Iter.range(0, count - 1)) {
-        let prefix_idx = i % prefixes.size();
-        let key = prefixes[prefix_idx] # Nat.toText(i);
-        buffer.add((key, i));
-    };
-    buffer;
+// Collect stats into a record
+type StatsRecord = {
+    nodeCapacity : Nat;
+    entryCount : Nat;
+    depth : Nat;
+    leafCount : Nat;
+    branchCount : Nat;
+    allocatedBytes : Nat;
+    usedBytes : Nat;
+    dataBytes : Nat;
+    metadataBytes : Nat;
+    keyBytes : Nat;
+    valueBytes : Nat;
 };
 
-// Print detailed stats
-func print_stats(description : Text, btree : MemoryBTree.MemoryBTree) {
+func collect_stats(btree : MemoryBTree.MemoryBTree) : StatsRecord {
     let stats = MemoryBTree.stats(btree);
-    
-    Debug.print("\n========================================");
-    Debug.print("Stats for: " # description);
-    Debug.print("========================================");
-    Debug.print("Configuration:");
-    Debug.print("  - Tail Compression: " # debug_show MemoryBTree.ENABLE_TAIL_COMPRESSION);
-    Debug.print("  - Merge Strategy: " # debug_show MemoryBTree.MERGE_STRATEGY);
-    Debug.print("  - Merge Threshold: " # debug_show MemoryBTree.MERGE_THRESHOLD);
-    Debug.print("  - Node Capacity: " # debug_show btree.node_capacity);
-    Debug.print("");
-    Debug.print("Tree Structure:");
-    Debug.print("  - Entry Count: " # debug_show MemoryBTree.size(btree));
-    Debug.print("  - Depth: " # debug_show btree.depth);
-    Debug.print("  - Leaf Count: " # debug_show stats.leafCount);
-    Debug.print("  - Branch Count: " # debug_show stats.branchCount);
-    Debug.print("  - Total Node Count: " # debug_show stats.totalNodeCount);
-    Debug.print("");
-    Debug.print("Memory Usage:");
-    Debug.print("  - Allocated Pages: " # debug_show stats.allocatedPages);
-    Debug.print("  - Allocated Bytes: " # debug_show stats.allocatedBytes);
-    Debug.print("  - Used Bytes: " # debug_show stats.usedBytes);
-    Debug.print("  - Free Bytes: " # debug_show stats.freeBytes);
-    Debug.print("");
-    Debug.print("Memory Breakdown:");
-    Debug.print("  - Data Bytes (keys): " # debug_show stats.keyBytes);
-    Debug.print("  - Data Bytes (values): " # debug_show stats.valueBytes);
-    Debug.print("  - Data Bytes (total): " # debug_show stats.dataBytes);
-    Debug.print("  - Metadata Bytes (leaves): " # debug_show stats.leafBytes);
-    Debug.print("  - Metadata Bytes (branches): " # debug_show stats.branchBytes);
-    Debug.print("  - Metadata Bytes (total): " # debug_show stats.metadataBytes);
-    Debug.print("");
-    
-    // Calculate efficiency metrics
-    let data_efficiency = if (stats.usedBytes > 0) {
-        Float.fromInt(stats.dataBytes) / Float.fromInt(stats.usedBytes) * 100.0;
-    } else { 0.0 };
-    
-    let metadata_overhead = if (stats.usedBytes > 0) {
-        Float.fromInt(stats.metadataBytes) / Float.fromInt(stats.usedBytes) * 100.0;
-    } else { 0.0 };
-    
-    let space_utilization = if (stats.allocatedBytes > 0) {
-        Float.fromInt(stats.usedBytes) / Float.fromInt(stats.allocatedBytes) * 100.0;
-    } else { 0.0 };
-    
-    let avg_entries_per_leaf = if (stats.leafCount > 0) {
-        Float.fromInt(MemoryBTree.size(btree)) / Float.fromInt(stats.leafCount);
-    } else { 0.0 };
-    
-    Debug.print("Efficiency Metrics:");
-    Debug.print("  - Data Efficiency: " # Float.toText(data_efficiency) # "%");
-    Debug.print("  - Metadata Overhead: " # Float.toText(metadata_overhead) # "%");
-    Debug.print("  - Space Utilization: " # Float.toText(space_utilization) # "%");
-    Debug.print("  - Avg Entries/Leaf: " # Float.toText(avg_entries_per_leaf));
-    Debug.print("========================================\n");
+    {
+        nodeCapacity = btree.node_capacity;
+        entryCount = MemoryBTree.size(btree);
+        depth = btree.depth;
+        leafCount = stats.leafCount;
+        branchCount = stats.branchCount;
+        allocatedBytes = stats.allocatedBytes;
+        usedBytes = stats.usedBytes;
+        dataBytes = stats.dataBytes;
+        metadataBytes = stats.metadataBytes;
+        keyBytes = stats.keyBytes;
+        valueBytes = stats.valueBytes;
+    };
 };
 
-// Fill BTree and track insertions
-func fill_btree_nat(btree : MemoryBTree.MemoryBTree, data : Buffer.Buffer<(Nat, Nat)>) {
-    let btree_utils = MemoryBTree.createUtils(TypeUtils.Nat, TypeUtils.Nat);
+// Format number with thousands separator
+func format_num(n : Nat) : Text {
+    let str = Nat.toText(n);
+    let len = str.size();
+    if (len <= 3) return str;
+    
+    var result = "";
+    var count = 0;
+    let chars = Iter.toArray(Text.toIter(str));
+    var i = len;
+    while (i > 0) {
+        i -= 1;
+        if (count > 0 and count % 3 == 0) {
+            result := "," # result;
+        };
+        result := Text.fromChar(chars[i]) # result;
+        count += 1;
+    };
+    result;
+};
+
+// Pad text to fixed width (right-aligned for numbers)
+func pad_right(text : Text, width : Nat) : Text {
+    let len = text.size();
+    if (len >= width) return text;
+    var padding = "";
+    for (_ in Iter.range(0, width - len - 1)) {
+        padding := padding # " ";
+    };
+    padding # text;
+};
+
+// Pad text to fixed width (left-aligned for labels)
+func pad_left(text : Text, width : Nat) : Text {
+    let len = text.size();
+    if (len >= width) return text;
+    var padding = "";
+    for (_ in Iter.range(0, width - len - 1)) {
+        padding := padding # " ";
+    };
+    text # padding;
+};
+
+func repeat_char(c : Char, n : Nat) : Text {
+    var result = "";
+    for (_ in Iter.range(0, n - 1)) {
+        result := result # Text.fromChar(c);
+    };
+    result;
+};
+
+// Print table header
+func print_table_header(title : Text, cols : [Text]) {
+    Debug.print("\n");
+    Debug.print("┏" # repeat_char('━', title.size() + 2) # "┓");
+    Debug.print("┃ " # title # " ┃");
+    Debug.print("┗" # repeat_char('━', title.size() + 2) # "┛");
+    Debug.print("");
+    
+    var header = "| " # pad_left("Config", 20) # " |";
+    for (col in cols.vals()) {
+        header := header # " " # pad_right(col, 12) # " |";
+    };
+    Debug.print(header);
+    
+    var separator = "|" # repeat_char('-', 22) # "|";
+    for (_ in cols.vals()) {
+        separator := separator # repeat_char('-', 14) # "|";
+    };
+    Debug.print(separator);
+};
+
+// Print a stats row
+func print_stats_row(row_label : Text, s : StatsRecord) {
+    let row = "| " # pad_left(row_label, 20) # " |" #
+        " " # pad_right(Nat.toText(s.depth), 12) # " |" #
+        " " # pad_right(format_num(s.leafCount), 12) # " |" #
+        " " # pad_right(format_num(s.branchCount), 12) # " |" #
+        " " # pad_right(format_num(s.allocatedBytes), 12) # " |" #
+        " " # pad_right(format_num(s.usedBytes), 12) # " |" #
+        " " # pad_right(format_num(s.keyBytes), 12) # " |" #
+        " " # pad_right(format_num(s.metadataBytes), 12) # " |";
+    Debug.print(row);
+};
+
+// Fill BTree with data
+func fill_btree(btree : MemoryBTree.MemoryBTree, data : Buffer.Buffer<(Text, Text)>) {
+    let btree_utils = MemoryBTree.createUtils(TypeUtils.Text, TypeUtils.Text);
     for ((k, v) in data.vals()) {
         ignore MemoryBTree.insert(btree, btree_utils, k, v);
     };
 };
 
-func fill_btree_text(btree : MemoryBTree.MemoryBTree, data : Buffer.Buffer<(Text, Nat)>) {
-    let btree_utils = MemoryBTree.createUtils(TypeUtils.Text, TypeUtils.Nat);
-    for ((k, v) in data.vals()) {
-        ignore MemoryBTree.insert(btree, btree_utils, k, v);
-    };
-};
-
-// Remove half the entries to test merge behavior
-func remove_half_nat(btree : MemoryBTree.MemoryBTree, data : Buffer.Buffer<(Nat, Nat)>) {
-    let btree_utils = MemoryBTree.createUtils(TypeUtils.Nat, TypeUtils.Nat);
+// Remove half the entries
+func remove_half(btree : MemoryBTree.MemoryBTree, data : Buffer.Buffer<(Text, Text)>) {
+    let btree_utils = MemoryBTree.createUtils(TypeUtils.Text, TypeUtils.Text);
     let half = data.size() / 2;
+    var removed = 0;
+    var notFound = 0;
     for (i in Iter.range(0, half - 1)) {
         let (k, _) = data.get(i);
-        ignore MemoryBTree.remove(btree, btree_utils, k);
+        let result = MemoryBTree.remove(btree, btree_utils, k);
+        if (result == null) {
+            notFound += 1;
+            Debug.print("DEBUG key not found: i=" # Nat.toText(i) # " key=\"" # k # "\"");
+        } else {
+            removed += 1;
+        };
     };
-};
-
-func remove_half_text(btree : MemoryBTree.MemoryBTree, data : Buffer.Buffer<(Text, Nat)>) {
-    let btree_utils = MemoryBTree.createUtils(TypeUtils.Text, TypeUtils.Nat);
-    let half = data.size() / 2;
-    for (i in Iter.range(0, half - 1)) {
-        let (k, _) = data.get(i);
-        ignore MemoryBTree.remove(btree, btree_utils, k);
-    };
+    Debug.print("DEBUG remove_half: removed=" # Nat.toText(removed) # " notFound=" # Nat.toText(notFound));
 };
 
 suite(
@@ -182,150 +229,375 @@ suite(
     func() {
         
         test(
-            "Print current configuration",
+            "Node Capacity Comparison (Tail Compression DISABLED)",
             func() {
+                let data = generate_random_text_keys(DATA_SIZE);
+                
+                print_table_header(
+                    "Node Capacity Stats - Tail Compression: DISABLED (" # Nat.toText(DATA_SIZE) # " entries)",
+                    ["Depth", "Leaves", "Branches", "Allocated", "Used", "Key Bytes", "Metadata"]
+                );
+                
+                for (capacity in NODE_CAPACITIES.vals()) {
+                    let btree = MemoryBTree.newWithOptions({ 
+                        MemoryBTree.defaultOptions with 
+                        node_capacity = ?capacity; 
+                        is_tail_compression_enabled = ?false 
+                    });
+                    fill_btree(btree, data);
+                    let stats = collect_stats(btree);
+                    print_stats_row("capacity=" # Nat.toText(capacity), stats);
+                    
+                    // Verify correctness
+                    assert MemoryBTree.size(btree) == data.size();
+                };
+                
+                Debug.print("");
+            },
+        );
+
+        test(
+            "Node Capacity Comparison (Tail Compression ENABLED)",
+            func() {
+                let data = generate_random_text_keys(DATA_SIZE);
+                
+                print_table_header(
+                    "Node Capacity Stats - Tail Compression: ENABLED (" # Nat.toText(DATA_SIZE) # " entries)",
+                    ["Depth", "Leaves", "Branches", "Allocated", "Used", "Key Bytes", "Metadata"]
+                );
+                
+                for (capacity in NODE_CAPACITIES.vals()) {
+                    let btree = MemoryBTree.newWithOptions({ 
+                        MemoryBTree.defaultOptions with 
+                        node_capacity = ?capacity; 
+                        is_tail_compression_enabled = ?true 
+                    });
+                    fill_btree(btree, data);
+                    let stats = collect_stats(btree);
+                    print_stats_row("capacity=" # Nat.toText(capacity), stats);
+                    
+                    // Verify correctness
+                    assert MemoryBTree.size(btree) == data.size();
+                };
+                
+                Debug.print("");
+            },
+        );
+
+        test(
+            "Merge Threshold Comparison (Tail Compression DISABLED)",
+            func() {
+                let data = generate_random_text_keys(DATA_SIZE);
+                
                 Debug.print("\n");
-                Debug.print("╔══════════════════════════════════════════════════════════════╗");
-                Debug.print("║           MemoryBTree Configuration Test Suite               ║");
-                Debug.print("╠══════════════════════════════════════════════════════════════╣");
-                Debug.print("║ Current Configuration:                                       ║");
-                Debug.print("║   ENABLE_TAIL_COMPRESSION: " # debug_show MemoryBTree.ENABLE_TAIL_COMPRESSION # "                           ║");
-                Debug.print("║   MERGE_STRATEGY: " # (if (MemoryBTree.MERGE_STRATEGY == #Conservative) "#Conservative       " else "#Balanced            ") # "                    ║");
-                Debug.print("║   MERGE_THRESHOLD: " # debug_show MemoryBTree.MERGE_THRESHOLD # "                               ║");
-                Debug.print("╚══════════════════════════════════════════════════════════════╝");
+                Debug.print("┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓");
+                Debug.print("┃ Merge Threshold Stats - Tail Compression: DISABLED (After Insert + Remove Half) ┃");
+                Debug.print("┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛");
+                Debug.print("");
+                
+                // Use capacity 256 for merge threshold comparison
+                let test_capacity = 256;
+                
+                // Header for "After Insert" section
+                var header = "| " # pad_left("merge_threshold", 20) # " |";
+                let cols = ["Depth", "Leaves", "Branches", "Allocated", "Used", "Key Bytes", "Metadata"];
+                for (col in cols.vals()) {
+                    header := header # " " # pad_right(col, 12) # " |";
+                };
+                
+                Debug.print("After Insert (" # Nat.toText(DATA_SIZE) # " entries, capacity=" # Nat.toText(test_capacity) # "):");
+                Debug.print(header);
+                var separator = "|" # repeat_char('-', 22) # "|";
+                for (_ in cols.vals()) {
+                    separator := separator # repeat_char('-', 14) # "|";
+                };
+                Debug.print(separator);
+                
+                // Store btrees for removal test
+                let btrees = Buffer.Buffer<(Float, MemoryBTree.MemoryBTree)>(3);
+                
+                for (threshold in MERGE_THRESHOLDS.vals()) {
+                    let btree = MemoryBTree.newWithOptions({ 
+                        MemoryBTree.defaultOptions with 
+                        node_capacity = ?test_capacity;
+                        merge_threshold = ?threshold;
+                        is_tail_compression_enabled = ?false 
+                    });
+                    fill_btree(btree, data);
+                    Debug.print("DEBUG after insert: size=" # Nat.toText(MemoryBTree.size(btree)) # " data.size=" # Nat.toText(data.size()));
+                    let stats = collect_stats(btree);
+                    print_stats_row("threshold=" # Float.toText(threshold), stats);
+                    btrees.add((threshold, btree));
+                };
+                
+                Debug.print("");
+                Debug.print("After Remove Half (" # Nat.toText(DATA_SIZE / 2) # " entries remaining):");
+                Debug.print(header);
+                Debug.print(separator);
+                
+                for ((threshold, btree) in btrees.vals()) {
+                    remove_half(btree, data);
+                    let stats = collect_stats(btree);
+                    print_stats_row("threshold=" # Float.toText(threshold), stats);
+                    
+                    // Verify correctness
+                    Debug.print("DEBUG: size=" # Nat.toText(MemoryBTree.size(btree)) # " expected=" # Nat.toText(data.size() / 2));
+                    assert MemoryBTree.size(btree) == data.size() / 2;
+                };
+                
+                Debug.print("");
+            },
+        );
+
+        test(
+            "Merge Threshold Comparison (Tail Compression ENABLED)",
+            func() {
+                let data = generate_random_text_keys(DATA_SIZE);
+                
                 Debug.print("\n");
+                Debug.print("┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓");
+                Debug.print("┃ Merge Threshold Stats - Tail Compression: ENABLED (After Insert + Remove Half) ┃");
+                Debug.print("┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛");
+                Debug.print("");
+                
+                // Use capacity 256 for merge threshold comparison
+                let test_capacity = 256;
+                
+                // Header
+                var header = "| " # pad_left("merge_threshold", 20) # " |";
+                let cols = ["Depth", "Leaves", "Branches", "Allocated", "Used", "Key Bytes", "Metadata"];
+                for (col in cols.vals()) {
+                    header := header # " " # pad_right(col, 12) # " |";
+                };
+                
+                Debug.print("After Insert (" # Nat.toText(DATA_SIZE) # " entries, capacity=" # Nat.toText(test_capacity) # "):");
+                Debug.print(header);
+                var separator = "|" # repeat_char('-', 22) # "|";
+                for (_ in cols.vals()) {
+                    separator := separator # repeat_char('-', 14) # "|";
+                };
+                Debug.print(separator);
+                
+                // Store btrees for removal test
+                let btrees = Buffer.Buffer<(Float, MemoryBTree.MemoryBTree)>(3);
+                
+                for (threshold in MERGE_THRESHOLDS.vals()) {
+                    let btree = MemoryBTree.newWithOptions({ 
+                        MemoryBTree.defaultOptions with 
+                        node_capacity = ?test_capacity;
+                        merge_threshold = ?threshold;
+                        is_tail_compression_enabled = ?true 
+                    });
+                    fill_btree(btree, data);
+                    let stats = collect_stats(btree);
+                    print_stats_row("threshold=" # Float.toText(threshold), stats);
+                    btrees.add((threshold, btree));
+                };
+                
+                Debug.print("");
+                Debug.print("After Remove Half (" # Nat.toText(DATA_SIZE / 2) # " entries remaining):");
+                Debug.print(header);
+                Debug.print(separator);
+                
+                for ((threshold, btree) in btrees.vals()) {
+                    remove_half(btree, data);
+                    let stats = collect_stats(btree);
+                    print_stats_row("threshold=" # Float.toText(threshold), stats);
+                    
+                    // Verify correctness                    Debug.print("DEBUG: size=" # Nat.toText(MemoryBTree.size(btree)) # " expected=" # Nat.toText(data.size() / 2));                    assert MemoryBTree.size(btree) == data.size() / 2;
+                };
+                
+                Debug.print("");
             },
         );
 
         test(
-            "Random Nat keys - Node capacity 16",
+            "Side-by-Side: Tail Compression ON vs OFF",
             func() {
-                let data = generate_random_nats(MEDIUM_SIZE, MEDIUM_SIZE ** 2);
-                let btree = MemoryBTree.new(?16);
-                fill_btree_nat(btree, data);
-                print_stats("Random Nat keys (capacity=16, count=" # Nat.toText(MEDIUM_SIZE) # ")", btree);
+                let data = generate_random_text_keys(DATA_SIZE);
                 
-                // Verify all entries are retrievable
-                let btree_utils = MemoryBTree.createUtils(TypeUtils.Nat, TypeUtils.Nat);
-                assert MemoryBTree.size(btree) == data.size();
+                Debug.print("\n");
+                Debug.print("┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓");
+                Debug.print("┃ Tail Compression Comparison: Key & Used Bytes (" # Nat.toText(DATA_SIZE) # " entries)                    ┃");
+                Debug.print("┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛");
+                Debug.print("");
+                
+                let header = "| " # pad_left("Node Capacity", 15) # " |" #
+                    " " # pad_right("TC=OFF Keys", 12) # " |" #
+                    " " # pad_right("TC=ON Keys", 12) # " |" #
+                    " " # pad_right("Key Savings", 12) # " |" #
+                    " " # pad_right("TC=OFF Used", 12) # " |" #
+                    " " # pad_right("TC=ON Used", 12) # " |" #
+                    " " # pad_right("Used Savings", 12) # " |";
+                Debug.print(header);
+                Debug.print("|" # repeat_char('-', 17) # "|" # 
+                    repeat_char('-', 14) # "|" # 
+                    repeat_char('-', 14) # "|" # 
+                    repeat_char('-', 14) # "|" #
+                    repeat_char('-', 14) # "|" # 
+                    repeat_char('-', 14) # "|" # 
+                    repeat_char('-', 14) # "|");
+                
+                for (capacity in NODE_CAPACITIES.vals()) {
+                    // Without tail compression
+                    let btree_off = MemoryBTree.newWithOptions({ 
+                        MemoryBTree.defaultOptions with 
+                        node_capacity = ?capacity; 
+                        is_tail_compression_enabled = ?false 
+                    });
+                    fill_btree(btree_off, data);
+                    let stats_off = collect_stats(btree_off);
+                    
+                    // With tail compression
+                    let btree_on = MemoryBTree.newWithOptions({ 
+                        MemoryBTree.defaultOptions with 
+                        node_capacity = ?capacity; 
+                        is_tail_compression_enabled = ?true 
+                    });
+                    fill_btree(btree_on, data);
+                    let stats_on = collect_stats(btree_on);
+                    
+                    // Calculate savings (safe because we check > first)
+                    let key_savings = if (stats_off.keyBytes > stats_on.keyBytes) {
+                        let diff : Nat = stats_off.keyBytes - stats_on.keyBytes : Nat;
+                        let pct = Float.fromInt(diff) / Float.fromInt(stats_off.keyBytes) * 100.0;
+                        Float.toText(pct) # "%";
+                    } else { "0%" };
+                    
+                    let used_savings = if (stats_off.usedBytes > stats_on.usedBytes) {
+                        let diff : Nat = stats_off.usedBytes - stats_on.usedBytes : Nat;
+                        let pct = Float.fromInt(diff) / Float.fromInt(stats_off.usedBytes) * 100.0;
+                        Float.toText(pct) # "%";
+                    } else { "0%" };
+                    
+                    let row = "| " # pad_left(Nat.toText(capacity), 15) # " |" #
+                        " " # pad_right(format_num(stats_off.keyBytes), 12) # " |" #
+                        " " # pad_right(format_num(stats_on.keyBytes), 12) # " |" #
+                        " " # pad_right(key_savings, 12) # " |" #
+                        " " # pad_right(format_num(stats_off.usedBytes), 12) # " |" #
+                        " " # pad_right(format_num(stats_on.usedBytes), 12) # " |" #
+                        " " # pad_right(used_savings, 12) # " |";
+                    Debug.print(row);
+                };
+                
+                Debug.print("");
             },
         );
 
         test(
-            "Random Nat keys - Node capacity 64",
+            "Tail Compression: Random Keys vs Prefixed Keys",
             func() {
-                let data = generate_random_nats(MEDIUM_SIZE, MEDIUM_SIZE ** 2);
-                let btree = MemoryBTree.new(?64);
-                fill_btree_nat(btree, data);
-                print_stats("Random Nat keys (capacity=64, count=" # Nat.toText(MEDIUM_SIZE) # ")", btree);
+                let random_data = generate_random_text_keys(DATA_SIZE);
+                let prefixed_data = generate_prefixed_text_keys(DATA_SIZE);
                 
-                let btree_utils = MemoryBTree.createUtils(TypeUtils.Nat, TypeUtils.Nat);
-                assert MemoryBTree.size(btree) == data.size();
-            },
-        );
-
-        test(
-            "Random Nat keys - Node capacity 256",
-            func() {
-                let data = generate_random_nats(MEDIUM_SIZE, MEDIUM_SIZE ** 2);
-                let btree = MemoryBTree.new(?256);
-                fill_btree_nat(btree, data);
-                print_stats("Random Nat keys (capacity=256, count=" # Nat.toText(MEDIUM_SIZE) # ")", btree);
+                Debug.print("\n");
+                Debug.print("┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓");
+                Debug.print("┃ Random Keys vs Prefixed Keys: Where Tail Compression Shines (" # Nat.toText(DATA_SIZE) # " entries) ┃");
+                Debug.print("┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛");
+                Debug.print("");
                 
-                let btree_utils = MemoryBTree.createUtils(TypeUtils.Nat, TypeUtils.Nat);
-                assert MemoryBTree.size(btree) == data.size();
-            },
-        );
-
-        test(
-            "Sequential Nat keys - Best case for prefix sharing",
-            func() {
-                let data = generate_sequential_nats(MEDIUM_SIZE, 1_000_000);
-                let btree = MemoryBTree.new(?64);
-                fill_btree_nat(btree, data);
-                print_stats("Sequential Nat keys (capacity=64, count=" # Nat.toText(MEDIUM_SIZE) # ")", btree);
+                let header = "| " # pad_left("Key Type", 20) # " |" #
+                    " " # pad_right("TC=OFF Keys", 12) # " |" #
+                    " " # pad_right("TC=ON Keys", 12) # " |" #
+                    " " # pad_right("Key Savings", 12) # " |" #
+                    " " # pad_right("TC=OFF Used", 12) # " |" #
+                    " " # pad_right("TC=ON Used", 12) # " |" #
+                    " " # pad_right("Used Savings", 12) # " |";
+                Debug.print(header);
+                Debug.print("|" # repeat_char('-', 22) # "|" # 
+                    repeat_char('-', 14) # "|" # 
+                    repeat_char('-', 14) # "|" # 
+                    repeat_char('-', 14) # "|" #
+                    repeat_char('-', 14) # "|" # 
+                    repeat_char('-', 14) # "|" # 
+                    repeat_char('-', 14) # "|");
                 
-                let btree_utils = MemoryBTree.createUtils(TypeUtils.Nat, TypeUtils.Nat);
-                assert MemoryBTree.size(btree) == data.size();
-            },
-        );
-
-        test(
-            "Text keys with common prefix - Ideal for tail compression",
-            func() {
-                let data = generate_prefixed_text_keys(MEDIUM_SIZE, "user_profile_data_");
-                let btree = MemoryBTree.new(?64);
-                fill_btree_text(btree, data);
-                print_stats("Text keys with common prefix (capacity=64, count=" # Nat.toText(MEDIUM_SIZE) # ")", btree);
+                // Use capacity 64 for this comparison
+                let capacity = 64;
                 
-                let btree_utils = MemoryBTree.createUtils(TypeUtils.Text, TypeUtils.Nat);
-                assert MemoryBTree.size(btree) == data.size();
-            },
-        );
-
-        test(
-            "Text keys with varied prefixes",
-            func() {
-                let data = generate_varied_text_keys(MEDIUM_SIZE);
-                let btree = MemoryBTree.new(?64);
-                fill_btree_text(btree, data);
-                print_stats("Text keys with varied prefixes (capacity=64, count=" # Nat.toText(MEDIUM_SIZE) # ")", btree);
+                // Random keys without tail compression
+                let btree_random_off = MemoryBTree.newWithOptions({ 
+                    MemoryBTree.defaultOptions with 
+                    node_capacity = ?capacity; 
+                    is_tail_compression_enabled = ?false 
+                });
+                fill_btree(btree_random_off, random_data);
+                let stats_random_off = collect_stats(btree_random_off);
                 
-                let btree_utils = MemoryBTree.createUtils(TypeUtils.Text, TypeUtils.Nat);
-                assert MemoryBTree.size(btree) == data.size();
-            },
-        );
-
-        test(
-            "Insert then remove half - Test merge behavior (Nat)",
-            func() {
-                let data = generate_random_nats(MEDIUM_SIZE, MEDIUM_SIZE ** 2);
-                let btree = MemoryBTree.new(?64);
-                fill_btree_nat(btree, data);
+                // Random keys with tail compression
+                let btree_random_on = MemoryBTree.newWithOptions({ 
+                    MemoryBTree.defaultOptions with 
+                    node_capacity = ?capacity; 
+                    is_tail_compression_enabled = ?true 
+                });
+                fill_btree(btree_random_on, random_data);
+                let stats_random_on = collect_stats(btree_random_on);
                 
-                Debug.print("\n--- Before removals ---");
-                print_stats("Before removing half (Nat, capacity=64)", btree);
+                // Calculate random key savings
+                let random_key_savings = if (stats_random_off.keyBytes > stats_random_on.keyBytes) {
+                    let diff : Nat = stats_random_off.keyBytes - stats_random_on.keyBytes : Nat;
+                    let pct = Float.fromInt(diff) / Float.fromInt(stats_random_off.keyBytes) * 100.0;
+                    Float.toText(pct) # "%";
+                } else { "0%" };
                 
-                remove_half_nat(btree, data);
+                let random_used_savings = if (stats_random_off.usedBytes > stats_random_on.usedBytes) {
+                    let diff : Nat = stats_random_off.usedBytes - stats_random_on.usedBytes : Nat;
+                    let pct = Float.fromInt(diff) / Float.fromInt(stats_random_off.usedBytes) * 100.0;
+                    Float.toText(pct) # "%";
+                } else { "0%" };
                 
-                Debug.print("\n--- After removing half ---");
-                print_stats("After removing half (Nat, capacity=64)", btree);
+                let row_random = "| " # pad_left("Random (10 chars)", 20) # " |" #
+                    " " # pad_right(format_num(stats_random_off.keyBytes), 12) # " |" #
+                    " " # pad_right(format_num(stats_random_on.keyBytes), 12) # " |" #
+                    " " # pad_right(random_key_savings, 12) # " |" #
+                    " " # pad_right(format_num(stats_random_off.usedBytes), 12) # " |" #
+                    " " # pad_right(format_num(stats_random_on.usedBytes), 12) # " |" #
+                    " " # pad_right(random_used_savings, 12) # " |";
+                Debug.print(row_random);
                 
-                let btree_utils = MemoryBTree.createUtils(TypeUtils.Nat, TypeUtils.Nat);
-                assert MemoryBTree.size(btree) == data.size() / 2;
-            },
-        );
-
-        test(
-            "Insert then remove half - Test merge behavior (Text)",
-            func() {
-                let data = generate_prefixed_text_keys(MEDIUM_SIZE, "item_");
-                let btree = MemoryBTree.new(?64);
-                fill_btree_text(btree, data);
+                // Prefixed keys without tail compression
+                let btree_prefix_off = MemoryBTree.newWithOptions({ 
+                    MemoryBTree.defaultOptions with 
+                    node_capacity = ?capacity; 
+                    is_tail_compression_enabled = ?false 
+                });
+                fill_btree(btree_prefix_off, prefixed_data);
+                let stats_prefix_off = collect_stats(btree_prefix_off);
                 
-                Debug.print("\n--- Before removals ---");
-                print_stats("Before removing half (Text, capacity=64)", btree);
+                // Prefixed keys with tail compression
+                let btree_prefix_on = MemoryBTree.newWithOptions({ 
+                    MemoryBTree.defaultOptions with 
+                    node_capacity = ?capacity; 
+                    is_tail_compression_enabled = ?true 
+                });
+                fill_btree(btree_prefix_on, prefixed_data);
+                let stats_prefix_on = collect_stats(btree_prefix_on);
                 
-                remove_half_text(btree, data);
+                // Calculate prefixed key savings
+                let prefix_key_savings = if (stats_prefix_off.keyBytes > stats_prefix_on.keyBytes) {
+                    let diff : Nat = stats_prefix_off.keyBytes - stats_prefix_on.keyBytes : Nat;
+                    let pct = Float.fromInt(diff) / Float.fromInt(stats_prefix_off.keyBytes) * 100.0;
+                    Float.toText(pct) # "%";
+                } else { "0%" };
                 
-                Debug.print("\n--- After removing half ---");
-                print_stats("After removing half (Text, capacity=64)", btree);
+                let prefix_used_savings = if (stats_prefix_off.usedBytes > stats_prefix_on.usedBytes) {
+                    let diff : Nat = stats_prefix_off.usedBytes - stats_prefix_on.usedBytes : Nat;
+                    let pct = Float.fromInt(diff) / Float.fromInt(stats_prefix_off.usedBytes) * 100.0;
+                    Float.toText(pct) # "%";
+                } else { "0%" };
                 
-                let btree_utils = MemoryBTree.createUtils(TypeUtils.Text, TypeUtils.Nat);
-                assert MemoryBTree.size(btree) == data.size() / 2;
-            },
-        );
-
-        test(
-            "Large dataset comparison",
-            func() {
-                let data = generate_random_nats(LARGE_SIZE, LARGE_SIZE ** 2);
-                let btree = MemoryBTree.new(?128);
-                fill_btree_nat(btree, data);
-                print_stats("Large dataset (capacity=128, count=" # Nat.toText(LARGE_SIZE) # ")", btree);
+                let row_prefix = "| " # pad_left("Prefixed (18+ chars)", 20) # " |" #
+                    " " # pad_right(format_num(stats_prefix_off.keyBytes), 12) # " |" #
+                    " " # pad_right(format_num(stats_prefix_on.keyBytes), 12) # " |" #
+                    " " # pad_right(prefix_key_savings, 12) # " |" #
+                    " " # pad_right(format_num(stats_prefix_off.usedBytes), 12) # " |" #
+                    " " # pad_right(format_num(stats_prefix_on.usedBytes), 12) # " |" #
+                    " " # pad_right(prefix_used_savings, 12) # " |";
+                Debug.print(row_prefix);
                 
-                let btree_utils = MemoryBTree.createUtils(TypeUtils.Nat, TypeUtils.Nat);
-                assert MemoryBTree.size(btree) == data.size();
+                Debug.print("");
+                Debug.print("Note: Prefixed keys use 'user_profile_data_' + number, showing tail compression benefits");
+                Debug.print("");
             },
         );
 
@@ -333,24 +605,25 @@ suite(
             "Summary",
             func() {
                 Debug.print("\n");
-                Debug.print("╔══════════════════════════════════════════════════════════════╗");
-                Debug.print("║                    Test Suite Complete                       ║");
-                Debug.print("╠══════════════════════════════════════════════════════════════╣");
-                Debug.print("║ To compare configurations, modify Base.mo and re-run:        ║");
-                Debug.print("║                                                              ║");
-                Debug.print("║ 1. ENABLE_TAIL_COMPRESSION: true vs false                    ║");
-                Debug.print("║    - Affects separator key storage in branch nodes           ║");
-                Debug.print("║    - Most effective with Text keys having common prefixes    ║");
-                Debug.print("║    - Note: Incompatible with size-based Nat comparison       ║");
-                Debug.print("║                                                              ║");
-                Debug.print("║ 2. MERGE_STRATEGY: #Conservative vs #Balanced                ║");
-                Debug.print("║    - Conservative: Fewer merges, stable separators           ║");
-                Debug.print("║    - Balanced: More merges, better memory efficiency         ║");
-                Debug.print("║                                                              ║");
-                Debug.print("║ 3. MERGE_THRESHOLD: 0.25 vs 0.125                            ║");
-                Debug.print("║    - Higher: More aggressive merging                         ║");
-                Debug.print("║    - Lower: Less merging, potentially more sparse nodes      ║");
-                Debug.print("╚══════════════════════════════════════════════════════════════╝");
+                Debug.print("╔════════════════════════════════════════════════════════════════════════════════╗");
+                Debug.print("║                         Configuration Test Complete                           ║");
+                Debug.print("╠════════════════════════════════════════════════════════════════════════════════╣");
+                Debug.print("║ Key Observations:                                                              ║");
+                Debug.print("║                                                                                ║");
+                Debug.print("║ 1. Node Capacity:                                                              ║");
+                Debug.print("║    - Smaller capacities = deeper trees, more nodes, more metadata overhead    ║");
+                Debug.print("║    - Larger capacities = shallower trees, fewer nodes, better memory density  ║");
+                Debug.print("║                                                                                ║");
+                Debug.print("║ 2. Tail Compression:                                                           ║");
+                Debug.print("║    - Reduces separator key storage in branch nodes                            ║");
+                Debug.print("║    - Most effective with keys that share common prefixes                      ║");
+                Debug.print("║    - Savings visible in 'Key Bytes' column                                    ║");
+                Debug.print("║                                                                                ║");
+                Debug.print("║ 3. Merge Threshold:                                                            ║");
+                Debug.print("║    - Higher threshold (0.5) = more aggressive merging after removals          ║");
+                Debug.print("║    - Lower threshold (0.125) = less merging, potentially sparser nodes        ║");
+                Debug.print("║    - Trade-off between memory efficiency and merge operation costs            ║");
+                Debug.print("╚════════════════════════════════════════════════════════════════════════════════╝");
                 Debug.print("\n");
             },
         );

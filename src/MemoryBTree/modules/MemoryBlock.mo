@@ -73,7 +73,7 @@ module MemoryBlock {
         return null;
       };
 
-      let new_key_address = MemoryRegion.resize(btree.data, prev_key_address, prev_key_size + KEY_SIZE_START, new_key.size() + KEY_SIZE_START);
+      let new_key_address = MemoryRegion.resize(btree.data, prev_key_address, KEY_BLOB_START + prev_key_size, KEY_BLOB_START + new_key.size());
 
       MemoryRegion.storeNat16(btree.data, new_key_address + KEY_SIZE_START, Nat16.fromNat(new_key.size()));
       MemoryRegion.storeBlob(btree.data, new_key_address + KEY_BLOB_START, new_key);

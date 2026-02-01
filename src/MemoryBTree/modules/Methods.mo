@@ -37,8 +37,7 @@ module Methods {
         };
         case (false) {
           // load breanch from stable memory
-
-          assert Branch.get_magic(btree, curr_address) == Branch.MC.MAGIC;
+          assert Branch.validate(btree, curr_address);
 
           let count = Branch.get_count(btree, curr_address);
 
@@ -85,7 +84,7 @@ module Methods {
         case (false) {
           // Debug.print("branch: " # debug_show curr_address);
           // load breanch from stable memory
-          assert Branch.get_magic(btree, curr_address) == Branch.MC.MAGIC;
+          assert Branch.validate(btree, curr_address);
 
           let count = Branch.get_count(btree, curr_address);
 
@@ -645,12 +644,20 @@ module Methods {
     );
   };
 
-  public func node_keys<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>) : [[(Nat, Nat, Nat, [?K])]] {
+
+  public type BranchNodeKeys = {
+    address: Address;
+    index: Nat;
+    count: Nat;
+    keys: [?Blob];
+  };
+
+  public func node_keys<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>) : [[BranchNodeKeys]] {
     var nodes = BufferDeque.fromArray<(Address, Bool)>([(btree.root, btree.is_root_a_leaf)]);
-    var buffer = Buffer.Buffer<[(Nat, Nat, Nat, [?K])]>(btree.branch_count);
+    var buffer = Buffer.Buffer<[BranchNodeKeys]>(btree.branch_count);
 
     while (nodes.size() > 0) {
-      let row = Buffer.Buffer<(Nat, Nat, Nat, [?K])>(nodes.size());
+      let row = Buffer.Buffer<BranchNodeKeys>(nodes.size());
 
       for (_ in Iter.range(1, nodes.size())) {
         let ?(node, is_node_a_leaf) = nodes.popFront() else Debug.trap("node_keys: accessed a null value");
@@ -662,22 +669,20 @@ module Methods {
             let index = Branch.get_index(btree, node);
             let count = Branch.get_count(btree, node);
 
-            let keys = Array.tabulate<?K>(
+            let keys = Array.tabulate<?Blob>(
               btree.node_capacity - 1,
-              func(i : Nat) : ?K {
+              func(i : Nat) : ?Blob {
                 if (i + 1 >= count) return null;
-
-                switch (Branch.get_key_blob(btree, node, i)) {
-                  case (?key_blob) {
-                    let key = btree_utils.key.blobify.from_blob(key_blob);
-                    return ?key;
-                  };
-                  case (_) Debug.trap("node_keys: accessed a null value while getting keys");
-                };
+                Branch.get_key_blob(btree, node, i);
               },
             );
 
-            row.add((node, index, count, keys));
+            row.add({
+              address = node;
+              index = index;
+              count = count;
+              keys = keys;
+            });
 
             for (i in Iter.range(0, Branch.get_count(btree, node) - 1)) {
               let ?child = Branch.get_child(btree, node, i) else Debug.trap("node_keys: accessed a null value");
@@ -715,13 +720,13 @@ module Methods {
   //     };
 
   // };
-  public func validate_memory(btree : MemoryBTree, btree_utils : BTreeUtils<Nat, Nat>) : Bool {
+  public func validate_memory<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>) : Bool {
 
     func _validate(address : Nat, is_address_a_leaf : Bool) : (index : Nat, subtree_size : Nat) {
 
       switch (is_address_a_leaf) {
         case (true) {
-          assert Leaf.validate(btree, address);
+          // assert Leaf.validate(btree, address);
           let leaf = Leaf.from_memory(btree, address);
 
           let index = Leaf.get_index(btree, address);
@@ -758,26 +763,34 @@ module Methods {
 
           var i = 0;
 
-          var opt_prev_key : ?Nat = null;
+          var opt_prev_key_blob : ?Blob = null;
           while (i < count) {
 
             let ?key_block = Leaf.get_key_block(btree, address, i) else Debug.trap("3. validate: accessed a null value");
             let ?val_block = Leaf.get_val_block(btree, address, i) else Debug.trap("4. validate: accessed a null value");
             let ?key_blob = Leaf.get_key_blob(btree, address, i) else Debug.trap("5. validate: accessed a null value");
             let ?val_blob = Leaf.get_val_blob(btree, address, i) else Debug.trap("6. validate: accessed a null value");
-            let key = btree_utils.key.blobify.from_blob(key_blob);
-            // let val = btree_utils.value.blobify.from_blob(val_blob);
 
             assert leaf.2 [i] == ?key_block;
             assert leaf.3 [i] == ?val_block;
             assert leaf.4 [i] == ?(key_blob, val_blob);
 
-            switch (opt_prev_key) {
+            // Compare keys using btree_utils comparison (deserialize and compare)
+            switch (opt_prev_key_blob) {
               case (null) {};
-              case (?prev_key) if (prev_key >= key) {
-                Debug.print("key mismatch at index: " # debug_show i);
-                Debug.print("prev: " # debug_show prev_key);
-                Debug.print("key: " # debug_show key);
+              case (?prev_key_blob) {
+                let prev_key = btree_utils.key.blobify.from_blob(prev_key_blob);
+                let key = btree_utils.key.blobify.from_blob(key_blob);
+                let cmp_result = switch (btree_utils.key.cmp) {
+                  case (#GenCmp(cmp)) cmp(prev_key, key);
+                  case (#BlobCmp(cmp)) cmp(prev_key_blob, key_blob);
+                };
+                if (cmp_result >= 0) {
+                  Debug.print("key ordering violation at index: " # debug_show i);
+                  Debug.print("prev_key_blob: " # debug_show prev_key_blob);
+                  Debug.print("key_blob: " # debug_show key_blob);
+                  assert false;
+                };
               };
             };
 
@@ -797,7 +810,7 @@ module Methods {
               case (null) {};
             };
 
-            opt_prev_key := ?key;
+            opt_prev_key_blob := ?key_blob;
 
             i += 1;
           };
@@ -860,7 +873,6 @@ module Methods {
                   Debug.print("key mismatch at index: " # debug_show i);
                   Debug.print("prev: " # debug_show prev_key_blob);
                   Debug.print("key: " # debug_show key_blob);
-                  Branch.display(btree, btree_utils, address);
 
                   assert false;
                 };

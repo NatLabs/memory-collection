@@ -392,12 +392,12 @@ func btree_tests(node_capacity : Nat, tail_compression : Bool, data : Buffer.Buf
                         };
 
                         Debug.print("printing path to key before removal: i=" # Nat.toText(i) # " key=\"" # key # "\"");
-                        MemoryBTree.printPathToKey(btree, btree_utils, key);
+                        // MemoryBTree.printPathToKey(btree, btree_utils, key);
 
                         let val = MemoryBTree.remove(btree, btree_utils, key);
 
                         Debug.print("printing path to key after removal: i=" # Nat.toText(i) # " key=\"" # key # "\"");
-                        MemoryBTree.printPathToKey(btree, btree_utils, key);
+                        // MemoryBTree.printPathToKey(btree, btree_utils, key);
 
                         if (val == null) {
                             notFound += 1;

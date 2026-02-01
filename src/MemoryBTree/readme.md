@@ -229,12 +229,11 @@ The branch region contains a 64 byte header followed by a sequence of branch nod
 | -------------- | -------------- | ---------------------- | ----- | ------------- | -------------------------------------------- |
 | MAGIC          | 0              | 3                      | Blob  | "BND"         | Magic number                                 |
 | DEPTH          | 3              | 1                      | Nat8  | -             | Inverted depth of the node in the tree       |
-| LAYOUT VERSION | 4              | 1                      | Nat8  | -             | Layout version                               |
-| INDEX          | 5              | 2                      | Nat16 | -             | Node's position in parent node               |
-| COUNT          | 7              | 2                      | Nat16 | -             | Number of elements in the node               |
-| SUBTREE COUNT  | 9              | 8                      | Nat64 | -             | Number of elements in the node's subtree     |
-| PARENT         | 17             | 8                      | Nat64 | -             | Parent address                               |
-| RESERVED       | 25             | 47                     | -     | -             | Extra space for future use                   |
+| INDEX          | 4              | 2                      | Nat16 | -             | Node's position in parent node               |
+| COUNT          | 6              | 2                      | Nat16 | -             | Number of elements in the node               |
+| SUBTREE COUNT  | 8              | 8                      | Nat64 | -             | Number of elements in the node's subtree     |
+| PARENT         | 16             | 8                      | Nat64 | -             | Parent address                               |
+| RESERVED       | 24             | 40                     | -     | -             | Extra space for future use                   |
 | KEYS           | 64             | 8 \* NODE_CAPACITY - 1 | Nat64 | -             | Unique ids for each key stored in the branch |
 | Children       | 64 + size(Ids) | 8 \* NODE_CAPACITY     | Nat64 | -             | Addresses of children nodes                  |
 
@@ -260,13 +259,12 @@ This region has a 64 byte fixed header followed by a sequence of leaf nodes in t
   | -------------- | ------ | ------------------ | ----- | ------------- | ------------------------------------------------------------------------- |
   | MAGIC          | 0      | 3                  | Blob  | "LND"         | Magic number                                                              |
   | DEPTH          | 3      | 1                  | Nat8  | 1             | Inverted depth of the node in the tree                                    |
-  | LAYOUT VERSION | 4      | 1                  | Nat8  | -             | Layout version                                                            |
-  | INDEX          | 5      | 2                  | Nat16 | -             | Node's position in parent node                                            |
-  | COUNT          | 7      | 2                  | Nat16 | -             | Number of elements in the node                                            |
-  | PARENT         | 9      | 8                  | Nat64 | -             | Parent address                                                            |
-  | PREV           | 17     | 8                  | Nat64 | -             | Previous leaf address                                                     |
-  | NEXT           | 25     | 8                  | Nat64 | -             | Next leaf address                                                         |
-  | RESERVED       | 33     | 31                 | -     | -             | Extra space from header (size 64) for future use                          |
+  | INDEX          | 4      | 2                  | Nat16 | -             | Node's position in parent node                                            |
+  | COUNT          | 6      | 2                  | Nat16 | -             | Number of elements in the node                                            |
+  | PARENT         | 8      | 8                  | Nat64 | -             | Parent address                                                            |
+  | PREV           | 16     | 8                  | Nat64 | -             | Previous leaf address                                                     |
+  | NEXT           | 24     | 8                  | Nat64 | -             | Next leaf address                                                         |
+  | RESERVED       | 32     | 32                 | -     | -             | Extra space from header (size 64) for future use                          |
   | KV POINTERS    | 64     | 8 \* NODE_CAPACITY | Nat64 | -             | Unique addresses pointing to the key-value pair stored in the data region |
 
 #### Data Region (Keys)
