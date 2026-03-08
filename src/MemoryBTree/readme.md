@@ -63,8 +63,8 @@ As you might imagine, this function is used in almost every BTree operation beca
 As a result it is important that this function is efficient as possible.
 
 To address this, the `MemoryCmp` was created as a variant with two different types of comparison functions.
-The first one `#GenCmp` compares the keys in their generic type (this is original type of the entry before it is serialized).
-The second one `#BlobCmp` compares the keys in their serialized form as `Blob`s and avoids the overhead required to convert to their generic type.
+~~The first one `#GenCmp` compares the keys in their generic type (this is original type of the entry before it is serialized).~~ **`#GenCmp` is deprecated and has been removed.**
+The `#BlobCmp` compares the keys in their serialized form as `Blob`s and avoids the overhead required to convert to their generic type.
 
 - Here is an example creating the MemoryBTree's utilities with the default `TypeUtils` module
 
@@ -151,25 +151,9 @@ The second one `#BlobCmp` compares the keys in their serialized form as `Blob`s 
 
   - `MemoryCmp`
 
-    - `#GenCmp`
+    - ~~`#GenCmp`~~ (**Deprecated — removed**)
 
-    ```motoko
-      let gamer_cmp : TypeUtils.MemoryCmp<Gamer> = #GenCmp(
-        func(g1: Gamer, g2: Gamer) : Int8 {
-          if (g1.score > g2.score) return 1;
-          if (g1.score < g2.score) return -1;
-
-          // if the scores are equal compare their
-          // ids, so one doesn't overwrite the other
-          // and both gamer records stay unique
-
-          if (g1.id > g2.id) return 1;
-          if (g1.id < g2.id) return -1;
-
-          return 0;
-        }
-      );
-    ```
+      `#GenCmp` required deserializing blobs back to the original type before comparing, which was expensive and unsafe when tail-compressed branch separator keys were in use. It has been removed. Use `#BlobCmp` with an order-preserving `Blobify` encoding instead.
 
     - `#BlobCmp`
 
@@ -191,7 +175,7 @@ The second one `#BlobCmp` compares the keys in their serialized form as `Blob`s 
     Why does comparing just the blobs work?
 
     Both `MemoryCmp` functions sort the gamers by ascending order of their score in the tree.
-    It's easy to tell from the `#GenCmp` function but it is less apparent in the `#BlobCmp` function.
+    It's easy to tell from a typed comparison, but it is less apparent in the `#BlobCmp` function.
     The order of the keys in the `#BlobCmp` is derived from the `Blobify` function and the position of each piece of data within the returned blob.
     The position is important because the default blob comparison which is used here compares the byte at each index in the two blobs and continues this procees either until when it reaches an index where the bytes do not match or when one of the blobs terminates.
     The serialized `Gamer` value is a concatenation of all the fields in the `Gamer` record.
@@ -206,6 +190,20 @@ The second one `#BlobCmp` compares the keys in their serialized form as `Blob`s 
     In the case where the score blob in both serialized values are equal, the comparison would then compare the id field concatenated after the score.
 
     The id field here is important to differentiate between two `Gamer` records that have the same score so that they can be stored individually and avoid overwriting one another.
+
+> **⚠ Tail Compression and Custom Encodings**
+>
+> Tail compression is **enabled by default**. It works by truncating branch separator keys to the shortest blob prefix that still distinguishes the last key of the left node from the first key of the right node. This optimization is only correct when the blob encoding is **lexicographically order-preserving** — i.e., comparing a truncated blob with raw byte comparison must yield the same ordering as comparing full keys.
+>
+> The built-in `TypeUtils` types (`Nat`, `Int`, `Text`, `Blob`, etc.) all use lex-correct encodings. However, if you define a **custom `Blobify` function** whose encoding is **not** lex-order-preserving (for example, size-prefixed variable-length fields, little-endian integers, or any scheme where a common prefix does not imply a common value prefix), you **must** disable tail compression:
+>
+> ```motoko
+> let mbtree = MemoryBTree.newWithOptions({
+>   node_capacity = null;
+>   is_tail_compression_enabled = ?false;
+>   merge_threshold = null;
+> });
+> ```
 
 ### Memory Layout
 
@@ -338,7 +336,7 @@ Benchmarking the performance with 10k entries
 | BTree                    | 165_175_957 | 134_436_580 | 139_951_085 | 10_941_491 | 184_865_583 |
 | B+Tree                   | 231_122_916 | 133_769_004 | 140_488_566 |  4_731_896 | 245_803_357 |
 | Memory B+Tree (#BlobCmp) | 417_745_140 | 338_605_940 | 355_602_854 | 39_788_860 | 483_281_121 |
-| Memory B+Tree (#GenCmp)  | 522_998_371 | 443_240_923 | 460_237_837 | 39_789_424 | 576_474_634 |
+| ~~Memory B+Tree (#GenCmp)~~ *(deprecated)* | 522_998_371 | 443_240_923 | 460_237_837 | 39_789_424 | 576_474_634 |
 
 **Heap**
 
@@ -348,13 +346,13 @@ Benchmarking the performance with 10k entries
 | BTree                    | 1_217_704 |   481_728 | 1_154_500 |   602_524 |   1_953_100 |
 | B+Tree                   |   682_868 |   208_960 |   608_964 |     9_084 |     208_964 |
 | Memory B+Tree (#BlobCmp) | 8_333_344 | 4_362_312 | 4_602_316 |   889_328 | -19_071_248 |
-| Memory B+Tree (#GenCmp)  | 8_333_344 | 4_362_312 | 4_602_316 |   889_328 | -21_250_524 |
+| ~~Memory B+Tree (#GenCmp)~~ *(deprecated)* | 8_333_344 | 4_362_312 | 4_602_316 |   889_328 | -21_250_524 |
 
 ##### Notes and Limitations
 
 - Overall, the MemoryBTree performs slower than the heap based ordered trees due to the overhead of reading and writing to stable memory.
 - The comparison function is used internally to locate the correct node in the MemoryBTree during search, insertion and deletion operations.
-- The MemoryBTree with the `#BlobCmp` comparison function performs better than the `#GenCmp` comparison function. This is because the `#BlobCmp` comparison function avoids the overhead of deserializing the keys but requires that the keys be comparable in their serialized format. The `#GenCmp` comparison function converts the keys to the original generic type defined by the user before comparing them. As seen in the benchmark, this conversion is expensive and negatively impacts the performance of the B+Tree.
+- The MemoryBTree with the `#BlobCmp` comparison function performs better than the (now-removed) `#GenCmp` comparison function. `#BlobCmp` avoids the overhead of deserializing the keys but requires that the keys be comparable in their serialized format. `#GenCmp` converted the keys to the original generic type defined by the user before comparing them; this conversion was expensive and negatively impacted performance, and it was also unsafe when tail-compressed branch separator keys were present. **`#GenCmp` has been deprecated and removed — always use `#BlobCmp` with an order-preserving `Blobify` encoding.**
 
 #### BTree fanout
 

@@ -479,53 +479,6 @@ module Branch {
         MemoryRegion.loadNat64(btree.branches, branch_address + MC.SUBTREE_COUNT_START) |> Nat64.toNat(_);
     };
 
-    public func binary_search<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, address : Nat, cmp : (K, K) -> Int8, search_key : K, arr_len : Nat) : Int {
-        // assert Branch.validate(btree, address);
-        if (arr_len == 0) return -1; // should insert at index Int.abs(i + 1)
-        var l = 0;
-
-        // arr_len will always be between 4 and 512
-        var r = arr_len - 1 : Nat;
-
-        while (l < r) {
-            let mid = (l + r) / 2;
-
-            let ?key_blob = Branch.get_key_blob(btree, address, mid) else Debug.trap("1. binary_search_blob_seq: accessed a null value");
-            let key = btree_utils.key.blobify.from_blob(key_blob);
-
-            let result = cmp(search_key, key);
-
-            if (result == -1) {
-                r := mid;
-
-            } else if (result == 1) {
-                l := mid + 1;
-            } else {
-                return mid;
-            };
-        };
-
-        let insertion = l;
-
-        // Check if the insertion point is valid
-        // return the insertion point but negative and subtracting 1 indicating that the key was not found
-        // such that the insertion index for the key is Int.abs(insertion) - 1
-        // [0,  1,  2]
-        //  |   |   |
-        // -1, -2, -3
-        switch (Branch.get_key_blob(btree, address, insertion)) {
-            case (?(key_blob)) {
-                let key = btree_utils.key.blobify.from_blob(key_blob);
-                let result = cmp(search_key, key);
-
-                if (result == 0) insertion else if (result == -1) -(insertion + 1) else -(insertion + 2);
-            };
-            case (_) {
-                Debug.trap("2. binary_search: accessed a null value");
-            };
-        };
-    };
-
     public func binary_search_blob_seq(btree : MemoryBTree, address : Nat, cmp : (Blob, Blob) -> Int8, search_key : Blob, arr_len : Nat) : Int {
         // assert Branch.validate(btree, address);
         if (arr_len == 0) return -1; // should insert at index Int.abs(i + 1)

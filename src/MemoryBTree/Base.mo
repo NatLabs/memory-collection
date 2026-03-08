@@ -61,9 +61,18 @@ module {
         /// When enabled, separator keys are truncated to the minimum length needed to
         /// distinguish between the last key of the left node and the first key of the right node.
         /// This can significantly reduce memory usage for keys with common prefixes.
-        /// Note: Only works correctly with lexicographic comparison (e.g., Text, Blob keys).
-        /// For numeric types like Nat that use size-based comparison, this should be disabled.
-        /// Default is false.
+        ///
+        /// Requires that the key's blob encoding is lexicographically order-preserving
+        /// (i.e., raw byte comparison of any prefix must yield the same relative order as
+        /// comparing full keys). All built-in TypeUtils types satisfy this requirement.
+        ///
+        /// MUST be disabled if you are using a custom Blobify function that is NOT
+        /// lex-order-preserving — for example, size-prefixed variable-length fields,
+        /// little-endian integers, or any encoding where a truncated blob does not
+        /// preserve ordinal order. Enabling tail compression with such an encoding
+        /// will cause incorrect branch traversal and corrupted query results.
+        ///
+        /// Default is true.
         is_tail_compression_enabled : ?Bool;
 
         /// Merge threshold: nodes are considered "sparse" when they have fewer than
@@ -443,7 +452,6 @@ module {
         let count = Leaf.get_count(btree, leaf_address);
 
         let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
             case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
             };
@@ -633,7 +641,6 @@ module {
         let count = Leaf.get_count(btree, leaf_address);
 
         let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
             case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
             };
@@ -698,7 +705,6 @@ module {
         let count = Leaf.get_count(btree, leaf_address);
 
         let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
             case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
             };
@@ -720,7 +726,6 @@ module {
         let count = Leaf.get_count(btree, leaf_address);
 
         let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
             case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
             };
@@ -787,7 +792,6 @@ module {
         var leaf_count = Leaf.get_count(btree, leaf_address);
 
         let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search(btree, btree_utils, leaf_address, cmp, key, leaf_count);
             case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, leaf_count);
             };
@@ -1058,7 +1062,6 @@ module {
         let leaf_address = Methods.get_leaf_address<K, V>(btree, btree_utils, key, ?key_blob);
 
         let i = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, Leaf.get_count(btree, leaf_address));
             case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, Leaf.get_count(btree, leaf_address));
             };
@@ -1086,7 +1089,6 @@ module {
         let leaf_address = Methods.get_leaf_address<K, V>(btree, btree_utils, key, ?key_blob);
 
         let i = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, Leaf.get_count(btree, leaf_address));
             case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, Leaf.get_count(btree, leaf_address));
             };
@@ -1130,7 +1132,6 @@ module {
 
         let count = Leaf.get_count(btree, leaf_address);
         let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
             case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
             };
@@ -1156,7 +1157,6 @@ module {
 
         let count = Leaf.get_count(btree, leaf_address);
         let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
             case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
             };
@@ -1266,7 +1266,6 @@ module {
 
         let start_index = switch (start) {
             case (?key) switch (btree_utils.key.cmp) {
-                case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, start_address, cmp, key, Leaf.get_count(btree, start_address));
                 case (#BlobCmp(cmp)) {
                     let key_blob = btree_utils.key.blobify.to_blob(key);
                     Leaf.binary_search_blob_seq(btree, start_address, cmp, key_blob, Leaf.get_count(btree, start_address));
@@ -1289,7 +1288,6 @@ module {
 
         let end_index = switch (end) {
             case (?key) switch (btree_utils.key.cmp) {
-                case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, end_address, cmp, key, Leaf.get_count(btree, end_address));
                 case (#BlobCmp(cmp)) {
                     let key_blob = btree_utils.key.blobify.to_blob(key);
                     Leaf.binary_search_blob_seq(btree, end_address, cmp, key_blob, Leaf.get_count(btree, end_address));

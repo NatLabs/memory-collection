@@ -14,7 +14,6 @@ import { BpTree; Cmp } "mo:augmented-btrees";
 
 import MemoryBTree "../../src/MemoryBTree/Base";
 import TypeUtils "../../src/TypeUtils";
-import Int8Cmp "../../src/TypeUtils/Int8Cmp";
 module {
 
     type MemoryBTree = MemoryBTree.MemoryBTree;
@@ -32,7 +31,6 @@ module {
             "BTree",
             "B+Tree",
             "Memory B+Tree (#BlobCmp)",
-            "Memory B+Tree (#GenCmp)",
         ]);
         bench.cols([
             "insert()",
@@ -49,7 +47,6 @@ module {
         let rbtree = RBTree.RBTree<Text, Text>(Text.compare);
         let btree = BTree.init<Text, Text>(?32);
         let bptree = BpTree.new<Text, Text>(?128);
-        let mem_btree = MemoryBTree.new(?128);
         let mem_btree_blob_cmp = MemoryBTree.new(?128);
 
         let entries = Buffer.Buffer<(Text, Text)>(limit);
@@ -156,7 +153,6 @@ module {
         };
 
         let btree_utils = MemoryBTree.createUtils({ TypeUtils.Text with cmp = TypeUtils.MemoryCmp.Default }, TypeUtils.Text);
-        let ds_text_utils = MemoryBTree.createUtils({ TypeUtils.Text with cmp = #GenCmp(Int8Cmp.Text) }, TypeUtils.Text);
 
         bench.runner(
             func(col, row) = switch (col, row) {
@@ -309,10 +305,6 @@ module {
 
                 case ("Memory B+Tree (#BlobCmp)", category) {
                     run_bench("Memory B+Tree", category, mem_btree_blob_cmp, btree_utils);
-                };
-
-                case ("Memory B+Tree (#GenCmp)", category) {
-                    run_bench("Memory B+Tree", category, mem_btree, ds_text_utils);
                 };
                 case (_) {
                     Debug.trap("Should not reach with row = " # debug_show row # " and col = " # debug_show col);
