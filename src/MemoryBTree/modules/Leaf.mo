@@ -470,7 +470,8 @@ module Leaf {
   };
 
   /// Calculates the optimal split position for a B-tree leaf node when inserting a new key.
-  /// This function finds the best place to split a full leaf node, optimizing for tail compression.
+  /// This function finds the best place to split a full leaf node, maximizing the shared prefix in the keys of the resulting left and right nodes.
+  /// This helps in optimizing both tail and prefix compression, which can significantly reduce storage and improve performance for certain key distributions.
   ///
   /// The function searches within a range bounded by merge_threshold to ensure both resulting
   /// nodes have enough elements to avoid immediate merging after deletions:

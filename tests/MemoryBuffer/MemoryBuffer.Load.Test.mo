@@ -227,6 +227,7 @@ suite(
               Debug.print("memory region free memory: " # debug_show (MemoryRegion.getFreeMemory(mbuffer.blobs)));
               assert false;
             };
+
             assert MemoryRegion.isFreed(mbuffer.blobs, _memory_block.0, _memory_block.1) == #ok(false);
 
           };
