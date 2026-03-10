@@ -953,6 +953,324 @@ func btree_tests(memory_btree_options : MemoryBTree.BTreeOptions) {
                 },
             );
 
+            // ── insertBatch tests ────────────────────────────────────────────────
+
+            test(
+                "insertBatch: empty batch returns empty array",
+                func() {
+                    MemoryBTree.clear(btree);
+                    let result = MemoryBTree.insertBatch(btree, btree_utils, []);
+                    assert result.size() == 0;
+                    assert MemoryBTree.size(btree) == 0;
+                },
+            );
+
+            test(
+                "insertBatch: all new keys - correctness and structural validity",
+                func() {
+                    MemoryBTree.clear(btree);
+                    let map = Map.new<Nat, Nat>();
+
+                    // Build a batch of 100 distinct keys not in the tree
+                    let batch_size = 100;
+                    let batch = Array.tabulate<(Nat, Nat)>(batch_size, func(i : Nat) : (Nat, Nat) { (i * 3 + 1, i * 7 + 2) });
+
+                    for ((k, v) in batch.vals()) {
+                        ignore Map.put(map, nhash, k, v);
+                    };
+
+                    let results = MemoryBTree.insertBatch(btree, btree_utils, batch);
+
+                    // All previous values should be null (new keys)
+                    for (r in results.vals()) {
+                        assert r == null;
+                    };
+
+                    assert MemoryBTree.size(btree) == batch_size;
+
+                    // Every key must be retrievable with the correct value
+                    for ((k, v) in batch.vals()) {
+                        if (MemoryBTree.get(btree, btree_utils, k) != ?v) {
+                            Debug.print("insertBatch all-new: mismatch for key " # debug_show k);
+                            assert false;
+                        };
+                    };
+
+                    // Subtree-size invariant
+                    let subtree_size = if (btree.is_root_a_leaf) Leaf.get_count(btree, btree.root) else Branch.get_subtree_size(btree, btree.root);
+                    assert subtree_size == MemoryBTree.size(btree);
+
+                    assert Methods.validate_memory(btree, btree_utils);
+
+                    MemoryBTree.clear(btree);
+                },
+            );
+
+            test(
+                "insertBatch: replacements return previous values",
+                func() {
+                    MemoryBTree.clear(btree);
+
+                    // Pre-populate with keys 0..49
+                    let initial = Array.tabulate<(Nat, Nat)>(50, func(i : Nat) : (Nat, Nat) { (i, i * 10) });
+                    ignore MemoryBTree.insertBatch(btree, btree_utils, initial);
+                    assert MemoryBTree.size(btree) == 50;
+
+                    // Replace the same 50 keys with new values
+                    let replacements = Array.tabulate<(Nat, Nat)>(50, func(i : Nat) : (Nat, Nat) { (i, i * 20) });
+                    let results = MemoryBTree.insertBatch(btree, btree_utils, replacements);
+
+                    // Size must not change
+                    assert MemoryBTree.size(btree) == 50;
+
+                    // Each result must be the old value
+                    for (i in Iter.range(0, 49)) {
+                        if (results[i] != ?(i * 10)) {
+                            Debug.print("insertBatch replacement: wrong prev value at i=" # debug_show i # " got=" # debug_show results[i]);
+                            assert false;
+                        };
+                    };
+
+                    // New values must be stored
+                    for (i in Iter.range(0, 49)) {
+                        if (MemoryBTree.get(btree, btree_utils, i) != ?(i * 20)) {
+                            Debug.print("insertBatch replacement: wrong stored value at i=" # debug_show i);
+                            assert false;
+                        };
+                    };
+
+                    let subtree_size = if (btree.is_root_a_leaf) Leaf.get_count(btree, btree.root) else Branch.get_subtree_size(btree, btree.root);
+                    assert subtree_size == MemoryBTree.size(btree);
+
+                    assert Methods.validate_memory(btree, btree_utils);
+
+                    MemoryBTree.clear(btree);
+                },
+            );
+
+            test(
+                "insertBatch: mixed new and replacement keys",
+                func() {
+                    MemoryBTree.clear(btree);
+                    let map = Map.new<Nat, Nat>();
+
+                    // Insert keys 0..49 first
+                    for (i in Iter.range(0, 49)) {
+                        ignore MemoryBTree.insert(btree, btree_utils, i, i * 10);
+                        ignore Map.put(map, nhash, i, i * 10);
+                    };
+
+                    // Batch: keys 25..124 (25 replacements + 75 new)
+                    let batch = Array.tabulate<(Nat, Nat)>(100, func(i : Nat) : (Nat, Nat) { (i + 25, (i + 25) * 99) });
+                    for ((k, v) in batch.vals()) {
+                        ignore Map.put(map, nhash, k, v);
+                    };
+
+                    let results = MemoryBTree.insertBatch(btree, btree_utils, batch);
+
+                    // Expected total size: 125 unique keys
+                    assert MemoryBTree.size(btree) == 125;
+
+                    // Verify replacement results (keys 25..49 were pre-existing)
+                    for (i in Iter.range(0, 24)) {
+                        let expected_prev = ?((i + 25) * 10);
+                        if (results[i] != expected_prev) {
+                            Debug.print("mixed: wrong prev for key " # debug_show (i + 25) # " expected=" # debug_show expected_prev # " got=" # debug_show results[i]);
+                            assert false;
+                        };
+                    };
+                    // New keys 50..124 should return null
+                    for (i in Iter.range(25, 99)) {
+                        if (results[i] != null) {
+                            Debug.print("mixed: expected null for new key " # debug_show (i + 25) # " got=" # debug_show results[i]);
+                            assert false;
+                        };
+                    };
+
+                    // All values must match the map
+                    for ((k, v) in Map.entries(map)) {
+                        if (MemoryBTree.get(btree, btree_utils, k) != ?v) {
+                            Debug.print("mixed: value mismatch for key " # debug_show k);
+                            assert false;
+                        };
+                    };
+
+                    let subtree_size = if (btree.is_root_a_leaf) Leaf.get_count(btree, btree.root) else Branch.get_subtree_size(btree, btree.root);
+                    assert subtree_size == MemoryBTree.size(btree);
+
+                    assert Methods.validate_memory(btree, btree_utils);
+
+                    MemoryBTree.clear(btree);
+                },
+            );
+
+            test(
+                "insertBatch: batch causes leaf overflow / multiple leaf creation",
+                func() {
+                    MemoryBTree.clear(btree);
+
+                    // Fill a leaf nearly to capacity then insert a batch that causes multi-leaf creation
+                    let initial_count = btree.node_capacity - 1;
+                    let initial = Array.tabulate<(Nat, Nat)>(initial_count, func(i : Nat) : (Nat, Nat) { (i * 2, i) });
+                    ignore MemoryBTree.insertBatch(btree, btree_utils, initial);
+                    assert MemoryBTree.size(btree) == initial_count;
+
+                    // Insert enough new keys (odd numbers) to push well past capacity
+                    let overflow_count = btree.node_capacity + 10;
+                    let overflow = Array.tabulate<(Nat, Nat)>(overflow_count, func(i : Nat) : (Nat, Nat) { (i * 2 + 1, i + 1000) });
+                    let results = MemoryBTree.insertBatch(btree, btree_utils, overflow);
+
+                    // All should be new
+                    for (r in results.vals()) { assert r == null };
+
+                    let expected_total = initial_count + overflow_count;
+                    assert MemoryBTree.size(btree) == expected_total;
+
+                    // Verify all inserted values are accessible
+                    for ((k, v) in initial.vals()) {
+                        if (MemoryBTree.get(btree, btree_utils, k) != ?v) {
+                            Debug.print("overflow: initial key mismatch k=" # debug_show k);
+                            assert false;
+                        };
+                    };
+                    for ((k, v) in overflow.vals()) {
+                        if (MemoryBTree.get(btree, btree_utils, k) != ?v) {
+                            Debug.print("overflow: overflow key mismatch k=" # debug_show k);
+                            assert false;
+                        };
+                    };
+
+                    let subtree_size = if (btree.is_root_a_leaf) Leaf.get_count(btree, btree.root) else Branch.get_subtree_size(btree, btree.root);
+                    assert subtree_size == MemoryBTree.size(btree);
+
+                    assert Methods.validate_memory(btree, btree_utils);
+
+                    MemoryBTree.clear(btree);
+                },
+            );
+
+            test(
+                "insertBatch: duplicate keys within batch – last value wins",
+                func() {
+                    MemoryBTree.clear(btree);
+
+                    // Batch has key 42 at positions 0 and 2.  Position 2 (value 999) should win.
+                    let batch : [(Nat, Nat)] = [(42, 100), (10, 200), (42, 999), (20, 300)];
+                    let results = MemoryBTree.insertBatch(btree, btree_utils, batch);
+
+                    // Three distinct keys inserted
+                    assert MemoryBTree.size(btree) == 3;
+
+                    // Key 42 should have the last value
+                    assert MemoryBTree.get(btree, btree_utils, 42) == ?999;
+                    assert MemoryBTree.get(btree, btree_utils, 10) == ?200;
+                    assert MemoryBTree.get(btree, btree_utils, 20) == ?300;
+
+                    // The winner for key 42 (results[2]) gets the previous tree value (null)
+                    assert results[2] == null;
+
+                    let subtree_size = if (btree.is_root_a_leaf) Leaf.get_count(btree, btree.root) else Branch.get_subtree_size(btree, btree.root);
+                    assert subtree_size == MemoryBTree.size(btree);
+
+                    assert Methods.validate_memory(btree, btree_utils);
+
+                    MemoryBTree.clear(btree);
+                },
+            );
+
+            test(
+                "insertBatch: results match sequential insert behaviour on random data",
+                func() {
+                    MemoryBTree.clear(btree);
+
+                    let batch_count = 100;
+
+                    // Use deterministic distinct keys for the pre-existing portion so there are
+                    // no accidental duplicates that would make result comparison non-trivial.
+                    let existing_count = 20;
+                    let existing = Array.tabulate<(Nat, Nat)>(existing_count, func(i : Nat) : (Nat, Nat) { (i + 1, i * 5) });
+
+                    for ((k, v) in existing.vals()) {
+                        ignore MemoryBTree.insert(btree, btree_utils, k, v);
+                    };
+
+                    // Build the full batch: existing keys (replacements) + new distinct keys.
+                    let new_keys = Array.tabulate<(Nat, Nat)>(batch_count - existing_count, func(i : Nat) : (Nat, Nat) { (50_001 + i, i * 3) });
+                    let batch = Array.append(existing, new_keys);
+
+                    // Reference: a separate tree with the same initial state and sequential inserts.
+                    let ref_btree = MemoryBTree.newWithOptions({ node_capacity = ?(btree.node_capacity); merge_threshold = null; is_tail_compression_enabled = null });
+                    for ((k, v) in existing.vals()) {
+                        ignore MemoryBTree.insert(ref_btree, btree_utils, k, v);
+                    };
+                    let ref_results = Array.map<(Nat, Nat), ?Nat>(
+                        batch,
+                        func((k, v)) = MemoryBTree.insert(ref_btree, btree_utils, k, v),
+                    );
+
+                    // insertBatch on the original tree.
+                    let batch_results = MemoryBTree.insertBatch(btree, btree_utils, batch);
+
+                    // Sizes must match.
+                    assert MemoryBTree.size(btree) == MemoryBTree.size(ref_btree);
+
+                    // Each returned previous value must match what sequential insert returns.
+                    for (i in Iter.range(0, batch_count - 1)) {
+                        if (batch_results[i] != ref_results[i]) {
+                            Debug.print("results mismatch at i=" # debug_show i # " batch=" # debug_show batch_results[i] # " ref=" # debug_show ref_results[i]);
+                            assert false;
+                        };
+                    };
+
+                    // All stored values must match the reference tree.
+                    for ((k, _) in batch.vals()) {
+                        if (MemoryBTree.get(btree, btree_utils, k) != MemoryBTree.get(ref_btree, btree_utils, k)) {
+                            Debug.print("value mismatch after insertBatch for key " # debug_show k);
+                            assert false;
+                        };
+                    };
+
+                    let subtree_size = if (btree.is_root_a_leaf) Leaf.get_count(btree, btree.root) else Branch.get_subtree_size(btree, btree.root);
+                    assert subtree_size == MemoryBTree.size(btree);
+
+                    assert Methods.validate_memory(btree, btree_utils);
+
+                    MemoryBTree.clear(btree);
+                },
+            );
+
+            test(
+                "insertBatch: large batch spanning many leaves",
+                func() {
+                    MemoryBTree.clear(btree);
+                    let map = Map.new<Nat, Nat>();
+
+                    let large_batch_size = 500;
+                    let large_batch = Array.tabulate<(Nat, Nat)>(large_batch_size, func(i : Nat) : (Nat, Nat) { (i, i * 13 + 7) });
+                    for ((k, v) in large_batch.vals()) { ignore Map.put(map, nhash, k, v) };
+
+                    let results = MemoryBTree.insertBatch(btree, btree_utils, large_batch);
+
+                    assert MemoryBTree.size(btree) == large_batch_size;
+
+                    for (r in results.vals()) { assert r == null };
+
+                    for ((k, v) in large_batch.vals()) {
+                        if (MemoryBTree.get(btree, btree_utils, k) != ?v) {
+                            Debug.print("large batch: mismatch for key " # debug_show k);
+                            assert false;
+                        };
+                    };
+
+                    let subtree_size = if (btree.is_root_a_leaf) Leaf.get_count(btree, btree.root) else Branch.get_subtree_size(btree, btree.root);
+                    assert subtree_size == MemoryBTree.size(btree);
+
+                    assert Methods.validate_memory(btree, btree_utils);
+
+                    MemoryBTree.clear(btree);
+                },
+            );
+
         },
     );
 };
