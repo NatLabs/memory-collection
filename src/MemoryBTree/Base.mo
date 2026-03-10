@@ -858,12 +858,13 @@ module {
             },
         );
 
-        // Sort by key blob.
+        // Sort by key blob; for equal keys, sort by ascending original index so that
+        // the last occurrence (highest index) ends up last in each duplicate group.
         let sorted = Array.sort<(Blob, Blob, Nat)>(
             blobified,
-            func((kb1, _, _), (kb2, _, _)) : Order.Order {
+            func((kb1, _, i1), (kb2, _, i2)) : Order.Order {
                 let r = cmp(kb1, kb2);
-                if (r < 0) #less else if (r > 0) #greater else #equal;
+                if (r < 0) #less else if (r > 0) #greater else if (i1 < i2) #less else if (i1 > i2) #greater else #equal;
             },
         );
 
