@@ -1,15 +1,20 @@
-import Debug "mo:base@0.14.11/Debug";
-import Iter "mo:base@0.14.11/Iter";
-import Int "mo:base@0.14.11/Int";
-import Nat "mo:base@0.14.11/Nat";
-import Option "mo:base@0.14.11/Option";
-import Nat8 "mo:base@0.14.11/Nat8";
-import Nat16 "mo:base@0.14.11/Nat16";
-import Nat32 "mo:base@0.14.11/Nat32";
-import Nat64 "mo:base@0.14.11/Nat64";
-import Blob "mo:base@0.14.11/Blob";
+import Debug "mo:base@0.14.13/Debug";
+import Array "mo:base@0.14.13/Array";
+import Buffer "mo:base@0.14.13/Buffer";
+import Iter "mo:base@0.14.13/Iter";
+import Int "mo:base@0.14.13/Int";
+import Int64 "mo:base@0.14.13/Int64";
+import Nat "mo:base@0.14.13/Nat";
+import Option "mo:base@0.14.13/Option";
+import Nat8 "mo:base@0.14.13/Nat8";
+import Nat16 "mo:base@0.14.13/Nat16";
+import Nat32 "mo:base@0.14.13/Nat32";
+import Nat64 "mo:base@0.14.13/Nat64";
+import Blob "mo:base@0.14.13/Blob";
+import Float "mo:base@0.14.13/Float";
+import Order "mo:base@0.14.13/Order";
 
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.4.0/MemoryRegion";
 import RevIter "mo:itertools@0.2.2/RevIter";
 
 import MemoryCmp "../TypeUtils/MemoryCmp";
@@ -19,9 +24,11 @@ import MemoryBlock "modules/MemoryBlock";
 import Branch "modules/Branch";
 import Utils "../Utils";
 import Migrations "Migrations";
-import Leaf "modules/Leaf";
+import BranchModule "modules/Branch";
+import LeafModule "modules/Leaf";
 import T "modules/Types";
 import TypeUtils "../TypeUtils";
+import Common "modules/Common";
 
 module {
     type Address = Nat;
@@ -41,15 +48,80 @@ module {
 
     public type BTreeUtils<K, V> = T.BTreeUtils<K, V>;
     public type MemoryBTreeStats = T.MemoryBTreeStats;
+    public type MergeStrategy = Migrations.MergeStrategy;
+    public type BranchNodeKeys = Methods.BranchNodeKeys;
 
-    let CACHE_LIMIT = 50_000;
-    let DEFAULT_ORDER = 256;
+    public let Leaf = LeafModule;
+    public let Branch = BranchModule;
 
-    public func _new_with_options(node_capacity : ?Nat, opt_cache_size : ?Nat, is_set : Bool) : MemoryBTree {
-        let cache_size = Option.get(opt_cache_size, CACHE_LIMIT);
+    /// Options for creating a new MemoryBTree.
+    public type BTreeOptions = {
+        /// The maximum number of children per node. Must be between 16 and 4096.
+        /// Default is 256.
+        node_capacity : ?Nat;
+
+        /// Enable tail compression for separator keys.
+        /// When enabled, separator keys are truncated to the minimum length needed to
+        /// distinguish between the last key of the left node and the first key of the right node.
+        /// This can significantly reduce memory usage for keys with common prefixes.
+        ///
+        /// Requires that the key's blob encoding is lexicographically order-preserving
+        /// (i.e., raw byte comparison of any prefix must yield the same relative order as
+        /// comparing full keys). All built-in TypeUtils types satisfy this requirement.
+        ///
+        /// MUST be disabled if you are using a custom Blobify function that is NOT
+        /// lex-order-preserving — for example, size-prefixed variable-length fields,
+        /// little-endian integers, or any encoding where a truncated blob does not
+        /// preserve ordinal order. Enabling tail compression with such an encoding
+        /// will cause incorrect branch traversal and corrupted query results.
+        ///
+        /// Default is true.
+        is_tail_compression_enabled : ?Bool;
+
+        /// Merge threshold: nodes are considered "sparse" when they have fewer than
+        /// (node_capacity * merge_threshold) elements.
+        /// - For #Conservative: merge only when BOTH nodes are below this threshold
+        /// - For #Balanced: merge when EITHER node is below threshold AND combined fits
+        /// This threshold also affects optimal split position selection when tail compression is enabled:
+        /// splits occur at positions > merge_threshold_count and < (node_capacity - merge_threshold_count)
+        /// to ensure both resulting nodes have enough elements to avoid immediate merging.
+        /// Default is 0.25 (1/4 capacity).
+        merge_threshold : ?Float;
+    };
+
+    let default_options = {
+        node_capacity = 256;
+        is_tail_compression_enabled = true;
+        merge_threshold = 0.25;
+    };
+
+    public let defaultOptions : BTreeOptions = {
+        node_capacity = null;
+        is_tail_compression_enabled = null;
+        merge_threshold = null;
+    };
+
+    public func _new_with_options(options : ?BTreeOptions, is_set : Bool) : MemoryBTree {
+        let btree_options = Option.get(options, defaultOptions);
+
+        let node_capacity = Option.get(btree_options.node_capacity, default_options.node_capacity);
+
+        if (node_capacity < 4 or node_capacity > 4096) {
+            Debug.trap("MemoryBTree node_capacity must be between 4 and 4096");
+        };
+
+        let is_tail_compression_enabled = Option.get(btree_options.is_tail_compression_enabled, default_options.is_tail_compression_enabled);
+        let merge_threshold = Option.get(btree_options.merge_threshold, default_options.merge_threshold);
+
+        // Calculate merge_threshold_count from merge_threshold * node_capacity
+        let merge_threshold_count : Nat = Float.toInt(Float.fromInt(node_capacity) * merge_threshold)
+        |> Int.abs(_)
+        |> Nat.max(_, 2)
+        |> Nat.min(_, node_capacity / 2);
+
         let btree : MemoryBTree = {
             is_set;
-            node_capacity = Option.get(node_capacity, DEFAULT_ORDER);
+            node_capacity;
 
             var count = 0;
             var root = 0;
@@ -63,13 +135,14 @@ module {
             data = MemoryRegion.new();
             values = MemoryRegion.new();
 
+            is_tail_compression_enabled;
+            var merge_threshold_count;
         };
 
         init_region_header(btree);
 
         let leaf_address = Leaf.new(btree);
-        Leaf.update_depth(btree, leaf_address, 1);
-        assert Leaf.get_depth(btree, leaf_address) == 1;
+        // assert Leaf.validate(btree, leaf_address);
 
         update_leaf_count(btree, 1);
         update_root(btree, leaf_address);
@@ -79,12 +152,24 @@ module {
         return btree;
     };
 
-    // public func new_set(node_capacity : ?Nat, cache_size : ?Nat) : MemoryBTree {
-    //     _new_with_options(node_capacity, cache_size, true);
-    // };
+    /// Create a new MemoryBTree with the given options.
+    /// If options is null, default values are used.
+    public func newWithOptions(options : BTreeOptions) : MemoryBTree {
+        _new_with_options(?options, false);
+    };
 
+    /// Create a new MemoryBTree with the given node capacity.
+    /// For more configuration options, use `newWithOptions`.
     public func new(node_capacity : ?Nat) : MemoryBTree {
-        _new_with_options(node_capacity, ?0, false);
+        let options : ?BTreeOptions = switch (node_capacity) {
+            case (?cap) ?{
+                node_capacity = ?cap;
+                is_tail_compression_enabled = null;
+                merge_threshold = null;
+            };
+            case (null) null;
+        };
+        _new_with_options(options, false);
     };
 
     public let POINTER_SIZE = 12;
@@ -107,9 +192,14 @@ module {
             IS_ROOT_A_LEAF_ADDRESS = 31; // 1 byte
             VALUES_REGION_ID_ADDRESS = 32; // 4 bytes
 
+            // New configuration fields (v1.0.0)
+            IS_TAIL_COMPRESSION_ENABLED_ADDRESS = 36; // 1 byte (0 = false, 1 = true)
+            MERGE_THRESHOLD_COUNT_ADDRESS = 37; // 2 bytes (number of elements left in a node before merging is allowed)
+            // Total: 39 bytes used, 25 bytes reserved for future use
+
             // values
             MAGIC : Blob = "BTR";
-            LAYOUT_VERSION : Nat8 = 0;
+            LAYOUT_VERSION : Nat8 = 1; // Updated to version 1 for new fields
         };
 
         VALUES = {
@@ -163,6 +253,9 @@ module {
         MemoryRegion.storeNat8(btree.data, MC.DATA.DEPTH_ADDRESS, 0);
         MemoryRegion.storeNat8(btree.data, MC.DATA.IS_ROOT_A_LEAF_ADDRESS, 0);
         MemoryRegion.storeNat32(btree.data, MC.DATA.VALUES_REGION_ID_ADDRESS, Nat32.fromNat(MemoryRegion.id(btree.values)));
+        // Store new configuration fields
+        MemoryRegion.storeNat8(btree.data, MC.DATA.IS_TAIL_COMPRESSION_ENABLED_ADDRESS, if (btree.is_tail_compression_enabled) 1 else 0);
+        MemoryRegion.storeNat16(btree.data, MC.DATA.MERGE_THRESHOLD_COUNT_ADDRESS, Nat16.fromNat(btree.merge_threshold_count));
         assert MemoryRegion.allocated(btree.data) == MC.REGION_HEADER_SIZE;
 
         ignore MemoryRegion.allocate(btree.values, MC.REGION_HEADER_SIZE);
@@ -270,6 +363,30 @@ module {
         btree.branch_count + btree.leaf_count;
     };
 
+    public func isTailCompressionEnabled(btree : MemoryBTree) : Bool {
+        btree.is_tail_compression_enabled;
+    };
+
+    public func mergeThresholdCount(btree : MemoryBTree) : Nat {
+        btree.merge_threshold_count;
+    };
+
+    public func nodeCapacity(btree : MemoryBTree) : Nat {
+        btree.node_capacity;
+    };
+
+    public func config(btree : MemoryBTree) : {
+        node_capacity : Nat;
+        is_tail_compression_enabled : Bool;
+        merge_threshold_count : Nat;
+    } {
+        {
+            node_capacity = nodeCapacity(btree);
+            is_tail_compression_enabled = isTailCompressionEnabled(btree);
+            merge_threshold_count = mergeThresholdCount(btree);
+        };
+    };
+
     public func stats(btree : MemoryBTree) : MemoryBTreeStats {
         {
             allocatedPages = allocatedPages(btree);
@@ -319,6 +436,13 @@ module {
         MemoryRegion.storeNat8(btree.data, MC.DATA.IS_ROOT_A_LEAF_ADDRESS, if (is_leaf) 1 else 0);
     };
 
+    func update_merge_threshold_count(btree : MemoryBTree, merge_threshold : Float) {
+        let merge_threshold_count : Nat = Float.toInt(Float.fromInt(btree.node_capacity) * merge_threshold)
+        |> Int.abs(_);
+        btree.merge_threshold_count := merge_threshold_count;
+        MemoryRegion.storeNat16(btree.data, MC.DATA.MERGE_THRESHOLD_COUNT_ADDRESS, Nat16.fromNat(merge_threshold_count));
+    };
+
     func inc_subtree_size(btree : MemoryBTree, branch_address : Nat, _child_index : Nat) {
         let subtree_size = Branch.get_subtree_size(btree, branch_address);
         Branch.update_subtree_size(btree, branch_address, subtree_size + 1);
@@ -331,7 +455,6 @@ module {
         let count = Leaf.get_count(btree, leaf_address);
 
         let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
             case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
             };
@@ -368,53 +491,90 @@ module {
         var left_node_address = leaf_address;
         var right_node_address = Leaf.split(btree, left_node_address, elem_index, kv_address);
         update_leaf_count(btree, btree.leaf_count + 1);
-        // Debug.print("left leaf after split: " # debug_show Leaf.from_memory(btree, left_node_address));
-        // Debug.print("right leaf after split: " # debug_show Leaf.from_memory(btree, right_node_address));
 
-        var opt_parent = Leaf.get_parent(btree, right_node_address);
-        var right_index = Leaf.get_index(btree, right_node_address);
+        // Get the separator key using tail compression if enabled
+        let ?right_node_first_key = Leaf.get_key_blob(btree, right_node_address, 0) else Debug.trap("insert: right_node_first_key accessed a null value");
+        let separator_key = if (btree.is_tail_compression_enabled) {
+            let left_node_count = Leaf.get_count(btree, left_node_address);
+            let ?left_node_last_key = Leaf.get_key_blob(btree, left_node_address, left_node_count - 1) else Debug.trap("insert: left_node_last_key accessed a null value");
+            Common.get_tail_compressed_separator(left_node_last_key, right_node_first_key);
+        } else {
+            right_node_first_key;
+        };
+        let separator_key_address = MemoryBlock.Branch.store_key_blob(btree, separator_key);
 
-        let ?first_key_address = Leaf.get_kv_address(btree, right_node_address, 0) else Debug.trap("insert: first_key_address accessed a null value");
-        var separator_key_address = first_key_address;
+        // Propagate the split upward through parent branches, creating a new root if needed
+        propagate_node_split(btree, left_node_address, right_node_address, separator_key_address, true);
+        update_count(btree, btree.count + 1);
 
-        // assert Leaf.get_count(btree, left_node_address) == (btree.node_capacity / 2) + 1;
-        // assert Leaf.get_count(btree, right_node_address) == (btree.node_capacity / 2);
+        null;
+    };
+
+    // ─── Private helpers shared by insert() and insertBatch() ─────────────────
+
+    /// Returns the right-separator blob for `leaf_addr`: the branch key that separates
+    /// this leaf from its right sibling.  Walks up the parent chain when the leaf is the
+    /// rightmost child of its parent.  Returns null when the leaf is the rightmost leaf in
+    /// the whole tree (no right boundary exists).
+    func get_right_separator_of_leaf(btree : MemoryBTree, leaf_addr : Nat) : ?Blob {
+        var curr_is_leaf = true;
+        var curr_addr = leaf_addr;
+        loop {
+            let curr_index = if (curr_is_leaf) Leaf.get_index(btree, curr_addr) else Branch.get_index(btree, curr_addr);
+            let opt_parent = if (curr_is_leaf) Leaf.get_parent(btree, curr_addr) else Branch.get_parent(btree, curr_addr);
+            switch (opt_parent) {
+                case (null) return null; // at root – no right boundary
+                case (?parent_addr) {
+                    let parent_count = Branch.get_count(btree, parent_addr);
+                    // Separator key at index i separates child i from child i+1.
+                    // Right separator for a child at index curr_index is key[curr_index].
+                    if (curr_index + 1 < parent_count) {
+                        return Branch.get_key_blob(btree, parent_addr, curr_index);
+                    };
+                    // Rightmost child of this parent – climb one level higher.
+                    curr_addr := parent_addr;
+                    curr_is_leaf := false;
+                };
+            };
+        };
+    };
+
+    /// Propagates a node split (leaf or branch) upward through the parent chain.
+    /// When `is_leaf_split` is true the initial right node is a leaf; otherwise it is a branch.
+    /// Handles cascading branch splits and creates a new root when no parent exists.
+    /// Does NOT update `btree.count` or subtree sizes (those are the caller's responsibility).
+    func propagate_node_split(btree : MemoryBTree, initial_left : Nat, initial_right : Nat, initial_sep : UniqueId, is_leaf_split : Bool) {
+        var left_node_address = initial_left;
+        var right_node_address = initial_right;
+        var separator_key_address = initial_sep;
+
+        var opt_parent = if (is_leaf_split) Leaf.get_parent(btree, right_node_address) else Branch.get_parent(btree, right_node_address);
+        var right_index = if (is_leaf_split) Leaf.get_index(btree, right_node_address) else Branch.get_index(btree, right_node_address);
 
         while (Option.isSome(opt_parent)) {
-
-            let ?parent_address = opt_parent else Debug.trap("insert: Failed to get parent address");
-
+            let ?parent_address = opt_parent else Debug.trap("propagate_node_split: null parent");
             let parent_count = Branch.get_count(btree, parent_address);
 
-            // insert right node in parent if there is enough space
             if (parent_count < btree.node_capacity) {
-                // Debug.print("found branch with enough space");
-                // Debug.print("parent before insert: " # debug_show Branch.from_memory(btree, parent_address));
-
-                Branch.insert(btree, parent_address, right_index, separator_key_address, right_node_address);
-                update_count(btree, btree.count + 1);
-
-                // Debug.print("parent after insert: " # debug_show Branch.from_memory(btree, parent_address));
-
-                return null;
+                // Parent has room: simply insert the right node.
+                Branch.insert_with_count(btree, parent_address, right_index, separator_key_address, right_node_address, parent_count);
+                return;
             };
 
-            // otherwise split parent
+            // Parent is full – split it.
+            // Note: We do NOT apply tail compression here during branch splits.
+            // Separator keys are already potentially compressed from leaf splits.
             left_node_address := parent_address;
-            right_node_address := Branch.split(btree, left_node_address, right_index, separator_key_address, right_node_address);
+            let (new_right_address, new_sep_addr) = Branch.split(btree, left_node_address, right_index, separator_key_address, right_node_address);
+            right_node_address := new_right_address;
+            separator_key_address := new_sep_addr;
             update_branch_count(btree, btree.branch_count + 1);
-
-            let ?first_key_address = Branch.get_key_address(btree, right_node_address, btree.node_capacity - 2) else Debug.trap("4. insert: accessed a null value in first key of branch");
-            Branch.set_key_address_to_null(btree, right_node_address, btree.node_capacity - 2);
-            separator_key_address := first_key_address;
 
             right_index := Branch.get_index(btree, right_node_address);
             opt_parent := Branch.get_parent(btree, right_node_address);
-
         };
 
-        // Debug.print("new root");
-        // new root
+        // No parent exists – create a new root one level higher.
         let new_root = Branch.new(btree);
         update_branch_count(btree, btree.branch_count + 1);
 
@@ -423,18 +583,327 @@ module {
         assert Branch.get_depth(btree, new_root) == new_depth;
 
         Branch.put_key_address(btree, new_root, 0, separator_key_address);
-
         Branch.add_child(btree, new_root, left_node_address);
         Branch.add_child(btree, new_root, right_node_address);
-
         assert Branch.get_count(btree, new_root) == 2;
 
         update_root(btree, new_root);
         update_is_root_a_leaf(btree, false);
         update_depth(btree, new_depth);
-        update_count(btree, btree.count + 1);
+    };
 
-        null;
+    /// Recomputes `subtree_size` for every branch on the path from `leaf_addr` to the root.
+    /// At each level the size is set to the sum of its immediate children's subtree sizes (or leaf
+    /// counts when the branch stores leaves directly).  This is called after batch operations so
+    /// that subtree sizes remain correct even when new leaves were inserted via
+    /// `Branch.insert_with_count` (which does not update subtree sizes itself).
+    func recompute_subtree_sizes_on_path(btree : MemoryBTree, leaf_addr : Nat) {
+        var opt_parent = Leaf.get_parent(btree, leaf_addr);
+        loop {
+            switch (opt_parent) {
+                case (null) return;
+                case (?parent_addr) {
+                    let count = Branch.get_count(btree, parent_addr);
+                    let has_leaves = Branch.has_leaves(btree, parent_addr);
+                    var total = 0;
+                    var i = 0;
+                    while (i < count) {
+                        let ?child = Branch.get_child(btree, parent_addr, i) else Debug.trap("recompute_subtree_sizes_on_path: null child at " # debug_show i);
+                        total += switch (has_leaves) {
+                            case (true) Leaf.get_count(btree, child);
+                            case (false) Branch.get_subtree_size(btree, child);
+                        };
+                        i += 1;
+                    };
+                    Branch.update_subtree_size(btree, parent_addr, total);
+                    opt_parent := Branch.get_parent(btree, parent_addr);
+                };
+            };
+        };
+    };
+
+    /// Bulk-inserts a sorted slice `sorted[batch_start..batch_end)` of `(key_blob, val_blob,
+    /// orig_index)` tuples into the single leaf `leaf_addr`.
+    ///
+    /// Algorithm
+    /// - Two-pointer merge of the leaf's existing entries with the batch.
+    /// - Batch-internal duplicate keys are collapsed: only the *last* occurrence (highest position
+    ///   in the sorted slice) is inserted; earlier occurrences are silently dropped and their
+    ///   `results` slot remains null.
+    /// - When the merged count fits in one leaf it is written in O(n) instead of N separate
+    ///   O(n) shifts.
+    /// - When the merged count overflows, the entries are distributed evenly across
+    ///   ceil(merged / capacity) leaf nodes, which are linked into the leaf list and propagated
+    ///   into the parent branches using `propagate_node_split`.  After all propagations the
+    ///   subtree sizes along every affected path are recomputed with
+    ///   `recompute_subtree_sizes_on_path`.
+    ///
+    /// Returns the net number of new (non-replacement) entries added.
+    func bulk_insert_into_leaf<K, V>(
+        btree : MemoryBTree,
+        btree_utils : BTreeUtils<K, V>,
+        leaf_addr : Nat,
+        sorted : [(Blob, Blob, Nat)],
+        batch_start : Nat,
+        batch_end : Nat,
+        results : [var ?V],
+        cmp : (Blob, Blob) -> Int8,
+    ) : Nat {
+        let leaf_count = Leaf.get_count(btree, leaf_addr);
+        let merged = Buffer.Buffer<UniqueId>(leaf_count + (batch_end - batch_start));
+
+        var li = 0; // index into the existing leaf entries
+        var bi = batch_start; // index into the sorted batch
+        var net_new = 0;
+
+        // ── Two-pointer merge ──────────────────────────────────────────────────
+        while (li < leaf_count and bi < batch_end) {
+            let ?leaf_kv_addr = Leaf.get_kv_address(btree, leaf_addr, li) else Debug.trap("insertBatch: null kv at leaf index " # debug_show li);
+            let leaf_key_blob = MemoryBlock.get_key_blob(btree, leaf_kv_addr);
+
+            // Advance bi past earlier duplicates in the batch (keep the last = highest index).
+            let curr_batch_kb = sorted[bi].0;
+            var final_bi = bi;
+            while (final_bi + 1 < batch_end and cmp(curr_batch_kb, sorted[final_bi + 1].0) == 0) {
+                final_bi += 1;
+            };
+            let (batch_key_blob, batch_val_blob, orig_i) = sorted[final_bi];
+
+            let r = cmp(batch_key_blob, leaf_key_blob);
+
+            if (r < 0) {
+                // Batch entry is smaller: insert as a new entry.
+                let new_kv = MemoryBlock.store(btree, batch_key_blob, batch_val_blob);
+                merged.add(new_kv);
+                net_new += 1;
+                bi := final_bi + 1;
+            } else if (r > 0) {
+                // Leaf entry is smaller: retain it unchanged.
+                merged.add(leaf_kv_addr);
+                li += 1;
+            } else {
+                // Keys match: replace the value in-place.
+                let prev_val_blob = MemoryBlock.replace_val(btree, leaf_kv_addr, batch_val_blob);
+                results[orig_i] := ?(btree_utils.value.blobify.from_blob(prev_val_blob));
+                merged.add(leaf_kv_addr); // same address; value already updated
+                li += 1;
+                bi := final_bi + 1;
+                // net_new unchanged: this is a replacement, not a new entry.
+            };
+        };
+
+        // Append remaining leaf entries.
+        while (li < leaf_count) {
+            let ?kv_addr = Leaf.get_kv_address(btree, leaf_addr, li) else Debug.trap("insertBatch: null remaining kv at " # debug_show li);
+            merged.add(kv_addr);
+            li += 1;
+        };
+
+        // Append remaining batch entries (all new; skip earlier duplicates).
+        while (bi < batch_end) {
+            let curr_kb = sorted[bi].0;
+            var final_bi = bi;
+            while (final_bi + 1 < batch_end and cmp(curr_kb, sorted[final_bi + 1].0) == 0) {
+                final_bi += 1;
+            };
+            let (kb, vb, _) = sorted[final_bi];
+            let new_kv = MemoryBlock.store(btree, kb, vb);
+            merged.add(new_kv);
+            net_new += 1;
+            bi := final_bi + 1;
+        };
+
+        // ── Fast path: no new entries ──────────────────────────────────────────
+        if (net_new == 0) {
+            // All batch entries were replacements; values updated in-place above.
+            // Leaf structure is unchanged – nothing left to do.
+            return 0;
+        };
+
+        let merged_count = merged.size();
+
+        // ── Single-leaf path: everything fits ─────────────────────────────────
+        if (merged_count <= btree.node_capacity) {
+            var k = 0;
+            while (k < merged_count) {
+                Leaf.put(btree, leaf_addr, k, merged.get(k));
+                k += 1;
+            };
+            Leaf.update_count(btree, leaf_addr, merged_count);
+            recompute_subtree_sizes_on_path(btree, leaf_addr);
+            return net_new;
+        };
+
+        // ── Multi-leaf path: distribute across multiple leaves ─────────────────
+        let num_leaves = (merged_count + btree.node_capacity - 1) / btree.node_capacity;
+        let base_count = merged_count / num_leaves;
+        let extra = merged_count % num_leaves; // first `extra` leaves get one additional entry
+
+        // Fill the existing (leftmost) leaf with its first portion.
+        let first_count = base_count + (if (extra > 0) 1 else 0);
+        var k = 0;
+        while (k < first_count) {
+            Leaf.put(btree, leaf_addr, k, merged.get(k));
+            k += 1;
+        };
+        Leaf.update_count(btree, leaf_addr, first_count);
+
+        var left_leaf = leaf_addr;
+        var merged_pos = first_count;
+        var leaf_num = 1;
+
+        // Keep track of all created leaves so we can recompute subtree sizes for
+        // all affected paths after every propagation is done.
+        let created_leaves = Buffer.Buffer<Nat>(num_leaves);
+        created_leaves.add(leaf_addr);
+
+        while (leaf_num < num_leaves) {
+            let this_count = base_count + (if (leaf_num < extra) 1 else 0);
+
+            // Allocate and initialise a new right sibling leaf.
+            let new_leaf = Leaf.new(btree);
+            Leaf.update_depth(btree, new_leaf, Leaf.get_depth(btree, left_leaf));
+            update_leaf_count(btree, btree.leaf_count + 1);
+
+            // Fill the new leaf.
+            var k2 = 0;
+            while (k2 < this_count) {
+                Leaf.put(btree, new_leaf, k2, merged.get(merged_pos));
+                merged_pos += 1;
+                k2 += 1;
+            };
+            Leaf.update_count(btree, new_leaf, this_count);
+
+            // Link the new leaf into the doubly-linked leaf chain.
+            let old_next = Leaf.get_next(btree, left_leaf);
+            Leaf.update_next(btree, left_leaf, ?new_leaf);
+            Leaf.update_prev(btree, new_leaf, ?left_leaf);
+            Leaf.update_next(btree, new_leaf, old_next);
+            switch (old_next) {
+                case (?next_addr) Leaf.update_prev(btree, next_addr, ?new_leaf);
+                case (null) {};
+            };
+
+            // Set initial parent/index – Branch.insert_with_count (called inside
+            // propagate_node_split) will overwrite these with the final values.
+            Leaf.update_parent(btree, new_leaf, Leaf.get_parent(btree, left_leaf));
+            Leaf.update_index(btree, new_leaf, Leaf.get_index(btree, left_leaf) + 1);
+
+            // Compute the separator key for insertion into the parent branch.
+            let ?first_kv_addr = Leaf.get_kv_address(btree, new_leaf, 0) else Debug.trap("insertBatch: null first kv in new leaf");
+            let right_first_key = MemoryBlock.get_key_blob(btree, first_kv_addr);
+            let separator_key = if (btree.is_tail_compression_enabled) {
+                let left_count2 = Leaf.get_count(btree, left_leaf);
+                let ?left_last_kv = Leaf.get_kv_address(btree, left_leaf, left_count2 - 1) else Debug.trap("insertBatch: null last kv in left leaf");
+                let left_last_key = MemoryBlock.get_key_blob(btree, left_last_kv);
+                Common.get_tail_compressed_separator(left_last_key, right_first_key);
+            } else {
+                right_first_key;
+            };
+            let sep_key_addr = MemoryBlock.Branch.store_key_blob(btree, separator_key);
+
+            // Propagate the new leaf into the parent branch chain.
+            propagate_node_split(btree, left_leaf, new_leaf, sep_key_addr, true);
+
+            created_leaves.add(new_leaf);
+            left_leaf := new_leaf;
+            leaf_num += 1;
+        };
+
+        // Recompute subtree sizes along every affected path from leaf to root.
+        // Processing all created leaves guarantees correctness even when branch splits
+        // redistributed new leaves into different subtrees.
+        var ri = 0;
+        while (ri < created_leaves.size()) {
+            recompute_subtree_sizes_on_path(btree, created_leaves.get(ri));
+            ri += 1;
+        };
+
+        net_new
+    };
+
+    /// Insert multiple key-value pairs into the BTree efficiently.
+    ///
+    /// The batch is sorted by key internally.  Entries that map to the same leaf node are
+    /// merged into that leaf in a single O(existing + batch) pass rather than requiring one
+    /// O(existing) shift per entry.  When the merged result overflows a leaf, all required
+    /// new leaf nodes are created in one bottom-up pass instead of triggering a cascading
+    /// sequence of single-leaf splits.
+    ///
+    /// Subtree sizes are maintained correctly: only *new* entries (not replacements) are
+    /// counted, and the sizes are recomputed along every path that was structurally changed.
+    ///
+    /// For duplicate keys within the batch, the *last* occurrence (by position in the input
+    /// slice) wins.  Earlier occurrences of the same key will have `null` as their returned
+    /// previous value.
+    ///
+    /// Returns an array of previous values in the same order as `entries`, where `null`
+    /// indicates the key was not previously present in the tree.
+    public func insertBatch<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, entries : [(K, V)]) : [?V] {
+        let n = entries.size();
+        if (n == 0) return [];
+
+        let results = Array.init<?V>(n, null);
+
+        let cmp = switch (btree_utils.key.cmp) {
+            case (#BlobCmp(c)) c;
+        };
+
+        // Convert every entry to its blob representation, keeping the original index for results.
+        let blobified = Array.tabulate<(Blob, Blob, Nat)>(
+            n,
+            func(i : Nat) : (Blob, Blob, Nat) {
+                let (k, v) = entries[i];
+                (btree_utils.key.blobify.to_blob(k), btree_utils.value.blobify.to_blob(v), i);
+            },
+        );
+
+        // Sort by key blob; for equal keys, sort by ascending original index so that
+        // the last occurrence (highest index) ends up last in each duplicate group.
+        let sorted = Array.sort<(Blob, Blob, Nat)>(
+            blobified,
+            func((kb1, _, i1), (kb2, _, i2)) : Order.Order {
+                let r = cmp(kb1, kb2);
+                if (r < 0) #less else if (r > 0) #greater else if (i1 < i2) #less else if (i1 > i2) #greater else #equal;
+            },
+        );
+
+        // Process groups of entries that all belong to the same leaf node.
+        // Using the leaf linked-list via get_right_separator_of_leaf avoids re-traversing
+        // the tree from the root for consecutive entries in the same leaf.
+        var si = 0;
+        while (si < n) {
+            let (first_key_blob, _, first_orig_i) = sorted[si];
+
+            // Full tree traversal to locate the leaf for this group's first key.
+            let leaf_addr = Methods.get_leaf_address(btree, btree_utils, entries[first_orig_i].0, ?first_key_blob);
+
+            // Upper key boundary of this leaf (null means the rightmost leaf, no upper bound).
+            let right_sep : ?Blob = get_right_separator_of_leaf(btree, leaf_addr);
+
+            // Collect all batch entries whose key falls strictly below the right separator.
+            var batch_end = si + 1;
+            while (batch_end < n) {
+                let (key_blob, _, _) = sorted[batch_end];
+                let still_in_leaf = switch (right_sep) {
+                    case (null) true;
+                    case (?sep) Blob.compare(key_blob, sep) == #less;
+                };
+                if (not still_in_leaf) break;
+                batch_end += 1;
+            };
+
+            // Bulk-insert this group into the leaf; returns net new entries added.
+            let net_new = bulk_insert_into_leaf<K, V>(btree, btree_utils, leaf_addr, sorted, si, batch_end, results, cmp);
+
+            if (net_new > 0) {
+                update_count(btree, btree.count + net_new);
+            };
+
+            si := batch_end;
+        };
+
+        Array.freeze(results);
     };
 
     /// Increase the reference count of the entry with the given id if it exists.
@@ -510,7 +979,6 @@ module {
         let count = Leaf.get_count(btree, leaf_address);
 
         let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
             case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
             };
@@ -564,7 +1032,7 @@ module {
         Utils.sized_iter_to_array<[?(K, V)]>(leafNodes<K, V>(btree, btree_utils), btree.leaf_count);
     };
 
-    public func toNodeKeys<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>) : [[(Nat, Nat, Nat, [?K])]] {
+    public func toNodeKeys<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>) : [[BranchNodeKeys]] {
         Methods.node_keys(btree, btree_utils);
     };
 
@@ -575,7 +1043,6 @@ module {
         let count = Leaf.get_count(btree, leaf_address);
 
         let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
             case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
             };
@@ -597,7 +1064,6 @@ module {
         let count = Leaf.get_count(btree, leaf_address);
 
         let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
             case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
             };
@@ -631,68 +1097,25 @@ module {
         let value = btree_utils.value.blobify.from_blob(val_blob);
         ?(key, value);
     };
+
     public func clear(btree : MemoryBTree) {
+        // Clear all regions using MemoryRegion.clear()
+        MemoryRegion.clearAndRetainHeader(btree.data, MC.REGION_HEADER_SIZE);
+        MemoryRegion.clearAndRetainHeader(btree.values, MC.REGION_HEADER_SIZE);
+        MemoryRegion.clearAndRetainHeader(btree.branches, MC.REGION_HEADER_SIZE);
+        MemoryRegion.clearAndRetainHeader(btree.leaves, MC.REGION_HEADER_SIZE);
 
-        // the first leaf node should be at the address where the header ends
-        // Leaf.validate() checks that the leaf_address the specified leaf_address is valid (i.e the start of the leaf node)
-        let leaf_address = MC.REGION_HEADER_SIZE;
+        // Create a new leaf node and set it as the root
+        let leaf_address = Leaf.new(btree);
         assert Leaf.validate(btree, leaf_address);
 
-        // remove all key-value pairs from the leaf
-        // this will also deallocate the key and value blocks
-        // but not the leaf node itself
-        Leaf.clear(btree, leaf_address);
-        assert Leaf.validate(btree, leaf_address);
-
+        // Update btree state
+        update_leaf_count(btree, 1);
         update_root(btree, leaf_address);
         update_is_root_a_leaf(btree, true);
         update_depth(btree, 1);
         update_count(btree, 0);
         update_branch_count(btree, 0);
-        update_leaf_count(btree, 1);
-
-        // Debug.print("leaves free memory: " # debug_show MemoryRegion.getFreeMemory(btree.leaves));
-        // Debug.print("leaves stats: " # debug_show MemoryRegion.memoryInfo(btree.leaves));
-
-        let leaf_memory_size = Leaf.get_memory_size(btree.node_capacity);
-        let leaf_memory_end = leaf_address + leaf_memory_size;
-        let leaves_region_size = MemoryRegion.size(btree.leaves);
-        // Debug.print("leaf_memory_end: " # debug_show leaf_memory_end);
-        // Debug.print("leaves_region_size: " # debug_show leaves_region_size);
-
-        MemoryRegion.deallocateRange(btree.leaves, leaf_memory_end, leaves_region_size);
-
-        assert MemoryRegion.size(btree.leaves) == MemoryRegion.allocated(btree.leaves) + MemoryRegion.deallocated(btree.leaves);
-        // Debug.print("leaves free memory: " # debug_show MemoryRegion.getFreeMemory(btree.leaves));
-        // Debug.print("leaves stats: " # debug_show MemoryRegion.memoryInfo(btree.leaves));
-
-        assert MemoryRegion.allocated(btree.leaves) == MC.REGION_HEADER_SIZE + leaf_memory_size;
-        assert MemoryRegion.isAllocated(btree.leaves, 0, MC.REGION_HEADER_SIZE);
-        assert MemoryRegion.isAllocated(btree.leaves, MC.REGION_HEADER_SIZE, leaf_memory_size);
-
-        let leaves_free_memory_list = MemoryRegion.getFreeMemory(btree.leaves);
-        if (leaves_free_memory_list.size() > 0) {
-            assert [(leaf_memory_end, MemoryRegion.size(btree.leaves) - leaf_memory_end)] == leaves_free_memory_list;
-        };
-
-        let branches_memory_size = MemoryRegion.size(btree.branches);
-        MemoryRegion.deallocateRange(btree.branches, MC.REGION_HEADER_SIZE, branches_memory_size);
-        assert MemoryRegion.allocated(btree.branches) == MC.REGION_HEADER_SIZE;
-        assert MemoryRegion.size(btree.branches) == MemoryRegion.allocated(btree.branches) + MemoryRegion.deallocated(btree.branches);
-        let branches_free_memory_list = MemoryRegion.getFreeMemory(btree.branches);
-        if (branches_free_memory_list.size() > 0) {
-            assert [(MC.REGION_HEADER_SIZE, MemoryRegion.size(btree.branches) - MC.REGION_HEADER_SIZE)] == branches_free_memory_list;
-        };
-
-        let data_memory_size = MemoryRegion.size(btree.data);
-        MemoryRegion.deallocateRange(btree.data, MC.REGION_HEADER_SIZE, data_memory_size);
-        assert MemoryRegion.allocated(btree.data) == MC.REGION_HEADER_SIZE;
-        assert MemoryRegion.size(btree.data) == MemoryRegion.allocated(btree.data) + MemoryRegion.deallocated(btree.data);
-        let data_free_memory_list = MemoryRegion.getFreeMemory(btree.data);
-        if (data_free_memory_list.size() > 0) {
-            assert [(MC.REGION_HEADER_SIZE, MemoryRegion.size(btree.data) - MC.REGION_HEADER_SIZE)] == data_free_memory_list;
-        };
-
     };
 
     func decrement_subtree_size(btree : MemoryBTree, branch_address : Nat, _child_index : Nat) {
@@ -704,12 +1127,11 @@ module {
         let key_blob = btree_utils.key.blobify.to_blob(key);
 
         let leaf_address = Methods.get_leaf_address_and_update_path(btree, btree_utils, key, ?key_blob, decrement_subtree_size);
-        let count = Leaf.get_count(btree, leaf_address);
+        var leaf_count = Leaf.get_count(btree, leaf_address);
 
         let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search(btree, btree_utils, leaf_address, cmp, key, count);
             case (#BlobCmp(cmp)) {
-                Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
+                Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, leaf_count);
             };
         };
 
@@ -734,129 +1156,214 @@ module {
         Leaf.remove(btree, leaf_address, elem_index); // remove the deleted key-value pair from the leaf
         update_count(btree, btree.count - 1);
 
+        // update the Cached leaf_count after removal (count was decremented by Leaf.remove)
+        leaf_count -= 1 ;
+
         let ?parent_address = Leaf.get_parent(btree, leaf_address) else return ?prev_val; // if parent is null then leaf_node is the root
         var parent = parent_address;
-        // Debug.print("Leaf's parent: " # debug_show Branch.from_memory(btree, parent));
 
         let leaf_index = Leaf.get_index(btree, leaf_address);
 
-        if (elem_index == 0) {
-            // if the first element is removed then update the parent key
-            let ?next_key_address = Leaf.get_kv_address(btree, leaf_address, 0) else Debug.trap("remove: next_key_block is null");
-            Branch.update_separator_key_address(btree, parent, leaf_index, next_key_address);
+        let current_is_empty = leaf_count == 0;
+
+        if ( current_is_empty) {
+               // if leaf is empty remove it from parent
+
+            let parent_count = Branch.get_count(btree, parent);
+            switch (Branch.remove_with_count(btree, parent, leaf_index, parent_count)) {
+                case (?removed_key_address) {
+                    // Deallocate the key that was separating the merged leaves
+                    MemoryBlock.Branch.remove_key_blob(btree, removed_key_address);
+                };
+                case (null) {};
+            };
+
+            Leaf.unlink(btree, leaf_address);
+            Leaf.deallocate(btree, leaf_address);
+            update_leaf_count(btree, btree.leaf_count - 1);
+
+        } else {
+
+            // -> try to merge
+
+            // Check if we have a neighbour to potentially merge with
+            let ?neighbour = Branch.get_smaller_neighbour(btree, parent, leaf_index) else return ?prev_val;
+
+            let neighbour_count = Leaf.get_count(btree, neighbour);
+            let combined_count = leaf_count + neighbour_count;
+
+            // Use pre-calculated merge_threshold_count from btree
+            let merge_threshold_count = btree.merge_threshold_count;
+
+            let current_below_threshold = leaf_count < merge_threshold_count;
+            let neighbour_below_threshold = neighbour_count < merge_threshold_count;
+            let combined_fits = combined_count <= btree.node_capacity;
+
+            // Determine if merge should occur based on #Balanced strategy
+            // IMPORTANT: Always check combined_fits to prevent node overflow
+            // Balanced merge: merge when EITHER node is below threshold AND combined fits
+            // This provides better memory efficiency by proactively cleaning up sparse nodes
+            let should_merge = current_is_empty or (current_below_threshold and combined_fits) or (neighbour_below_threshold and combined_fits);
+
+            if (not should_merge) return ?prev_val;
+
+            // merge leaf with neighbour - returns (address, index) of the merged (right) node
+            let (merged_leaf, merged_index) = Leaf.merge(btree, leaf_address, neighbour);
+            switch (Branch.remove(btree, parent, merged_index)) {
+                case (?removed_key_address) {
+                    // Deallocate the key that was separating the merged leaves
+                    MemoryBlock.Branch.remove_key_blob(btree, removed_key_address);
+                };
+                case (null) {};
+            };
+
+
+            // deallocate right leaf that was merged into left
+            Leaf.deallocate(btree, merged_leaf);
+
+            update_leaf_count(btree, btree.leaf_count - 1);
+
+        
+         
         };
-
-        let min_count = btree.node_capacity / 2;
-        let leaf_count = Leaf.get_count(btree, leaf_address);
-
-        if (leaf_count >= min_count) return ?prev_val;
-
-        // redistribute entries from larger neighbour to the current leaf below min_count
-        let ?neighbour = Branch.get_larger_neighbour(btree, parent, leaf_index) else Debug.trap("remove: neighbour is null");
-
-        let neighbour_index = Leaf.get_index(btree, neighbour);
-
-        let left = if (leaf_index < neighbour_index) { leaf_address } else {
-            neighbour;
-        };
-        let right = if (leaf_index < neighbour_index) { neighbour } else {
-            leaf_address;
-        };
-
-        // let left_index = if (leaf_index < neighbour_index) { leaf_index } else { neighbour_index };
-        let right_index = if (leaf_index < neighbour_index) { neighbour_index } else {
-            leaf_index;
-        };
-
-        // Debug.print("leaf.redistribute");
-
-        if (Leaf.redistribute(btree, leaf_address, neighbour)) {
-
-            let ?key_address = Leaf.get_kv_address(btree, right, 0) else Debug.trap("remove: key_block is null");
-            Branch.put_key_address(btree, parent, right_index - 1, key_address);
-
-            return ?prev_val;
-        };
-
-        // Debug.print("merging leaf");
-
-        // remove merged leaf from parent
-        // Debug.print("remove merged index: " # debug_show right_index);
-        // Debug.print("parent: " # debug_show Branch.from_memory(btree, parent));
-
-        // merge leaf with neighbour
-        Leaf.merge(btree, left, right);
-        Branch.remove(btree, parent, right_index);
-
-        // deallocate right leaf that was merged into left
-        Leaf.deallocate(btree, right);
-        update_leaf_count(btree, btree.leaf_count - 1);
 
         // Debug.print("parent: " # debug_show Branch.from_memory(btree, parent));
         // Debug.print("leaf_nodes: " # debug_show Iter.toArray(Methods.leaf_addresses(btree)));
 
+        // Collapses chains of single-child branches starting from the root.
+        // If parent is not the root or doesn't have exactly 1 child, returns early.
         func set_only_child_to_root(parent : Address) : ?V {
-            if (Branch.get_count(btree, parent) == 1) {
-                let ?child = Branch.get_child(btree, parent, 0) else Debug.trap("set_only_child_to_root: child is null");
+            var current_parent = parent;
+            var depth_decrease = 0;
 
-                let child_is_leaf = Branch.has_leaves(btree, parent);
+            // Loop while current_parent is the root and has only 1 child
+            label parent_loop while (current_parent == btree.root and Branch.get_count(btree, current_parent) == 1) {
+                let ?child = Branch.get_child(btree, current_parent, 0) else Debug.trap("set_only_child_to_root: child is null");
+
+                let child_is_leaf = Branch.has_leaves(btree, current_parent);
 
                 if (child_is_leaf) {
                     Leaf.update_parent(btree, child, null);
+
+                    // Found a leaf - set it as root and stop
+                    update_root(btree, child);
+                    update_is_root_a_leaf(btree, true);
+                    update_depth(btree, btree.depth - depth_decrease - 1);
+
+                    // Deallocate any separator keys in the collapsing branch before deallocating the branch
+                    Branch.deallocate_keys(btree, current_parent);
+                    Branch.deallocate(btree, current_parent);
+                    update_branch_count(btree, btree.branch_count - 1);
+
+                    return ?prev_val;
                 } else {
-                    Branch.update_parent(btree, child, null);
+                    // Child is a branch - check its count
+                    let child_count = Branch.get_count(btree, child);
+
+                    if (child_count == 0) {
+                        Debug.trap("set_only_child_to_root: child branch has 0 count");
+                    } else if (child_count == 1) {
+                        // Child has 1 count - deallocate current parent and continue with child
+                        // Deallocate any separator keys in the collapsing branch before deallocating the branch
+                        Branch.deallocate_keys(btree, current_parent);
+                        Branch.deallocate(btree, current_parent);
+                        update_branch_count(btree, btree.branch_count - 1);
+
+                        current_parent := child;
+                        depth_decrease += 1;
+                    } else {
+                        // Child has > 1 count - set it as root and stop
+                        Branch.update_parent(btree, child, null);
+                        update_root(btree, child);
+                        update_is_root_a_leaf(btree, false);
+                        update_depth(btree, btree.depth - depth_decrease - 1);
+
+                        // Deallocate any separator keys in the collapsing branch before deallocating the branch
+                        Branch.deallocate_keys(btree, current_parent);
+                        Branch.deallocate(btree, current_parent);
+                        update_branch_count(btree, btree.branch_count - 1);
+
+                        return ?prev_val;
+                    };
                 };
-
-                update_root(btree, child);
-                update_is_root_a_leaf(btree, child_is_leaf);
-                update_depth(btree, btree.depth - 1);
-                return ?prev_val;
-
-            } else {
-                return ?prev_val;
             };
+
+            // If we exit the loop, parent has more than 1 child
+            return ?prev_val;
         };
 
         var branch = parent;
+        var branch_count = Branch.get_count(btree, branch);
         let ?branch_parent = Branch.get_parent(btree, branch) else return set_only_child_to_root(parent);
 
         parent := branch_parent;
+        var parent_count = Branch.get_count(btree, parent);
 
-        while (Branch.get_count(btree, branch) < min_count) {
-            // Debug.print("redistribute branch");
-            // Debug.print("parent before redistribute: " # debug_show Branch.from_memory(btree, parent));
-            // Debug.print("branch before redistribute: " # debug_show Branch.from_memory(btree, branch));
-
-            if (Branch.redistribute(btree, branch)) {
-                // Debug.print("parent after redistribute: " # debug_show Branch.from_memory(btree, parent));
-                // Debug.print("branch after redistribute: " # debug_show Branch.from_memory(btree, branch));
-                return ?prev_val;
-            };
-
-            // Debug.print("branch after redistribute: " # debug_show Branch.from_memory(btree, branch));
-
-            // Debug.print("merging branch");
-            // Debug.print("parent before merge: " # debug_show Branch.from_memory(btree, parent));
+        label branch_merge_loop while (true) {
             let branch_index = Branch.get_index(btree, branch);
-            let ?neighbour = Branch.get_larger_neighbour(btree, parent, branch_index) else Debug.trap("Branch.merge: neighbour should not be null");
 
-            let merged_branch = Branch.merge(btree, branch, neighbour);
-            let merged_branch_index = Branch.get_index(btree, merged_branch);
-            Branch.remove(btree, parent, merged_branch_index);
-            Branch.deallocate(btree, merged_branch);
-            update_branch_count(btree, btree.branch_count - 1);
+            if (branch_count == 0) {
+                // if branch is empty remove it from parent
+                switch (Branch.remove_with_count(btree, parent, branch_index, parent_count)) {
+                    case (?removed_key_address) {
+                        // let removed_key = MemoryBlock.Branch.get_key_blob(btree, removed_key_address);
+                        // Deallocate the key that was separating the merged leaves
+                        MemoryBlock.Branch.remove_key_blob(btree, removed_key_address);
+
+                        // if (branch_index == 0){
+                        //     Branch.update_separator_key(btree, parent, 0, removed_key);
+                        // };
+                    };
+                    case (null) {};
+                };
+
+                Branch.deallocate(btree, branch);
+                update_branch_count(btree, btree.branch_count - 1);
+                parent_count -= 1;
+
+            } else {
+                // branch is not empty, try to merge
+                let ?neighbour = Branch.get_larger_neighbour(btree, parent, branch_index) else return set_only_child_to_root(parent);
+
+                let neighbour_count = Branch.get_count(btree, neighbour);
+                let combined_count = branch_count + neighbour_count;
+
+                // Use pre-calculated merge_threshold_count from btree
+                let merge_threshold_count = btree.merge_threshold_count;
+
+                let current_is_empty = branch_count == 0;
+                let current_below_threshold = branch_count < merge_threshold_count;
+                let neighbour_below_threshold = neighbour_count < merge_threshold_count;
+                let combined_fits = combined_count <= btree.node_capacity;
+
+                // Determine if merge should occur based on #Balanced strategy
+                // IMPORTANT: Always check combined_fits to prevent node overflow
+                // Balanced merge: merge when EITHER node is below threshold AND combined fits
+                let should_merge = current_is_empty or (current_below_threshold and combined_fits) or (neighbour_below_threshold and combined_fits);
+
+                if (not should_merge) return ?prev_val;
+
+                // merge branch with neighbour - returns (address, index) of the merged (right) node
+                let (merged_branch, merged_index) = Branch.merge(btree, branch, neighbour);
+                
+                // The separator key is transferred to the merged branch during merge,
+                // so it should not be deallocated here
+                let _separator_key = Branch.remove_with_count(btree, parent, merged_index, parent_count);
+
+                Branch.deallocate(btree, merged_branch);
+                update_branch_count(btree, btree.branch_count - 1);
+                parent_count -= 1;
+            };
 
             // Debug.print("parent after merge: " # debug_show Branch.from_memory(btree, parent));
             // Debug.print("leaf_nodes: " # debug_show Iter.toArray(Methods.leaf_addresses(btree)));
 
             branch := parent;
+            branch_count := parent_count;
             let ?branch_parent = Branch.get_parent(btree, branch) else return set_only_child_to_root(parent);
 
             parent := branch_parent;
-
-            if (Branch.get_count(btree, parent) == 1) {
-                return set_only_child_to_root(parent);
-            };
+            parent_count := Branch.get_count(btree, parent);
         };
 
         return ?prev_val;
@@ -893,7 +1400,6 @@ module {
         let leaf_address = Methods.get_leaf_address<K, V>(btree, btree_utils, key, ?key_blob);
 
         let i = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, Leaf.get_count(btree, leaf_address));
             case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, Leaf.get_count(btree, leaf_address));
             };
@@ -921,7 +1427,6 @@ module {
         let leaf_address = Methods.get_leaf_address<K, V>(btree, btree_utils, key, ?key_blob);
 
         let i = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, Leaf.get_count(btree, leaf_address));
             case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, Leaf.get_count(btree, leaf_address));
             };
@@ -965,7 +1470,6 @@ module {
 
         let count = Leaf.get_count(btree, leaf_address);
         let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
             case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
             };
@@ -991,7 +1495,6 @@ module {
 
         let count = Leaf.get_count(btree, leaf_address);
         let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, leaf_address, cmp, key, count);
             case (#BlobCmp(cmp)) {
                 Leaf.binary_search_blob_seq(btree, leaf_address, cmp, key_blob, count);
             };
@@ -1101,7 +1604,6 @@ module {
 
         let start_index = switch (start) {
             case (?key) switch (btree_utils.key.cmp) {
-                case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, start_address, cmp, key, Leaf.get_count(btree, start_address));
                 case (#BlobCmp(cmp)) {
                     let key_blob = btree_utils.key.blobify.to_blob(key);
                     Leaf.binary_search_blob_seq(btree, start_address, cmp, key_blob, Leaf.get_count(btree, start_address));
@@ -1124,7 +1626,6 @@ module {
 
         let end_index = switch (end) {
             case (?key) switch (btree_utils.key.cmp) {
-                case (#GenCmp(cmp)) Leaf.binary_search<K, V>(btree, btree_utils, end_address, cmp, key, Leaf.get_count(btree, end_address));
                 case (#BlobCmp(cmp)) {
                     let key_blob = btree_utils.key.blobify.to_blob(key);
                     Leaf.binary_search_blob_seq(btree, end_address, cmp, key_blob, Leaf.get_count(btree, end_address));
@@ -1181,5 +1682,22 @@ module {
                 btree_utils.value.blobify.from_blob(val_blob);
             },
         );
+    };
+
+    // debug functions
+    public func printPathToKey<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, key : K) {
+        // Debug.print("Path to key: " # debug_show key);
+
+        let leaf_address = Methods.get_leaf_address_and_update_path<K, V>(
+            btree,
+            btree_utils,
+            key,
+            null,
+            func(_btree : MemoryBTree, _branch_address : Nat, _child_index : Nat) {
+                Debug.print("Visited branch node: " # debug_show Branch.from_memory(_btree, _branch_address));
+            },
+        );
+
+        Debug.print("Reached leaf node: " # debug_show Leaf.from_memory(btree, leaf_address));
     };
 };

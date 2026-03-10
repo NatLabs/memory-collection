@@ -1,17 +1,17 @@
 // @testmode wasi
 import Prim "mo:prim";
 
-import Array "mo:base@0.14.11/Array";
-import Nat8 "mo:base@0.14.11/Nat8";
-import Blob "mo:base@0.14.11/Blob";
-import Debug "mo:base@0.14.11/Debug";
-import Nat "mo:base@0.14.11/Nat";
-import Nat64 "mo:base@0.14.11/Nat64";
-import Iter "mo:base@0.14.11/Iter";
-import Buffer "mo:base@0.14.11/Buffer";
-import { test; suite } "mo:test@2.1.1";
+import Array "mo:base@0.14.13/Array";
+import Nat8 "mo:base@0.14.13/Nat8";
+import Blob "mo:base@0.14.13/Blob";
+import Debug "mo:base@0.14.13/Debug";
+import Nat "mo:base@0.14.13/Nat";
+import Nat64 "mo:base@0.14.13/Nat64";
+import Iter "mo:base@0.14.13/Iter";
+import Buffer "mo:base@0.14.13/Buffer";
+import { test; suite } "mo:test";
 
-import Fuzz "mo:fuzz@1.0.0";
+import Fuzz "mo:fuzz";
 import Itertools "mo:itertools@0.2.2/Iter";
 
 import MemoryBTree "../../../src/MemoryBTree/Base";
@@ -30,38 +30,38 @@ let btree_utils = MemoryBTree.createUtils(TypeUtils.Nat, TypeUtils.Nat);
 let fuzz = Fuzz.fromSeed(0x29);
 
 suite(
-    "MemoryBTree Big Endian TypeUtils Test",
-    func() {
-        let sorted = Buffer.Buffer<(Nat, Nat)>(10_000);
+  "MemoryBTree Big Endian TypeUtils Test",
+  func() {
+    let sorted = Buffer.Buffer<(Nat, Nat)>(10_000);
 
-        test(
-            "Ensure legacy and current serializers are sorted correctly",
-            func() {
+    test(
+      "Ensure legacy and current serializers are sorted correctly",
+      func() {
 
-                for (i in Iter.range(0, 10)) {
-                    let key = fuzz.nat.randomRange(0, (2 ** 64) - 1);
-                    let val = fuzz.nat.randomRange(0, (2 ** 64) - 1);
+        for (i in Iter.range(0, 10)) {
+          let key = fuzz.nat.randomRange(0, (2 ** 64) - 1);
+          let val = fuzz.nat.randomRange(0, (2 ** 64) - 1);
 
-                    ignore MemoryBTree.insert<Nat, Nat>(legacy_btree, legacy_btree_utils, key, val);
-                    ignore MemoryBTree.insert<Nat, Nat>(btree, btree_utils, key, val);
-                    sorted.add((key, val));
-                };
+          ignore MemoryBTree.insert<Nat, Nat>(legacy_btree, legacy_btree_utils, key, val);
+          ignore MemoryBTree.insert<Nat, Nat>(btree, btree_utils, key, val);
+          sorted.add((key, val));
+        };
 
-                sorted.sort(func(a, b) = Nat.compare(a.0, b.0));
+        sorted.sort(func(a, b) = Nat.compare(a.0, b.0));
 
-                assert Itertools.equal(
-                    MemoryBTree.entries(legacy_btree, legacy_btree_utils),
-                    sorted.vals(),
-                    func(a : (Nat, Nat), b : (Nat, Nat)) : Bool = a.0 == b.0 and a.1 == b.1,
-                );
-
-                assert Itertools.equal(
-                    MemoryBTree.entries(btree, btree_utils),
-                    sorted.vals(),
-                    func(a : (Nat, Nat), b : (Nat, Nat)) : Bool = a.0 == b.0 and a.1 == b.1,
-                );
-            },
+        assert Itertools.equal(
+          MemoryBTree.entries(legacy_btree, legacy_btree_utils),
+          sorted.vals(),
+          func(a : (Nat, Nat), b : (Nat, Nat)) : Bool = a.0 == b.0 and a.1 == b.1,
         );
 
-    },
+        assert Itertools.equal(
+          MemoryBTree.entries(btree, btree_utils),
+          sorted.vals(),
+          func(a : (Nat, Nat), b : (Nat, Nat)) : Bool = a.0 == b.0 and a.1 == b.1,
+        );
+      },
+    );
+
+  },
 );

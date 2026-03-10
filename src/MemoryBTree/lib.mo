@@ -103,6 +103,17 @@ module {
         /// Insert a new key-value pair into the BTree
         public func insert(key : K, val : V) : ?V = BaseMemoryBTree.insert<K, V>(state, btree_utils, key, val);
 
+        /// Insert multiple key-value pairs into the BTree efficiently.
+        ///
+        /// Entries are sorted internally and processed leaf-by-leaf.  Multiple entries
+        /// destined for the same leaf are merged in a single O(n) pass.  Leaf overflow
+        /// creates all required new leaves in one bottom-up pass instead of triggering
+        /// cascading single-entry splits.
+        ///
+        /// For duplicate keys within the batch, the last occurrence wins.
+        /// Returns an array of previous values in input order (null = key was new).
+        public func insertBatch(entries : [(K, V)]) : [?V] = BaseMemoryBTree.insertBatch<K, V>(state, btree_utils, entries);
+
         /// Remove the key-value pair associated with the given key
         public func remove(key : K) : ?V = BaseMemoryBTree.remove<K, V>(state, btree_utils, key);
 

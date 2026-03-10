@@ -1,93 +1,93 @@
-import Iter "mo:base@0.14.11/Iter";
-import Debug "mo:base@0.14.11/Debug";
-import Buffer "mo:base@0.14.11/Buffer";
-import Nat64 "mo:base@0.14.11/Nat64";
+import Iter "mo:base@0.14.13/Iter";
+import Debug "mo:base@0.14.13/Debug";
+import Buffer "mo:base@0.14.13/Buffer";
+import Nat64 "mo:base@0.14.13/Nat64";
 
 import Bench "mo:bench";
-import Fuzz "mo:fuzz@1.0.0";
+import Fuzz "mo:fuzz";
 import Itertools "mo:itertools@0.2.2/Iter";
 
 import MemoryQueue "../../src/MemoryQueue";
 import TypeUtils "../../src/TypeUtils";
 
 module {
-    public func init() : Bench.Bench {
-        let bench = Bench.Bench();
+  public func init() : Bench.Bench {
+    let bench = Bench.Bench();
 
-        bench.name("Benchmarking the MemoryQueue");
-        bench.description("Benchmarking the performance with 10k calls");
+    bench.name("Benchmarking the MemoryQueue");
+    bench.description("Benchmarking the performance with 10k calls");
 
-        bench.cols(["MemoryQueue"]);
-        bench.rows([
-            "add()",
-            "vals()",
-            "pop()",
-            "random add()/pop()",
-        ]);
+    bench.cols(["MemoryQueue"]);
+    bench.rows([
+      "add()",
+      "vals()",
+      "pop()",
+      "random add()/pop()",
+    ]);
 
-        let fuzz = Fuzz.fromSeed(0xdeadbeef);
+    let fuzz = Fuzz.fromSeed(0xdeadbeef);
 
-        let limit = 10_000;
+    let limit = 10_000;
 
-        let buffer = Buffer.Buffer<Nat>(limit);
-        let buffer2 = Buffer.Buffer<Nat>(limit);
-        let sstore = MemoryQueue.newStableStore();
-        let mem_queue = MemoryQueue.MemoryQueue<Nat>(sstore, TypeUtils.Nat);
+    let buffer = Buffer.Buffer<Nat>(limit);
+    let buffer2 = Buffer.Buffer<Nat>(limit);
+    let sstore = MemoryQueue.newStableStore();
+    let mem_queue = MemoryQueue.MemoryQueue<Nat>(sstore, TypeUtils.Nat);
 
-        for (i in Iter.range(0, limit - 1)) {
-            let n = fuzz.nat.randomRange(0, limit ** 2);
-            let n2 = fuzz.nat.randomRange(0, limit ** 2);
-            buffer.add(n);
-            buffer2.add(n2);
+    for (i in Iter.range(0, limit - 1)) {
+      let n = fuzz.nat.randomRange(0, limit ** 2);
+      let n2 = fuzz.nat.randomRange(0, limit ** 2);
+      buffer.add(n);
+      buffer2.add(n2);
+    };
+
+    bench.runner(
+      func(col, row) = switch (row, col) {
+
+        case ("MemoryQueue", "add()") {
+          for (i in buffer.vals()) {
+            mem_queue.add(i);
+          };
         };
 
-        bench.runner(
-            func(col, row) = switch (row, col) {
+        case ("MemoryQueue", "vals()") {
 
-                case ("MemoryQueue", "add()") {
-                    for (i in buffer.vals()) {
-                        mem_queue.add(i);
-                    };
-                };
+          var i = 0;
+          for ((a, b) in Itertools.zip(buffer.vals(), mem_queue.vals())) {
+            assert a == b;
+            i += 1;
+          };
 
-                case ("MemoryQueue", "vals()") {
+          assert i == limit;
+        };
 
-                    var i = 0;
-                    for ((a, b) in Itertools.zip(buffer.vals(), mem_queue.vals())) {
-                        assert a == b;
-                        i += 1;
-                    };
+        case ("MemoryQueue", "pop()") {
+          for (i in buffer.vals()) {
+            assert ?i == mem_queue.pop();
+          };
+        };
+        case ("MemoryQueue", "random add()/pop()") {
+          var i = 0;
 
-                    assert i == limit;
-                };
+          for (_ in Iter.range(0, limit - 1)) {
+            let choice = if (mem_queue.isEmpty()) false else fuzz.nat.randomRange(0, 10) <= 5;
 
-                case ("MemoryQueue", "pop()") {
-                    for (i in buffer.vals()) {
-                        assert ?i == mem_queue.pop();
-                    };
-                };
-                case ("MemoryQueue", "random add()/pop()") {
-                    var i = 0;
+            if (choice) {
+              ignore mem_queue.pop();
+            } else {
+              mem_queue.add(i);
+              i += 1;
+            };
+          };
 
-                    for (_ in Iter.range(0, limit - 1)) {
-                        let choice = if (mem_queue.isEmpty()) false else fuzz.nat.randomRange(0, 10) <= 5;
+        };
 
-                        if (choice) {
-                            ignore mem_queue.pop();
-                        } else {
-                            mem_queue.add(i);
-                            i += 1;
-                        };
-                    };
+        case (_) {
+          Debug.trap("Should be unreachable:\n row = \"" # debug_show row # "\" and col = \"" # debug_show col # "\"");
+        };
+      }
+    );
 
-                };
-
-                case (_) {
-                    Debug.trap("Should be unreachable:\n row = \"" # debug_show row # "\" and col = \"" # debug_show col # "\"");
-                };
-            }
-        );
-
-        bench;
-    };
+    bench;
+  };
 };

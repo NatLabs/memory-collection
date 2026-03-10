@@ -1,10 +1,10 @@
 // @testmode wasi
-import Buffer "mo:base@0.14.11/Buffer";
-import Iter "mo:base@0.14.11/Iter";
-import Debug "mo:base@0.14.11/Debug";
+import Buffer "mo:base@0.14.13/Buffer";
+import Iter "mo:base@0.14.13/Iter";
+import Debug "mo:base@0.14.13/Debug";
 
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
-import { test; suite } "mo:test@2.1.1";
+import MemoryRegion "mo:memory-region@1.4.0/MemoryRegion";
+import { test; suite } "mo:test";
 
 import MemoryQueue "../../src/MemoryQueue/Base";
 import TypeUtils "../../src/TypeUtils";
@@ -12,82 +12,82 @@ import TypeUtils "../../src/TypeUtils";
 let limit = 10_000;
 let buffer = Buffer.Buffer<Nat>(limit);
 for (i in Iter.range(0, limit - 1)) {
-    buffer.add(i);
+  buffer.add(i);
 };
 
 let mem_queue = MemoryQueue.new();
 let queue_utils = MemoryQueue.createUtils(
-    TypeUtils.Nat
+  TypeUtils.Nat
 );
 
 suite(
-    "MemoryQueueTests",
-    func() {
-        test(
-            "add()",
-            func() {
+  "MemoryQueueTests",
+  func() {
+    test(
+      "add()",
+      func() {
 
-                for (i in buffer.vals()) {
-                    MemoryQueue.add(mem_queue, queue_utils, i);
-                    assert MemoryQueue.size(mem_queue) == i + 1;
-                };
+        for (i in buffer.vals()) {
+          MemoryQueue.add(mem_queue, queue_utils, i);
+          assert MemoryQueue.size(mem_queue) == i + 1;
+        };
 
-            },
-        );
+      },
+    );
 
-        test(
-            "pop() and peek()",
-            func() {
+    test(
+      "pop() and peek()",
+      func() {
 
-                for (i in buffer.vals()) {
-                    assert ?i == MemoryQueue.peek(mem_queue, queue_utils);
-                    assert ?i == MemoryQueue.pop(mem_queue, queue_utils);
-                    assert MemoryQueue.size(mem_queue) == limit - i - 1;
-                };
+        for (i in buffer.vals()) {
+          assert ?i == MemoryQueue.peek(mem_queue, queue_utils);
+          assert ?i == MemoryQueue.pop(mem_queue, queue_utils);
+          assert MemoryQueue.size(mem_queue) == limit - i - 1;
+        };
 
-                assert null == MemoryQueue.peek(mem_queue, queue_utils);
-                assert null == MemoryQueue.pop(mem_queue, queue_utils);
-            },
-        );
+        assert null == MemoryQueue.peek(mem_queue, queue_utils);
+        assert null == MemoryQueue.pop(mem_queue, queue_utils);
+      },
+    );
 
-        test(
-            "clear()",
-            func() {
-                MemoryQueue.clear(mem_queue);
-                assert MemoryRegion.allocated(mem_queue.region) == 64;
-                assert MemoryRegion.getFreeMemory(mem_queue.region) == [(64, MemoryRegion.size(mem_queue.region) - 64)];
-                assert MemoryQueue.size(mem_queue) == 0;
-            },
-        );
+    test(
+      "clear()",
+      func() {
+        MemoryQueue.clear(mem_queue);
+        assert MemoryRegion.allocated(mem_queue.region) == 64;
+        assert MemoryRegion.getFreeMemory(mem_queue.region) == [(64, MemoryRegion.size(mem_queue.region) - 64)];
+        assert MemoryQueue.size(mem_queue) == 0;
+      },
+    );
 
-        test(
-            "add()",
-            func() {
+    test(
+      "add()",
+      func() {
 
-                for (i in buffer.vals()) {
-                    MemoryQueue.add(mem_queue, queue_utils, i);
-                    assert MemoryQueue.size(mem_queue) == i + 1;
-                };
+        for (i in buffer.vals()) {
+          MemoryQueue.add(mem_queue, queue_utils, i);
+          assert MemoryQueue.size(mem_queue) == i + 1;
+        };
 
-            },
-        );
+      },
+    );
 
-        test(
-            "pop() and peek()",
-            func() {
+    test(
+      "pop() and peek()",
+      func() {
 
-                for (i in buffer.vals()) {
-                    assert ?i == MemoryQueue.peek(mem_queue, queue_utils);
-                    assert ?i == MemoryQueue.pop(mem_queue, queue_utils);
-                    assert MemoryQueue.size(mem_queue) == limit - i - 1;
-                };
+        for (i in buffer.vals()) {
+          assert ?i == MemoryQueue.peek(mem_queue, queue_utils);
+          assert ?i == MemoryQueue.pop(mem_queue, queue_utils);
+          assert MemoryQueue.size(mem_queue) == limit - i - 1;
+        };
 
-                assert null == MemoryQueue.peek(mem_queue, queue_utils);
-                assert null == MemoryQueue.pop(mem_queue, queue_utils);
+        assert null == MemoryQueue.peek(mem_queue, queue_utils);
+        assert null == MemoryQueue.pop(mem_queue, queue_utils);
 
-                assert MemoryRegion.allocated(mem_queue.region) == 64;
-            },
-        );
+        assert MemoryRegion.allocated(mem_queue.region) == 64;
+      },
+    );
 
-    },
+  },
 );

@@ -1,4 +1,4 @@
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.4.0/MemoryRegion";
 
 module V0 {
     type MemoryRegionV1 = MemoryRegion.MemoryRegionV1;

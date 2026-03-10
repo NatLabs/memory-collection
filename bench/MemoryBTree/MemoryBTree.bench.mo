@@ -1,20 +1,19 @@
-import Iter "mo:base@0.14.11/Iter";
-import Debug "mo:base@0.14.11/Debug";
-import Nat64 "mo:base@0.14.11/Nat64";
-import Region "mo:base@0.14.11/Region";
-import Buffer "mo:base@0.14.11/Buffer";
-import Text "mo:base@0.14.11/Text";
-import RBTree "mo:base@0.14.11/RBTree";
+import Iter "mo:base@0.14.13/Iter";
+import Debug "mo:base@0.14.13/Debug";
+import Nat64 "mo:base@0.14.13/Nat64";
+import Region "mo:base@0.14.13/Region";
+import Buffer "mo:base@0.14.13/Buffer";
+import Text "mo:base@0.14.13/Text";
+import RBTree "mo:base@0.14.13/RBTree";
 
-import BTree "mo:stableheapbtreemap@1.5.0/BTree";
+import BTree "mo:stableheapbtreemap/BTree";
 import Bench "mo:bench";
-import Fuzz "mo:fuzz@1.0.0";
+import Fuzz "mo:fuzz";
 
-import { BpTree; Cmp } "mo:augmented-btrees@0.7.1";
+import { BpTree; Cmp } "mo:augmented-btrees";
 
 import MemoryBTree "../../src/MemoryBTree/Base";
 import TypeUtils "../../src/TypeUtils";
-import Int8Cmp "../../src/TypeUtils/Int8Cmp";
 module {
 
     type MemoryBTree = MemoryBTree.MemoryBTree;
@@ -32,7 +31,6 @@ module {
             "BTree",
             "B+Tree",
             "Memory B+Tree (#BlobCmp)",
-            "Memory B+Tree (#GenCmp)",
         ]);
         bench.cols([
             "insert()",
@@ -41,6 +39,7 @@ module {
             "entries()",
             // "scan()",
             "remove()",
+            "random ops",
         ]);
 
         let limit = 10_000;
@@ -48,11 +47,11 @@ module {
         let rbtree = RBTree.RBTree<Text, Text>(Text.compare);
         let btree = BTree.init<Text, Text>(?32);
         let bptree = BpTree.new<Text, Text>(?128);
-        let mem_btree = MemoryBTree.new(?128);
         let mem_btree_blob_cmp = MemoryBTree.new(?128);
 
         let entries = Buffer.Buffer<(Text, Text)>(limit);
         let replacements = Buffer.Buffer<(Text, Text)>(limit);
+        let random_ops = Buffer.Buffer<{ #insert : (Text, Text); #replace : (Text, Text); #remove : Text }>(limit);
 
         for (i in Iter.range(0, limit - 1)) {
             let key = fuzz.text.randomAlphabetic(10);
@@ -64,6 +63,40 @@ module {
             let replace_val = fuzz.text.randomAlphabetic(replaced_size);
 
             replacements.add((key, replace_val));
+        };
+
+        // Generate random operations sequence
+        let inserted_keys = Buffer.Buffer<Text>(limit);
+        for (i in Iter.range(0, limit - 1)) {
+            let op_type = fuzz.nat.randomRange(0, 3);
+
+            // Ensure at least 3 items are inserted first, or buffer is not empty for replace/remove
+            if (inserted_keys.size() < 3 or op_type < 2) {
+                // 50% insert
+                let key = fuzz.text.randomAlphabetic(10);
+                let val = fuzz.text.randomAlphabetic(10);
+                random_ops.add(#insert(key, val));
+                inserted_keys.add(key);
+            } else if (op_type == 2 and inserted_keys.size() > 0) {
+                // 25% replace
+                let idx = if (inserted_keys.size() == 1) 0 else fuzz.nat.randomRange(0, inserted_keys.size() - 1);
+                let key = inserted_keys.get(idx);
+                let val = fuzz.text.randomAlphabetic(fuzz.nat.randomRange(5, 15));
+                random_ops.add(#replace(key, val));
+            } else if (inserted_keys.size() > 0) {
+                // 25% remove
+                let idx = if (inserted_keys.size() == 1) 0 else fuzz.nat.randomRange(0, inserted_keys.size() - 1);
+                let key = inserted_keys.get(idx);
+                random_ops.add(#remove(key));
+                // Swap remove to keep track of remaining keys
+                let last = inserted_keys.removeLast();
+                if (idx < inserted_keys.size()) {
+                    switch (last) {
+                        case (?v) { inserted_keys.put(idx, v) };
+                        case (null) {};
+                    };
+                };
+            };
         };
 
         let sorted = Buffer.clone(entries);
@@ -98,6 +131,21 @@ module {
                         ignore MemoryBTree.remove(mem_btree, btree_utils, k);
                     };
                 };
+                case ("random ops") {
+                    for (op in random_ops.vals()) {
+                        switch (op) {
+                            case (#insert(key, val)) {
+                                ignore MemoryBTree.insert(mem_btree, btree_utils, key, val);
+                            };
+                            case (#replace(key, val)) {
+                                ignore MemoryBTree.insert(mem_btree, btree_utils, key, val);
+                            };
+                            case (#remove(key)) {
+                                ignore MemoryBTree.remove(mem_btree, btree_utils, key);
+                            };
+                        };
+                    };
+                };
                 case (_) {
                     Debug.trap("Should not reach with name = " # debug_show name # " and category = " # debug_show category);
                 };
@@ -105,7 +153,6 @@ module {
         };
 
         let btree_utils = MemoryBTree.createUtils({ TypeUtils.Text with cmp = TypeUtils.MemoryCmp.Default }, TypeUtils.Text);
-        let ds_text_utils = MemoryBTree.createUtils({ TypeUtils.Text with cmp = #GenCmp(Int8Cmp.Text) }, TypeUtils.Text);
 
         bench.runner(
             func(col, row) = switch (col, row) {
@@ -139,6 +186,15 @@ module {
                 case ("RBTree", "remove()") {
                     for ((k, v) in entries.vals()) {
                         rbtree.delete(k);
+                    };
+                };
+                case ("RBTree", "random ops") {
+                    for (op in random_ops.vals()) {
+                        switch (op) {
+                            case (#insert(key, val)) { rbtree.put(key, val) };
+                            case (#replace(key, val)) { rbtree.put(key, val) };
+                            case (#remove(key)) { rbtree.delete(key) };
+                        };
                     };
                 };
 
@@ -179,6 +235,21 @@ module {
                         ignore BTree.delete(btree, Text.compare, k);
                     };
                 };
+                case ("BTree", "random ops") {
+                    for (op in random_ops.vals()) {
+                        switch (op) {
+                            case (#insert(key, val)) {
+                                ignore BTree.insert(btree, Text.compare, key, val);
+                            };
+                            case (#replace(key, val)) {
+                                ignore BTree.insert(btree, Text.compare, key, val);
+                            };
+                            case (#remove(key)) {
+                                ignore BTree.delete(btree, Text.compare, key);
+                            };
+                        };
+                    };
+                };
                 case ("B+Tree", "insert()") {
                     for ((key, val) in entries.vals()) {
                         ignore BpTree.insert(bptree, Cmp.Text, key, val);
@@ -216,13 +287,24 @@ module {
                         ignore BpTree.remove(bptree, Cmp.Text, k);
                     };
                 };
+                case ("B+Tree", "random ops") {
+                    for (op in random_ops.vals()) {
+                        switch (op) {
+                            case (#insert(key, val)) {
+                                ignore BpTree.insert(bptree, Cmp.Text, key, val);
+                            };
+                            case (#replace(key, val)) {
+                                ignore BpTree.insert(bptree, Cmp.Text, key, val);
+                            };
+                            case (#remove(key)) {
+                                ignore BpTree.remove(bptree, Cmp.Text, key);
+                            };
+                        };
+                    };
+                };
 
                 case ("Memory B+Tree (#BlobCmp)", category) {
                     run_bench("Memory B+Tree", category, mem_btree_blob_cmp, btree_utils);
-                };
-
-                case ("Memory B+Tree (#GenCmp)", category) {
-                    run_bench("Memory B+Tree", category, mem_btree, ds_text_utils);
                 };
                 case (_) {
                     Debug.trap("Should not reach with row = " # debug_show row # " and col = " # debug_show col);

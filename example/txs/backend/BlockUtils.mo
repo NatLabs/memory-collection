@@ -1,10 +1,10 @@
-import Array "mo:base@0.14.11/Array";
-import Principal "mo:base@0.14.11/Principal";
-import Debug "mo:base@0.14.11/Debug";
-import Nat64 "mo:base@0.14.11/Nat64";
-import Nat "mo:base@0.14.11/Nat";
-import Cycles "mo:base@0.14.11/ExperimentalCycles";
-import Buffer "mo:base@0.14.11/Buffer";
+import Array "mo:base@0.14.13/Array";
+import Principal "mo:base@0.14.13/Principal";
+import Debug "mo:base@0.14.13/Debug";
+import Nat64 "mo:base@0.14.13/Nat64";
+import Nat "mo:base@0.14.13/Nat";
+import Cycles "mo:base@0.14.13/ExperimentalCycles";
+import Buffer "mo:base@0.14.13/Buffer";
 
 import Vector "mo:vector";
 import Itertools "mo:itertools@0.2.2/Iter";
