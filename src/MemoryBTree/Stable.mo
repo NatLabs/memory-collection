@@ -1,4 +1,5 @@
-import RevIter "mo:itertools@0.2.2/RevIter";
+import Iter "mo:core@2.4/Iter";
+import RevIter "mo:itertools@0.2/RevIter";
 
 import Migrations "Migrations";
 import MemoryBTree "Base";
@@ -7,11 +8,25 @@ import T "modules/Types";
 module StableMemoryBTree {
     public type MemoryBTree = Migrations.MemoryBTree;
     public type StableMemoryBTree = Migrations.VersionedMemoryBTree;
+    public type VersionedMemoryBTree = Migrations.VersionedMemoryBTree;
     public type MemoryBlock = T.MemoryBlock;
     public type BTreeUtils<K, V> = T.BTreeUtils<K, V>;
     public type MemoryBTreeStats = MemoryBTree.MemoryBTreeStats;
+    public type MemoryCmp<A> = MemoryBTree.MemoryCmp<A>;
+    public type TypeUtils<A> = MemoryBTree.TypeUtils<A>;
+    public type MergeStrategy = MemoryBTree.MergeStrategy;
+    public type BranchNodeKeys = MemoryBTree.BranchNodeKeys;
+    public type BTreeOptions = MemoryBTree.BTreeOptions;
 
     type RevIter<A> = RevIter.RevIter<A>;
+
+    public let Leaf = MemoryBTree.Leaf;
+    public let Branch = MemoryBTree.Branch;
+    public let defaultOptions : BTreeOptions = MemoryBTree.defaultOptions;
+    public let POINTER_SIZE = MemoryBTree.POINTER_SIZE;
+    public let LAYOUT_VERSION = MemoryBTree.LAYOUT_VERSION;
+    public let MC = MemoryBTree.MC;
+    public let Layout = MemoryBTree.Layout;
 
     public func createUtils<K, V>(key_utils : T.KeyUtils<K>, value_utils : T.ValueUtils<V>) : BTreeUtils<K, V> {
         return {
@@ -273,6 +288,86 @@ module StableMemoryBTree {
     public func getRefCount<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>, id : Nat) : ?Nat {
         let state = Migrations.getCurrentVersion(btree);
         MemoryBTree.getRefCount(state, btree_utils, id);
+    };
+
+    public func newWithOptions(options : BTreeOptions) : StableMemoryBTree {
+        let btree = MemoryBTree.newWithOptions(options);
+        MemoryBTree.toVersioned(btree);
+    };
+
+    public func fromVersioned(btree : StableMemoryBTree) : MemoryBTree.MemoryBTree {
+        Migrations.getCurrentVersion(btree);
+    };
+
+    public func toVersioned(btree : MemoryBTree.MemoryBTree) : StableMemoryBTree {
+        MemoryBTree.toVersioned(btree);
+    };
+
+    public func mergeThresholdCount(btree : StableMemoryBTree) : Nat {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.mergeThresholdCount(state);
+    };
+
+    public func nodeCapacity(btree : StableMemoryBTree) : Nat {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.nodeCapacity(state);
+    };
+
+    public func config(btree : StableMemoryBTree) : {
+        node_capacity : Nat;
+        merge_threshold_count : Nat;
+    } {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.config(state);
+    };
+
+    public func toEntries<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>) : [(K, V)] {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.toEntries(state, btree_utils);
+    };
+
+    public func toKeys<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>) : [K] {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.toKeys(state, btree_utils);
+    };
+
+    public func toVals<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>) : [V] {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.toVals(state, btree_utils);
+    };
+
+    public func leafNodes<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>) : RevIter<[?(K, V)]> {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.leafNodes(state, btree_utils);
+    };
+
+    public func toLeafNodes<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>) : [[?(K, V)]] {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.toLeafNodes(state, btree_utils);
+    };
+
+    public func toNodeKeys<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>) : [[BranchNodeKeys]] {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.toNodeKeys(state, btree_utils);
+    };
+
+    public func fromEntries<K, V>(
+        btree_utils : BTreeUtils<K, V>,
+        entries : Iter.Iter<(K, V)>,
+        order : ?Nat,
+    ) : StableMemoryBTree {
+        let btree = MemoryBTree.fromEntries(btree_utils, entries, order);
+        MemoryBTree.toVersioned(btree);
+    };
+
+    public func getInterval<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>, start : ?K, end : ?K) : (Nat, Nat) {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.getInterval(state, btree_utils, start, end);
+    };
+
+    public func printPathToKey<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>, key : K) {
+        let state = Migrations.getCurrentVersion(btree);
+        MemoryBTree.printPathToKey(state, btree_utils, key);
     };
 
 };

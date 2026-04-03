@@ -1,9 +1,10 @@
 // @testmode wasi
-import Buffer "mo:base@0.16.0/Buffer";
-import Iter "mo:base@0.16.0/Iter";
-import Debug "mo:base@0.16.0/Debug";
+import Buffer "mo:base@0.16/Buffer";
+import Iter "mo:core@2.4/Iter";
+import Nat "mo:core@2.4/Nat";
+import Debug "mo:core@2.4/Debug";
 
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.5/MemoryRegion";
 import { test; suite } "mo:test";
 
 import MemoryQueue "../../src/MemoryQueue/Base";
@@ -11,7 +12,7 @@ import TypeUtils "../../src/TypeUtils";
 
 let limit = 10_000;
 let buffer = Buffer.Buffer<Nat>(limit);
-for (i in Iter.range(0, limit - 1)) {
+for (i in Nat.rangeInclusive(0, limit - 1)) {
   buffer.add(i);
 };
 

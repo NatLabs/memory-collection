@@ -1,4 +1,5 @@
-import Debug "mo:base@0.16.0/Debug";
+import Debug "mo:core@2.4/Debug";
+import Runtime "mo:core@2.4/Runtime";
 
 import V0 "V0";
 
@@ -18,7 +19,7 @@ module Migrations {
   public func getCurrentVersion(versions : VersionedMemoryQueue) : MemoryQueue {
     switch (versions) {
       case (#v0(v0)) v0;
-      case (_) Debug.trap("Unsupported version. Please upgrade the memory queue to the latest version.");
+      case (_) Runtime.trap("Unsupported version. Please upgrade the memory queue to the latest version.");
     };
   };
 };

@@ -1,4 +1,4 @@
-import Iter "mo:base@0.16.0/Iter";
+import Iter "mo:core@2.4/Iter";
 import Migrations "migrations";
 
 import BaseMemoryQueue "Base";

@@ -1,5 +1,5 @@
-import RevIter "mo:itertools@0.2.2/RevIter";
-import Option "mo:base@0.16.0/Option";
+import RevIter "mo:itertools@0.2/RevIter";
+import Option "mo:core@2.4/Option";
 
 import Migrations "../MemoryBTree/Migrations";
 import BaseMemoryBTree "../MemoryBTree/Base";

@@ -1,14 +1,14 @@
 // @testmode wasi
 import { test; suite } "mo:test";
-import Debug "mo:base@0.16.0/Debug";
-import Iter "mo:base@0.16.0/Iter";
-import Buffer "mo:base@0.16.0/Buffer";
-import Nat "mo:base@0.16.0/Nat";
-import Blob "mo:base@0.16.0/Blob";
-import Order "mo:base@0.16.0/Order";
+import Debug "mo:core@2.4/Debug";
+import Iter "mo:core@2.4/Iter";
+import Buffer "mo:base@0.16/Buffer";
+import Nat "mo:core@2.4/Nat";
+import Blob "mo:core@2.4/Blob";
+import Order "mo:core@2.4/Order";
 
 import Fuzz "mo:fuzz";
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.5/MemoryRegion";
 import { MaxBpTree; Cmp } "mo:augmented-btrees";
 import MaxBpTreeMethods "mo:augmented-btrees/MaxBpTree/Methods";
 import BpTree "mo:augmented-btrees/BpTree";
@@ -36,7 +36,7 @@ let equal_size_blob_values = Buffer.Buffer<Blob>(limit);
 let greater_size_blob_values = Buffer.Buffer<Blob>(limit);
 let less_size_blob_values = Buffer.Buffer<Blob>(limit);
 
-for (i in Iter.range(0, limit - 1)) {
+for (i in Nat.rangeInclusive(0, limit - 1)) {
   order.add(i);
 
   // Generate fixed keys - these will remain constant throughout the test
@@ -65,7 +65,7 @@ fuzz.buffer.shuffle(order);
 
 // Current expected values - will be updated as we modify the btree
 let current_values = Buffer.Buffer<Blob>(limit);
-for (i in Iter.range(0, limit - 1)) {
+for (i in Nat.rangeInclusive(0, limit - 1)) {
   current_values.add(initial_blob_values.get(i));
 };
 
@@ -74,7 +74,7 @@ let run_blob_validation_test = func(btree : MemoryBTree.MemoryBTree, btree_utils
   test(
     "validate all blob entries",
     func() {
-      for (i in Iter.range(0, limit - 1)) {
+      for (i in Nat.rangeInclusive(0, limit - 1)) {
         let expected_key = blob_keys.get(i);
         let expected_value = expected_values.get(i);
         let retrieved = MemoryBTree.get(btree, btree_utils, expected_key);
@@ -198,7 +198,11 @@ class MemoryBlocksMap() {
 };
 
 func btree_load_test(node_capacity : Nat) {
-  let btree = MemoryBTree.new(?node_capacity);
+  let btree = MemoryBTree.newWithOptions({
+    node_capacity = ?node_capacity;
+    is_prefix_compression_enabled = ?false;
+    merge_threshold = null;
+  });
   let btree_utils = MemoryBTree.createUtils(TypeUtils.Blob, TypeUtils.Blob);
   suite(
     "MemoryBTree Blob Memory Load Tests",
@@ -207,7 +211,7 @@ func btree_load_test(node_capacity : Nat) {
       test(
         "insert initial blob entries",
         func() {
-          for (i in Iter.range(0, limit - 1)) {
+          for (i in Nat.rangeInclusive(0, limit - 1)) {
             let key = blob_keys.get(i);
             let value = initial_blob_values.get(i);
 
@@ -394,7 +398,7 @@ func btree_load_test(node_capacity : Nat) {
         "verify memory consistency after all operations",
         func() {
           // Final verification that all current entries are accessible
-          for (i in Iter.range(0, limit - 1)) {
+          for (i in Nat.rangeInclusive(0, limit - 1)) {
             let expected_key = blob_keys.get(i);
             let expected_value = less_size_blob_values.get(i);
 
@@ -467,7 +471,7 @@ func btree_load_test(node_capacity : Nat) {
           assert MemoryBTree.size(btree) == 0;
 
           // Verify all entries are gone
-          for (i in Iter.range(0, limit - 1)) {
+          for (i in Nat.rangeInclusive(0, limit - 1)) {
             let key = blob_keys.get(i);
             assert MemoryBTree.get(btree, btree_utils, key) == null;
           };
@@ -480,7 +484,7 @@ func btree_load_test(node_capacity : Nat) {
   );
 };
 
-for (node_capacity in [4, 8, 32, 1024, 4028].vals()) {
+for (node_capacity in [16, 32, 1024, 4096].vals()) {
   suite(
     "MemoryBTree Blob Memory Load Tests with node capacity " # debug_show (node_capacity),
     func() {

@@ -1,14 +1,15 @@
-import Blob "mo:base@0.16.0/Blob";
-import Buffer "mo:base@0.16.0/Buffer";
-import Array "mo:base@0.16.0/Array";
-import Nat8 "mo:base@0.16.0/Nat8";
-import Nat64 "mo:base@0.16.0/Nat64";
-import Prelude "mo:base@0.16.0/Prelude";
-import Iter "mo:base@0.16.0/Iter";
-import Debug "mo:base@0.16.0/Debug";
-import Result "mo:base@0.16.0/Result";
+import Blob "mo:core@2.4/Blob";
+import Buffer "mo:base@0.16/Buffer";
+import Array "mo:core@2.4/Array";
+import Nat8 "mo:core@2.4/Nat8";
+import Nat64 "mo:core@2.4/Nat64";
+import Prelude "mo:core@2.4/Runtime";
+import Iter "mo:core@2.4/Iter";
+import Debug "mo:core@2.4/Debug";
+import Runtime "mo:core@2.4/Runtime";
+import Result "mo:core@2.4/Result";
 
-import Itertools "mo:itertools@0.2.2/Iter";
+import Itertools "mo:itertools@0.2/Iter";
 module {
 
   type Buffer<A> = Buffer.Buffer<A>;
@@ -22,7 +23,7 @@ module {
       size,
       func(_i : Nat) : A {
         switch (iter.next()) {
-          case (null) Debug.trap("sized_iter_to_array: found null before end of iter");
+          case (null) Runtime.trap("sized_iter_to_array: found null before end of iter");
           case (?(a)) return a;
         };
       },
@@ -32,7 +33,7 @@ module {
   public func unwrap<T>(optional : ?T, trap_msg : Text) : T {
     switch (optional) {
       case (?v) return v;
-      case (_) return Debug.trap(trap_msg);
+      case (_) return Runtime.trap(trap_msg);
     };
   };
 
@@ -146,6 +147,19 @@ module {
 
     let bytes = Array.flatten(nested_bytes);
     Blob.fromArray(bytes);
+  };
+
+  public func blob_slice(blob : Blob, start : Nat, size : Nat) : Blob {
+    if (size == 0) return "";
+
+    Blob.fromArray(
+      Array.tabulate(
+        size,
+        func(i : Nat) : Nat8 {
+          blob.get(start + i);
+        },
+      )
+    );
   };
 
   public func encode_leb128(n : Nat) : Blob {

@@ -4,25 +4,26 @@
 /// and deserializing values that will be stored in persistent stable memory.
 ///
 
-import TextModule "mo:base@0.16.0/Text";
-import CharModule "mo:base@0.16.0/Char";
-import BlobModule "mo:base@0.16.0/Blob";
-import ArrayModule "mo:base@0.16.0/Array";
-import NatModule "mo:base@0.16.0/Nat";
-import Nat8Module "mo:base@0.16.0/Nat8";
-import Nat16Module "mo:base@0.16.0/Nat16";
-import Nat32Module "mo:base@0.16.0/Nat32";
-import Nat64Module "mo:base@0.16.0/Nat64";
-import IntModule "mo:base@0.16.0/Int";
-import Int8Module "mo:base@0.16.0/Int8";
-import Int16Module "mo:base@0.16.0/Int16";
-import Int32Module "mo:base@0.16.0/Int32";
-import Int64Module "mo:base@0.16.0/Int64";
-import PrincipalModule "mo:base@0.16.0/Principal";
-import TimeModule "mo:base@0.16.0/Time";
-import Debug "mo:base@0.16.0/Debug";
+import TextModule "mo:core@2.4/Text";
+import CharModule "mo:core@2.4/Char";
+import BlobModule "mo:core@2.4/Blob";
+import ArrayModule "mo:core@2.4/Array";
+import NatModule "mo:core@2.4/Nat";
+import Nat8Module "mo:core@2.4/Nat8";
+import Nat16Module "mo:core@2.4/Nat16";
+import Nat32Module "mo:core@2.4/Nat32";
+import Nat64Module "mo:core@2.4/Nat64";
+import IntModule "mo:core@2.4/Int";
+import Int8Module "mo:core@2.4/Int8";
+import Int16Module "mo:core@2.4/Int16";
+import Int32Module "mo:core@2.4/Int32";
+import Int64Module "mo:core@2.4/Int64";
+import PrincipalModule "mo:core@2.4/Principal";
+import TimeModule "mo:core@2.4/Time";
+import Debug "mo:core@2.4/Debug";
+import Runtime "mo:core@2.4/Runtime";
 
-import ByteUtils "mo:byte-utils@0.1.1";
+import ByteUtils "mo:byte-utils@0.2";
 
 import Utils "../Utils";
 
@@ -166,8 +167,8 @@ module Blobify {
   public let Char : Blobify<Char> = {
     to_blob = func(c : Char) : Blob = Base.Text.encodeUtf8(CharModule.toText(c));
     from_blob = func(blob : Blob) : Char {
-      let ?t = TextModule.decodeUtf8(blob) else Debug.trap("from_blob() on Blobify.Char failed to decodeUtf8");
-      let ?c = t.chars().next() else Debug.trap("from_blob() on Blobify.Char failed to get first char");
+      let ?t = TextModule.decodeUtf8(blob) else Runtime.trap("from_blob() on Blobify.Char failed to decodeUtf8");
+      let ?c = t.chars().next() else Runtime.trap("from_blob() on Blobify.Char failed to get first char");
       c;
     };
   };
@@ -175,7 +176,7 @@ module Blobify {
   public let Text : Blobify<Text> = {
     to_blob = func(t : Text) : Blob = TextModule.encodeUtf8(t);
     from_blob = func(blob : Blob) : Text {
-      let ?text = TextModule.decodeUtf8(blob) else Debug.trap("from_blob() on Blobify.Text failed to decodeUtf8");
+      let ?text = TextModule.decodeUtf8(blob) else Runtime.trap("from_blob() on Blobify.Text failed to decodeUtf8");
       text;
     };
   };

@@ -1,15 +1,15 @@
 // @testmode wasi
-import Buffer "mo:base@0.16.0/Buffer";
-import Debug "mo:base@0.16.0/Debug";
-import Iter "mo:base@0.16.0/Iter";
-import Nat "mo:base@0.16.0/Nat";
-import Result "mo:base@0.16.0/Result";
+import Buffer "mo:base@0.16/Buffer";
+import Debug "mo:core@2.4/Debug";
+import Iter "mo:core@2.4/Iter";
+import Nat "mo:core@2.4/Nat";
+import Result "mo:core@2.4/Result";
 
 import { test; suite } "mo:test";
 import Fuzz "mo:fuzz";
 import { MaxBpTree; Cmp } "mo:augmented-btrees";
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
-import Itertools "mo:itertools@0.2.2/Iter";
+import MemoryRegion "mo:memory-region@1.5/MemoryRegion";
+import Itertools "mo:itertools@0.2/Iter";
 import MaxBpTreeMethods "mo:augmented-btrees/MaxBpTree/Methods";
 import BpTree "mo:augmented-btrees/BpTree";
 
@@ -27,7 +27,7 @@ let equal_size_values = Buffer.Buffer<Text>(limit);
 let greater_size_values = Buffer.Buffer<Text>(limit);
 let less_size_values = Buffer.Buffer<Text>(limit);
 
-for (i in Iter.range(0, limit - 1)) {
+for (i in Nat.rangeInclusive(0, limit - 1)) {
   order.add(i);
 
   let size_a = fuzz.nat.randomRange(0, 25);
@@ -115,7 +115,7 @@ suite(
     test(
       "add() to Buffer",
       func() {
-        for (i in Iter.range(0, limit - 1)) {
+        for (i in Nat.rangeInclusive(0, limit - 1)) {
           let value = initial_values.get(i);
           MemoryBuffer.add(mbuffer, TypeUtils.Text, value);
 
@@ -149,7 +149,7 @@ suite(
     test(
       "get() from Buffer",
       func() {
-        for (i in Iter.range(0, limit - 1)) {
+        for (i in Nat.rangeInclusive(0, limit - 1)) {
           let expected_value = initial_values.get(i);
           assert MemoryBuffer.get(mbuffer, TypeUtils.Text, i) == expected_value;
         };
@@ -180,7 +180,7 @@ suite(
     test(
       "get() from Buffer",
       func() {
-        for (i in Iter.range(0, limit - 1)) {
+        for (i in Nat.rangeInclusive(0, limit - 1)) {
           let expected_value = equal_size_values.get(i);
           assert MemoryBuffer.get(mbuffer, TypeUtils.Text, i) == expected_value;
         };
@@ -287,7 +287,7 @@ suite(
     test(
       "get() from Buffer",
       func() {
-        for (i in Iter.range(0, limit - 1)) {
+        for (i in Nat.rangeInclusive(0, limit - 1)) {
           let expected_value = greater_size_values.get(i);
 
           assert MemoryBuffer.get(mbuffer, TypeUtils.Text, i) == expected_value;
@@ -325,7 +325,7 @@ suite(
       "get() from Buffer",
       func() {
 
-        for (i in Iter.range(0, limit - 1)) {
+        for (i in Nat.rangeInclusive(0, limit - 1)) {
           let expected_value = less_size_values.get(i);
           assert MemoryBuffer.get(mbuffer, TypeUtils.Text, i) == expected_value;
         };

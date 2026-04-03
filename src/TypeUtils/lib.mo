@@ -30,20 +30,11 @@ module {
     public type TypeUtils<K> = {
         blobify : Blobify<K>;
         cmp : MemoryCmp<K>;
-        // hash : Hash<K>;
     };
 
     public let Nat : TypeUtils<Nat> = {
         blobify = Blobify.Nat;
-        cmp = #BlobCmp(
-            // Backward compatible comparison function for TypeUtils.BigEndian.Nat in v0.4.0
-            func(a : Blob, b : Blob) : Int8 {
-                if (a.size() > b.size()) return 1;
-                if (a.size() < b.size()) return -1;
-
-                Prim.blobCompare(a, b);
-            },
-        );
+        cmp = MemoryCmp.Default;
     };
 
     public let Nat8 : TypeUtils<Nat8> = {

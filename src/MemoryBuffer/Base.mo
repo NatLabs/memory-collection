@@ -1,20 +1,21 @@
 /// A memory buffer is a data structure that stores a sequence of values in memory.
 
-import Debug "mo:base@0.16.0/Debug";
-import Array "mo:base@0.16.0/Array";
-import Iter "mo:base@0.16.0/Iter";
-import Int "mo:base@0.16.0/Int";
-import Nat "mo:base@0.16.0/Nat";
-import Nat8 "mo:base@0.16.0/Nat8";
-import Nat32 "mo:base@0.16.0/Nat32";
-import Nat64 "mo:base@0.16.0/Nat64";
-import Blob "mo:base@0.16.0/Blob";
-import Result "mo:base@0.16.0/Result";
-import Order "mo:base@0.16.0/Order";
+import Debug "mo:core@2.4/Debug";
+import Runtime "mo:core@2.4/Runtime";
+import Array "mo:core@2.4/Array";
+import Iter "mo:core@2.4/Iter";
+import Int "mo:core@2.4/Int";
+import Nat "mo:core@2.4/Nat";
+import Nat8 "mo:core@2.4/Nat8";
+import Nat32 "mo:core@2.4/Nat32";
+import Nat64 "mo:core@2.4/Nat64";
+import Blob "mo:core@2.4/Blob";
+import Result "mo:core@2.4/Result";
+import Order "mo:core@2.4/Order";
 
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
-import RevIter "mo:itertools@0.2.2/RevIter";
-import Itertools "mo:itertools@0.2.2/Iter";
+import MemoryRegion "mo:memory-region@1.5/MemoryRegion";
+import RevIter "mo:itertools@0.2/RevIter";
+import Itertools "mo:itertools@0.2/Iter";
 
 import Migrations "Migrations";
 import MemoryCmp "../TypeUtils/MemoryCmp";
@@ -143,7 +144,7 @@ module MemoryBuffer {
   public func init<A>(buffer_utils : MemoryBufferUtils<A>, size : Nat, val : A) : MemoryBuffer<A> {
     let mbuffer = MemoryBuffer.new<A>();
 
-    for (_ in Iter.range(1, size - 1)) {
+    for (_ in Nat.rangeInclusive(1, size - 1)) {
       MemoryBuffer.add(mbuffer, buffer_utils, val);
     };
 
@@ -154,7 +155,7 @@ module MemoryBuffer {
   public func tabulate<A>(buffer_utils : MemoryBufferUtils<A>, size : Nat, fn : (i : Nat) -> A) : MemoryBuffer<A> {
     let mbuffer = MemoryBuffer.new<A>();
 
-    for (i in Iter.range(0, size - 1)) {
+    for (i in Nat.rangeInclusive(0, size - 1)) {
       MemoryBuffer.add(mbuffer, buffer_utils, fn(i));
     };
 
@@ -282,7 +283,7 @@ module MemoryBuffer {
   /// Replaces the value at the given index with the given value.
   public func put<A>(self : MemoryBuffer<A>, buffer_utils : MemoryBufferUtils<A>, index : Nat, value : A) {
     if (index >= self.count) {
-      Debug.trap("MemoryBuffer put(): Index out of bounds");
+      Runtime.trap("MemoryBuffer put(): Index out of bounds");
     };
 
     internal_replace(self, buffer_utils, index, value);
@@ -315,7 +316,7 @@ module MemoryBuffer {
   /// Retrieves the value at the given index. Traps if the index is out of bounds.
   public func get<A>(self : MemoryBuffer<A>, buffer_utils : MemoryBufferUtils<A>, index : Nat) : A {
     if (index >= self.count) {
-      Debug.trap("MemoryBuffer get(): Index out of bounds");
+      Runtime.trap("MemoryBuffer get(): Index out of bounds");
     };
 
     _get(self, buffer_utils, index);
@@ -356,7 +357,7 @@ module MemoryBuffer {
   public func append<A>(self : MemoryBuffer<A>, buffer_utils : MemoryBufferUtils<A>, other : MemoryBuffer<A>) {
     switch (verify(other)) {
       case (#ok(_)) {};
-      case (#err(err)) Debug.trap("MemoryBuffer append(): " # err);
+      case (#err(err)) Runtime.trap("MemoryBuffer append(): " # err);
     };
 
     for (value in vals(other, buffer_utils)) {
@@ -571,7 +572,7 @@ module MemoryBuffer {
   /// Removes the value at the given index. Traps if the index is out of bounds.
   public func remove<A>(self : MemoryBuffer<A>, buffer_utils : MemoryBufferUtils<A>, index : Nat) : A {
     if (index >= self.count) {
-      Debug.trap("MemoryBuffer remove(): Index out of bounds");
+      Runtime.trap("MemoryBuffer remove(): Index out of bounds");
     };
 
     // Debug.print("Removing value at index = " # debug_show index);
@@ -607,7 +608,7 @@ module MemoryBuffer {
   /// Swaps the value at the given index with the last index, so that it can be removed in O(1) time.
   public func swapRemove<A>(self : MemoryBuffer<A>, buffer_utils : MemoryBufferUtils<A>, index : Nat) : A {
     if (index >= self.count) {
-      Debug.trap("MemoryBuffer swapRemove(): Index out of bounds");
+      Runtime.trap("MemoryBuffer swapRemove(): Index out of bounds");
     };
 
     swap<A>(self, index, self.count - 1);
@@ -616,7 +617,7 @@ module MemoryBuffer {
 
   /// Reverses the order of the values in the buffer.
   public func reverse<A>(self : MemoryBuffer<A>) {
-    for (i in Iter.range(0, (self.count / 2) - 1)) {
+    for (i in Nat.rangeInclusive(0, (self.count / 2) - 1)) {
       swap<A>(self, i, self.count - i - 1);
     };
   };
@@ -670,7 +671,7 @@ module MemoryBuffer {
   public func insert<A>(self : MemoryBuffer<A>, buffer_utils : MemoryBufferUtils<A>, index : Nat, value : A) {
 
     if (index > self.count) {
-      Debug.trap("MemoryBuffer: Index out of bounds");
+      Runtime.trap("MemoryBuffer: Index out of bounds");
     };
 
     if (MemoryRegion.size(self.pointers) < 64 + (POINTER_SIZE * (self.count + 1))) {
@@ -701,7 +702,7 @@ module MemoryBuffer {
       var i = start + 1;
       var j = start + 1;
 
-      for (index in Iter.range(pivot + 1, end - 1)) {
+      for (index in Nat.rangeInclusive(pivot + 1, end - 1)) {
 
         let ord = switch (mem_cmp) {
           case (#BlobCmp(cmp)) {

@@ -1,20 +1,156 @@
-import Nat "mo:base@0.16.0/Nat";
-import Blob "mo:base@0.16.0/Blob";
-import Nat64 "mo:base@0.16.0/Nat64";
-import Nat16 "mo:base@0.16.0/Nat16";
-import Nat8 "mo:base@0.16.0/Nat8";
-import Nat32 "mo:base@0.16.0/Nat32";
-import Debug "mo:base@0.16.0/Debug";
+import Nat "mo:core@2.4/Nat";
+import Blob "mo:core@2.4/Blob";
+import Nat64 "mo:core@2.4/Nat64";
+import Nat16 "mo:core@2.4/Nat16";
+import Nat8 "mo:core@2.4/Nat8";
+import Nat32 "mo:core@2.4/Nat32";
+import Debug "mo:core@2.4/Debug";
 
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
-import RevIter "mo:itertools@0.2.2/RevIter";
+import MemoryRegion "mo:memory-region@1.5/MemoryRegion";
+import RevIter "mo:itertools@0.2/RevIter";
 
 import Migrations "../Migrations";
 import T "Types";
 
 module MemoryBlock {
 
-  //      Memory Layout - (15 bytes)
+  type Address = Nat;
+  type MemoryRegion = MemoryRegion.MemoryRegion;
+  type RevIter<A> = RevIter.RevIter<A>;
+
+  public type MemoryBTree = Migrations.MemoryBTree;
+  public type MemoryBlock = T.MemoryBlock;
+  type UniqueId = T.UniqueId;
+
+  public module Branch {
+
+    // Branch Key Memory Layout
+    //      | Field           | Size (bytes) | Description                             |
+    //      |-----------------|--------------|-----------------------------------------|
+    //      | key size        |  2           | key size                               |
+    //      | key blob        |  key size    | serialized key                          |
+    //      |-----------------|--------------|-----------------------------------------|
+
+    public let KEY_SIZE_START = 0;
+    public let KEY_BLOB_START = 2;
+
+    public func store_key_blob(btree : MemoryBTree, key : Blob) : UniqueId {
+      let total = KEY_BLOB_START + key.size();
+      let key_address = MemoryRegion.allocate(btree.data, total);
+
+      MemoryRegion.storeNat16(btree.data, key_address + KEY_SIZE_START, Nat16.fromNat(key.size())); // key mem block size
+      MemoryRegion.storeBlob(btree.data, key_address + KEY_BLOB_START, key);
+
+      key_address;
+    };
+
+    public func get_key_blob(btree : MemoryBTree, key_address : UniqueId) : Blob {
+      let key_size = MemoryRegion.loadNat16(btree.data, key_address + KEY_SIZE_START) |> Nat16.toNat(_);
+      let blob = MemoryRegion.loadBlob(btree.data, key_address + KEY_BLOB_START, key_size);
+
+      blob;
+    };
+
+    public func get_key_block(btree : MemoryBTree, key_address : UniqueId) : MemoryBlock {
+      let key_size = MemoryRegion.loadNat16(btree.data, key_address + KEY_SIZE_START) |> Nat16.toNat(_);
+
+      (key_address + KEY_BLOB_START, key_size);
+    };
+
+    public func remove_key_blob(btree : MemoryBTree, key_address : UniqueId) {
+      let key_size = MemoryRegion.loadNat16(btree.data, key_address + KEY_SIZE_START) |> Nat16.toNat(_);
+      let total = KEY_BLOB_START + key_size;
+      MemoryRegion.deallocate(btree.data, key_address, total);
+    };
+
+    // Replaces the key blob at 'prev_key_address' with 'new_key'.
+    // If the memory block address remains the same after resizing, it returns null.
+    // Otherwise, it returns the new memory block address.
+    public func replace_key_blob(btree : MemoryBTree, prev_key_address : UniqueId, new_key : Blob) : ?UniqueId {
+
+      let prev_key_size = MemoryRegion.loadNat16(btree.data, prev_key_address + KEY_SIZE_START) |> Nat16.toNat(_);
+
+      if (prev_key_size == new_key.size()) {
+        MemoryRegion.storeBlob(btree.data, prev_key_address + KEY_BLOB_START, new_key);
+        return null;
+      };
+
+      let old_total = KEY_BLOB_START + prev_key_size;
+      let new_total = KEY_BLOB_START + new_key.size();
+      let new_key_address = MemoryRegion.resize(btree.data, prev_key_address, old_total, new_total);
+
+      MemoryRegion.storeNat16(btree.data, new_key_address + KEY_SIZE_START, Nat16.fromNat(new_key.size()));
+      MemoryRegion.storeBlob(btree.data, new_key_address + KEY_BLOB_START, new_key);
+
+      if (new_key_address == prev_key_address) return null;
+
+      ?new_key_address;
+    };
+
+  };
+
+  /// PrefixKey Memory Block - stores a prefix key for leaf node key compression
+  /// Layout identical to Branch keys for consistency:
+  ///      | Field           | Size (bytes) | Description                             |
+  ///      |-----------------|--------------|-----------------------------------------|
+  ///      | prefix size     |  2           | prefix size                             |
+  ///      | prefix blob     |  prefix size | serialized prefix                       |
+  ///
+  /// ! ToDo: fix the bug in MaxBpTree with stale Max value updates and 
+  /// ! revert back to the data region (btree.data) instead of the branch region here (btree.branches)
+  public module PrefixKey {
+
+    public let SIZE_START = 0;
+    public let BLOB_START = 2;
+
+    public func store(btree : MemoryBTree, prefix : Blob) : UniqueId {
+      let total = BLOB_START + prefix.size();
+      let address = MemoryRegion.allocate(btree.data, total);
+
+      MemoryRegion.storeNat16(btree.data, address + SIZE_START, Nat16.fromNat(prefix.size()));
+      MemoryRegion.storeBlob(btree.data, address + BLOB_START, prefix);
+
+      address;
+    };
+
+    public func get(btree : MemoryBTree, address : UniqueId) : Blob {
+      let size = MemoryRegion.loadNat16(btree.data, address + SIZE_START) |> Nat16.toNat(_);
+      MemoryRegion.loadBlob(btree.data, address + BLOB_START, size);
+    };
+
+    public func get_size(btree : MemoryBTree, address : UniqueId) : Nat {
+      MemoryRegion.loadNat16(btree.data, address + SIZE_START) |> Nat16.toNat(_);
+    };
+
+    public func deallocate(btree : MemoryBTree, address : UniqueId) {
+      let size = MemoryRegion.loadNat16(btree.data, address + SIZE_START) |> Nat16.toNat(_);
+      let total = BLOB_START + size;
+      MemoryRegion.deallocate(btree.data, address, total);
+    };
+
+    /// Replaces the prefix blob at 'prev_address' with 'new_prefix'.
+    /// Returns the new address (may be same if size unchanged and no relocation)
+    public func replace(btree : MemoryBTree, prev_address : UniqueId, new_prefix : Blob) : UniqueId {
+      let prev_size = MemoryRegion.loadNat16(btree.data, prev_address + SIZE_START) |> Nat16.toNat(_);
+
+      if (prev_size == new_prefix.size()) {
+        MemoryRegion.storeBlob(btree.data, prev_address + BLOB_START, new_prefix);
+        return prev_address;
+      };
+
+      let old_total = BLOB_START + prev_size;
+      let new_total = BLOB_START + new_prefix.size();
+      let new_address = MemoryRegion.resize(btree.data, prev_address, old_total, new_total);
+
+      MemoryRegion.storeNat16(btree.data, new_address + SIZE_START, Nat16.fromNat(new_prefix.size()));
+      MemoryRegion.storeBlob(btree.data, new_address + BLOB_START, new_prefix);
+
+      new_address;
+    };
+
+  };
+
+  //      Leaf Entry Memory Layout - (15 bytes)
   //
   //      | Field           | Size (bytes) | Description                             |
   //      |-----------------|--------------|-----------------------------------------|
@@ -25,14 +161,6 @@ module MemoryBlock {
   // |    | key blob        |  key size    | serialized key                          |
   // |
   // └--> value blob of 'value size' stored at this address
-
-  type Address = Nat;
-  type MemoryRegion = MemoryRegion.MemoryRegion;
-  type RevIter<A> = RevIter.RevIter<A>;
-
-  public type MemoryBTree = Migrations.MemoryBTree;
-  public type MemoryBlock = T.MemoryBlock;
-  type UniqueId = T.UniqueId;
 
   let BLOCK_ENTRY_SIZE = 15;
 
@@ -47,14 +175,14 @@ module MemoryBlock {
   };
 
   public func store(btree : MemoryBTree, key : Blob, val : Blob) : UniqueId {
-    let block_address = MemoryRegion.allocate(btree.data, KEY_BLOB_START + key.size());
+    let total = KEY_BLOB_START + key.size();
+    let block_address = MemoryRegion.allocate(btree.data, total);
 
     let val_address = MemoryRegion.addBlob(btree.values, val);
 
     MemoryRegion.storeNat8(btree.data, block_address, 0); // reference count
     MemoryRegion.storeNat64(btree.data, block_address + VAL_POINTER_START, Nat64.fromNat(val_address)); // value mem block address
     MemoryRegion.storeNat32(btree.data, block_address + VAL_SIZE_START, Nat32.fromNat(val.size())); // value mem block size
-
     MemoryRegion.storeNat16(btree.data, block_address + KEY_SIZE_START, Nat16.fromNat(key.size())); // key mem block size
     MemoryRegion.storeBlob(btree.data, block_address + KEY_BLOB_START, key);
 
@@ -142,6 +270,68 @@ module MemoryBlock {
     blob;
   };
 
+  /// Replaces the key blob in a leaf entry at 'block_address' with 'new_key'.
+  /// If the memory block address remains the same after resizing, it returns null.
+  /// Otherwise, it returns the new memory block address.
+  /// The value pointer and size are preserved during the resize.
+  public func replace_key_blob(btree : MemoryBTree, block_address : UniqueId, new_key : Blob) : ?UniqueId {
+    let prev_key_size = MemoryRegion.loadNat16(btree.data, block_address + KEY_SIZE_START) |> Nat16.toNat(_);
+
+    if (prev_key_size == new_key.size()) {
+      MemoryRegion.storeBlob(btree.data, block_address + KEY_BLOB_START, new_key);
+      return null;
+    };
+
+    // Need to resize - save val pointer and size first
+    let val_address = MemoryRegion.loadNat64(btree.data, block_address + VAL_POINTER_START);
+    let val_size = MemoryRegion.loadNat32(btree.data, block_address + VAL_SIZE_START);
+    let ref_count = MemoryRegion.loadNat8(btree.data, block_address + REFERENCE_COUNT_START);
+
+    let old_total = KEY_BLOB_START + prev_key_size;
+    let new_total = KEY_BLOB_START + new_key.size();
+    let new_block_address = MemoryRegion.resize(btree.data, block_address, old_total, new_total);
+
+    // Restore val pointer and size (may have been moved)
+    MemoryRegion.storeNat8(btree.data, new_block_address + REFERENCE_COUNT_START, ref_count);
+    MemoryRegion.storeNat64(btree.data, new_block_address + VAL_POINTER_START, val_address);
+    MemoryRegion.storeNat32(btree.data, new_block_address + VAL_SIZE_START, val_size);
+
+    // Store new key
+    MemoryRegion.storeNat16(btree.data, new_block_address + KEY_SIZE_START, Nat16.fromNat(new_key.size()));
+    MemoryRegion.storeBlob(btree.data, new_block_address + KEY_BLOB_START, new_key);
+
+    if (new_block_address == block_address) return null;
+
+    ?new_block_address;
+  };
+
+  /// Deallocates the block at 'block_address', preserving and returning the val pointer and val size
+  /// so they can be written into a newly allocated block.  This is used when recompressing keys:
+  /// all old blocks are freed first (so their space is pooled together), then new blocks are allocated.
+  public func deallocate_key(btree : MemoryBTree, block_address : UniqueId) : (Nat8, Nat64, Nat32) {
+    let ref_count = MemoryRegion.loadNat8(btree.data, block_address + REFERENCE_COUNT_START);
+    let val_ptr   = MemoryRegion.loadNat64(btree.data, block_address + VAL_POINTER_START);
+    let val_size  = MemoryRegion.loadNat32(btree.data, block_address + VAL_SIZE_START);
+    let key_size  = MemoryRegion.loadNat16(btree.data, block_address + KEY_SIZE_START) |> Nat16.toNat(_);
+    MemoryRegion.deallocate(btree.data, block_address, KEY_BLOB_START + key_size);
+    (ref_count, val_ptr, val_size);
+  };
+
+  /// Allocates a new leaf entry block for the given key, using the val info
+  /// (ref_count, val_ptr, val_size) saved from a previous `deallocate_key` call.
+  public func allocate_key(btree : MemoryBTree, key : Blob, ref_count : Nat8, val_ptr : Nat64, val_size : Nat32) : UniqueId {
+    let total = KEY_BLOB_START + key.size();
+    let block_address = MemoryRegion.allocate(btree.data, total);
+
+    MemoryRegion.storeNat8(btree.data, block_address + REFERENCE_COUNT_START, ref_count);
+    MemoryRegion.storeNat64(btree.data, block_address + VAL_POINTER_START, val_ptr);
+    MemoryRegion.storeNat32(btree.data, block_address + VAL_SIZE_START, val_size);
+    MemoryRegion.storeNat16(btree.data, block_address + KEY_SIZE_START, Nat16.fromNat(key.size()));
+    MemoryRegion.storeBlob(btree.data, block_address + KEY_BLOB_START, key);
+
+    block_address;
+  };
+
   public func remove(btree : MemoryBTree, block_address : UniqueId) {
 
     assert MemoryRegion.loadNat8(btree.data, block_address + REFERENCE_COUNT_START) == 0;
@@ -149,9 +339,10 @@ module MemoryBlock {
     let val_address = MemoryRegion.loadNat64(btree.data, block_address + VAL_POINTER_START) |> Nat64.toNat(_);
     let key_size = MemoryRegion.loadNat16(btree.data, block_address + KEY_SIZE_START) |> Nat16.toNat(_);
     let val_size = MemoryRegion.loadNat16(btree.data, block_address + VAL_SIZE_START) |> Nat16.toNat(_);
+    let total = KEY_BLOB_START + key_size;
 
     MemoryRegion.deallocate(btree.values, val_address, val_size);
-    MemoryRegion.deallocate(btree.data, block_address, KEY_BLOB_START + key_size);
+    MemoryRegion.deallocate(btree.data, block_address, total);
   };
 
 };

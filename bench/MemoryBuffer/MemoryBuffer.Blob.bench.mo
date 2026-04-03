@@ -1,9 +1,10 @@
-import Iter "mo:base@0.16.0/Iter";
-import Buffer "mo:base@0.16.0/Buffer";
-import Nat "mo:base@0.16.0/Nat";
-import Blob "mo:base@0.16.0/Blob";
-import Debug "mo:base@0.16.0/Debug";
-import Nat64 "mo:base@0.16.0/Nat64";
+import Iter "mo:core@2.4/Iter";
+import Buffer "mo:base@0.16/Buffer";
+import Nat "mo:core@2.4/Nat";
+import Blob "mo:core@2.4/Blob";
+import Debug "mo:core@2.4/Debug";
+import Runtime "mo:core@2.4/Runtime";
+import Nat64 "mo:core@2.4/Nat64";
 
 import Bench "mo:bench";
 import Fuzz "mo:fuzz";
@@ -56,7 +57,7 @@ module {
     let greater = Buffer.Buffer<Blob>(limit);
     let less = Buffer.Buffer<Blob>(limit);
 
-    for (i in Iter.range(0, limit - 1)) {
+    for (i in Nat.rangeInclusive(0, limit - 1)) {
       let size = fuzz.nat.randomRange(25, 50);
 
       let blob = fuzz.blob.randomBlob(size);
@@ -78,18 +79,18 @@ module {
       func(row, col) = switch (col, row) {
 
         case ("Buffer", "add()" or "add() reallocation") {
-          for (i in Iter.range(0, limit - 1)) {
+          for (i in Nat.rangeInclusive(0, limit - 1)) {
             let val = values.get(i);
             buffer.add(val);
           };
         };
         case ("Buffer", "get()") {
-          for (i in Iter.range(0, limit - 1)) {
+          for (i in Nat.rangeInclusive(0, limit - 1)) {
             ignore buffer.get(i);
           };
         };
         case ("Buffer", "put() (new == prev)") {
-          for (i in Iter.range(0, limit - 1)) {
+          for (i in Nat.rangeInclusive(0, limit - 1)) {
             let val = values2.get(i);
             buffer.put(i, val);
           };
@@ -128,20 +129,20 @@ module {
           // fuzz.buffer.shuffle(buffer);
         };
         case ("Buffer", "removeLast()") {
-          for (_ in Iter.range(0, limit - 1)) {
+          for (_ in Nat.rangeInclusive(0, limit - 1)) {
             ignore buffer.removeLast();
           };
         };
 
         case ("MemoryBuffer", "add()" or "add() reallocation") {
-          for (i in Iter.range(0, limit - 1)) {
+          for (i in Nat.rangeInclusive(0, limit - 1)) {
             let val = values.get(i);
             MemoryBuffer.add(mbuffer, TypeUtils.Blob, val);
           };
 
         };
         case ("MemoryBuffer", "get()") {
-          for (i in Iter.range(0, limit - 1)) {
+          for (i in Nat.rangeInclusive(0, limit - 1)) {
             ignore MemoryBuffer.get(mbuffer, TypeUtils.Blob, i);
           };
 
@@ -194,13 +195,13 @@ module {
           MemoryBuffer.sortUnstable(mbuffer, TypeUtils.Blob, #BlobCmp(Cmp.Blob));
         };
         case ("MemoryBuffer", "removeLast()") {
-          for (_ in Iter.range(0, limit - 1)) {
+          for (_ in Nat.rangeInclusive(0, limit - 1)) {
             ignore MemoryBuffer.removeLast(mbuffer, TypeUtils.Blob);
           };
         };
 
         case (_) {
-          Debug.trap("Should not reach with row = " # debug_show row # " and col = " # debug_show col);
+          Runtime.trap("Should not reach with row = " # debug_show row # " and col = " # debug_show col);
         };
       }
     );

@@ -1,11 +1,12 @@
-import Iter "mo:base@0.16.0/Iter";
-import Nat8 "mo:base@0.16.0/Nat8";
-import Nat64 "mo:base@0.16.0/Nat64";
-import Debug "mo:base@0.16.0/Debug";
-import Blob "mo:base@0.16.0/Blob";
-import TextModule "mo:base@0.16.0/Text";
+import Iter "mo:core@2.4/Iter";
+import Nat8 "mo:core@2.4/Nat8";
+import Nat64 "mo:core@2.4/Nat64";
+import Debug "mo:core@2.4/Debug";
+import Runtime "mo:core@2.4/Runtime";
+import Blob "mo:core@2.4/Blob";
+import TextModule "mo:core@2.4/Text";
 
-import Itertools "mo:itertools@0.2.2/Iter";
+import Itertools "mo:itertools@0.2/Iter";
 import Blobify "../TypeUtils/Blobify";
 
 module WyHash {
@@ -96,7 +97,7 @@ module WyHash {
 
       var i = 0;
       while (i < 8) {
-        let ?n = data.next() else Debug.trap("WyHash.hash: not enough data");
+        let ?n = data.next() else Runtime.trap("WyHash.hash: not enough data");
         x := x << 8 | Nat64.fromNat(Nat8.toNat(n));
 
         i += 1;
@@ -113,7 +114,7 @@ module WyHash {
 
       var i = 0;
       while (i < 4) {
-        let ?n = data.next() else Debug.trap("WyHash.hash: not enough data");
+        let ?n = data.next() else Runtime.trap("WyHash.hash: not enough data");
         x := x << 8 | Nat64.fromNat(Nat8.toNat(n));
         i += 1;
       };
@@ -129,7 +130,7 @@ module WyHash {
 
       var i = 0;
       while (i < 2) {
-        let ?n = data.next() else Debug.trap("WyHash.hash: not enough data");
+        let ?n = data.next() else Runtime.trap("WyHash.hash: not enough data");
         x := x << 8 | Nat64.fromNat(Nat8.toNat(n));
         i += 1;
       };
@@ -141,7 +142,7 @@ module WyHash {
     };
 
     if (var_len >= 1) {
-      let ?n = data.next() else Debug.trap("WyHash.hash: not enough data");
+      let ?n = data.next() else Runtime.trap("WyHash.hash: not enough data");
       var x = Nat64.fromNat(Nat8.toNat(n));
       x *%= WYASH_PRIME;
       hash ^= x;

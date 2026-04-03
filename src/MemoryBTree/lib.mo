@@ -1,4 +1,5 @@
-import RevIter "mo:itertools@0.2.2/RevIter";
+import Iter "mo:core@2.4/Iter";
+import RevIter "mo:itertools@0.2/RevIter";
 
 import Migrations "Migrations";
 import BaseMemoryBTree "Base";
@@ -12,7 +13,11 @@ module {
     public type MemoryBlock = T.MemoryBlock;
     type RevIter<A> = RevIter.RevIter<A>;
 
-    type TypeUtils<A> = TypeUtils.TypeUtils<A>;
+    public type TypeUtils<A> = TypeUtils.TypeUtils<A>;
+    public type MemoryCmp<A> = BaseMemoryBTree.MemoryCmp<A>;
+    public type MergeStrategy = BaseMemoryBTree.MergeStrategy;
+    public type BranchNodeKeys = BaseMemoryBTree.BranchNodeKeys;
+    public type BTreeOptions = BaseMemoryBTree.BTreeOptions;
 
     public type StableStore = StableMemoryBTree.StableMemoryBTree;
 
@@ -23,8 +28,22 @@ module {
 
     public type ExpectedIndex = BaseMemoryBTree.ExpectedIndex;
 
+    public let Leaf = BaseMemoryBTree.Leaf;
+    public let Branch = BaseMemoryBTree.Branch;
+    public let defaultOptions : BTreeOptions = BaseMemoryBTree.defaultOptions;
+    public let POINTER_SIZE = BaseMemoryBTree.POINTER_SIZE;
+    public let LAYOUT_VERSION = BaseMemoryBTree.LAYOUT_VERSION;
+    public let MC = BaseMemoryBTree.MC;
+    public let Layout = BaseMemoryBTree.Layout;
+
     /// Create a new stable store
     public func newStableStore(order : ?Nat) : StableStore = StableMemoryBTree.new(order);
+
+    /// Create a new stable store with the given options
+    public func newStableStoreWithOptions(options : BTreeOptions) : StableStore {
+        let btree = BaseMemoryBTree.newWithOptions(options);
+        BaseMemoryBTree.toVersioned(btree);
+    };
 
     /// Upgrade an older version of the BTree to the latest version
     public func upgrade<K, V>(sstore : StableStore) : StableStore {
@@ -223,6 +242,18 @@ module {
         /// Get the reference count associated with the given id
         public func getRefCount(id : Nat) : ?Nat = BaseMemoryBTree.getRefCount(state, btree_utils, id);
 
+        /// Returns an array of all the entries in the BTree (alias for toArray)
+        public func toEntries() : [(K, V)] = BaseMemoryBTree.toEntries(state, btree_utils);
+
+        /// Returns the merge threshold count
+        public func mergeThresholdCount() : Nat = BaseMemoryBTree.mergeThresholdCount(state);
+
+        /// Returns the node capacity
+        public func nodeCapacity() : Nat = BaseMemoryBTree.nodeCapacity(state);
+
+        /// Returns the btree's configuration
+        public func config() : { node_capacity : Nat; is_prefix_compression_enabled : Bool; merge_threshold_count : Nat } = BaseMemoryBTree.config(state);
+
     };
 
     /// Create a MemoryBTree from an array of key-value pairs
@@ -230,6 +261,17 @@ module {
         let state = Migrations.getCurrentVersion(sstore);
 
         for ((k, v) in arr.vals()) {
+            ignore BaseMemoryBTree.insert<K, V>(state, btree_utils, k, v);
+        };
+
+        MemoryBTree(sstore, btree_utils);
+    };
+
+    /// Create a MemoryBTree from an iterator of key-value pairs
+    public func fromEntries<K, V>(sstore : StableStore, btree_utils : BTreeUtils<K, V>, entries : Iter.Iter<(K, V)>) : MemoryBTree<K, V> {
+        let state = Migrations.getCurrentVersion(sstore);
+
+        for ((k, v) in entries) {
             ignore BaseMemoryBTree.insert<K, V>(state, btree_utils, k, v);
         };
 

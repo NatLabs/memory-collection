@@ -1,21 +1,27 @@
 /// Leaf Node Operations
 
-import Debug "mo:base@0.16.0/Debug";
-import Array "mo:base@0.16.0/Array";
-import Nat "mo:base@0.16.0/Nat";
-import Nat8 "mo:base@0.16.0/Nat8";
-import Nat16 "mo:base@0.16.0/Nat16";
-import Nat64 "mo:base@0.16.0/Nat64";
-import Int "mo:base@0.16.0/Int";
-import Float "mo:base@0.16.0/Float";
+import Debug "mo:core@2.4/Debug";
+import Runtime "mo:core@2.4/Runtime";
+import Array "mo:core@2.4/Array";
+import VarArray "mo:core@2.4/VarArray";
+import Nat "mo:core@2.4/Nat";
+import Nat8 "mo:core@2.4/Nat8";
+import Nat16 "mo:core@2.4/Nat16";
+import Nat64 "mo:core@2.4/Nat64";
+import Int "mo:core@2.4/Int";
+import Float "mo:core@2.4/Float";
+import Blob "mo:core@2.4/Blob";
+import Option "mo:core@2.4/Option";
 
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.5/MemoryRegion";
 
 import MemoryFns "MemoryFns";
 import MemoryBlock "MemoryBlock";
 import T "Types";
 import Migrations "../Migrations";
 import Utils "../../Utils";
+import Common "Common";
+import Constants "../../Constants";
 
 module Leaf {
   public type Leaf = Migrations.Leaf;
@@ -46,6 +52,9 @@ module Leaf {
 
   public let NEXT_START = 24;
 
+  // Prefix key address for key compression (null == no compression)
+  public let PREFIX_KEY_ADDRESS_START = 32;
+
   public let KV_IDS_START = HEADER_SIZE;
 
   // access constants
@@ -63,9 +72,14 @@ module Leaf {
 
   public let MAGIC : Blob = "LND";
 
-  public let DEPTH : Nat8 = 0;
+  public let DEPTH : Nat8 = 1;
 
   public let NODE_TYPE : Nat8 = 1; // leaf
+
+  /// Minimum per-key byte gain required before recompression is applied during a leaf split.
+  /// If the new prefix saves fewer than this many bytes per stored key, the recompression
+  /// pass is skipped and the current prefix is kept (slightly larger blobs, less CPU work).
+  public let PREFIX_COMPRESSION_THRESHOLD : Nat = 3;
 
   public func get_memory_size(node_capacity : Nat) : Nat {
     let bytes_per_node = HEADER_SIZE + (ADDRESS_SIZE * node_capacity); // key-value pairs
@@ -83,7 +97,7 @@ module Leaf {
     let leaf_address = MemoryRegion.allocate(btree.leaves, bytes_per_node);
 
     MemoryRegion.storeBlob(btree.leaves, leaf_address, Leaf.MAGIC);
-    MemoryRegion.storeNat8(btree.leaves, leaf_address + Leaf.DEPTH_START, Leaf.DEPTH); // layout version
+    MemoryRegion.storeNat8(btree.leaves, leaf_address + Leaf.DEPTH_START, Leaf.DEPTH); // depth
 
     MemoryRegion.storeNat16(btree.leaves, leaf_address + Leaf.INDEX_START, 0); // node's position in parent node
     MemoryRegion.storeNat16(btree.leaves, leaf_address + Leaf.COUNT_START, 0); // number of elements in the node
@@ -92,6 +106,9 @@ module Leaf {
     MemoryRegion.storeNat64(btree.leaves, leaf_address + Leaf.PARENT_START, NULL_ADDRESS);
     MemoryRegion.storeNat64(btree.leaves, leaf_address + Leaf.PREV_START, NULL_ADDRESS);
     MemoryRegion.storeNat64(btree.leaves, leaf_address + Leaf.NEXT_START, NULL_ADDRESS);
+
+    // prefix key for compression (null = no prefix compression)
+    MemoryRegion.storeNat64(btree.leaves, leaf_address + Leaf.PREFIX_KEY_ADDRESS_START, NULL_ADDRESS);
 
     var i = 0;
 
@@ -107,13 +124,13 @@ module Leaf {
     leaf_address;
   };
 
-  public func validate(btree : MemoryBTree, address : Nat) : Bool {
-    let magic_number = get_magic(btree, address);
+  public func validate(btree : MemoryBTree, leaf_address : Nat) : Bool {
+    let magic_number = get_magic(btree, leaf_address);
     // Debug.print("received magic " # debug_show (magic_number, MAGIC));
 
     let is_valid_node = (magic_number) == MAGIC;
 
-    let depth = get_depth(btree, address);
+    let depth = get_depth(btree, leaf_address);
     // Debug.print("received depth " # debug_show (depth));
 
     let is_leaf_depth = depth == 1;
@@ -122,51 +139,55 @@ module Leaf {
 
   };
 
-  public func from_memory(btree : MemoryBTree, address : Nat) : Leaf {
+  public func from_memory(btree : MemoryBTree, leaf_address : Nat) : Leaf {
+    // assert Leaf.validate(btree, address);
 
     let leaf : Leaf = (
       [var 0, 0, 0, 0],
       [var null, null, null],
-      Array.init(btree.node_capacity, null),
-      Array.init(btree.node_capacity, null),
-      Array.init(btree.node_capacity, null),
-      Array.init<?Nat>(btree.node_capacity, null),
-      Array.init(btree.node_capacity, null),
+      VarArray.repeat(null, btree.node_capacity),
+      VarArray.repeat(null, btree.node_capacity),
+      VarArray.repeat(null, btree.node_capacity),
+      VarArray.repeat<?Nat>(null, btree.node_capacity),
+      VarArray.repeat(null, btree.node_capacity),
     );
 
-    from_memory_into(btree, address, leaf, true);
+    from_memory_into(btree, leaf_address, leaf, true);
 
     leaf;
   };
 
-  public func from_memory_into(btree : MemoryBTree, address : Nat, leaf : Leaf, load_keys : Bool) {
-    assert MemoryRegion.loadBlob(btree.leaves, address, MAGIC_SIZE) == MAGIC;
-    // assert MemoryRegion.loadNat8(btree.leaves, address + DEPTH_START) == DEPTH;
-    // assert MemoryRegion.loadNat8(btree.leaves, address + NODE_TYPE_START) == NODE_TYPE;
+  public func from_memory_into(btree : MemoryBTree, leaf_address : Nat, leaf : Leaf, load_keys : Bool) {
+    assert MemoryRegion.loadBlob(btree.leaves, leaf_address, MAGIC_SIZE) == MAGIC;
+    // assert MemoryRegion.loadNat8(btree.leaves, leaf_address + DEPTH_START) == DEPTH;
+    // assert MemoryRegion.loadNat8(btree.leaves, leaf_address + NODE_TYPE_START) == NODE_TYPE;
 
-    leaf.0 [AC.ADDRESS] := address;
-    leaf.0 [AC.INDEX] := MemoryRegion.loadNat16(btree.leaves, address + INDEX_START) |> Nat16.toNat(_);
-    leaf.0 [AC.COUNT] := MemoryRegion.loadNat16(btree.leaves, address + COUNT_START) |> Nat16.toNat(_);
+    leaf.0 [AC.ADDRESS] := leaf_address;
+    leaf.0 [AC.INDEX] := MemoryRegion.loadNat16(btree.leaves, leaf_address + INDEX_START) |> Nat16.toNat(_);
+    leaf.0 [AC.COUNT] := MemoryRegion.loadNat16(btree.leaves, leaf_address + COUNT_START) |> Nat16.toNat(_);
 
     leaf.1 [AC.PARENT] := do {
-      let p = MemoryRegion.loadNat64(btree.leaves, address + PARENT_START);
+      let p = MemoryRegion.loadNat64(btree.leaves, leaf_address + PARENT_START);
       if (p == NULL_ADDRESS) null else ?Nat64.toNat(p);
     };
 
     leaf.1 [AC.PREV] := do {
-      let n = MemoryRegion.loadNat64(btree.leaves, address + PREV_START);
+      let n = MemoryRegion.loadNat64(btree.leaves, leaf_address + PREV_START);
       if (n == NULL_ADDRESS) null else ?Nat64.toNat(n);
     };
 
     leaf.1 [AC.NEXT] := do {
-      let n = MemoryRegion.loadNat64(btree.leaves, address + NEXT_START);
+      let n = MemoryRegion.loadNat64(btree.leaves, leaf_address + NEXT_START);
       if (n == NULL_ADDRESS) null else ?Nat64.toNat(n);
     };
 
     var i = 0;
 
+    // Get the prefix for prepending to keys (if any)
+    let prefix_key = get_prefix_key(btree, leaf_address);
+
     label while_loop while (i < leaf.0 [AC.COUNT]) {
-      let key_address : Nat = get_kv_address(btree, address, i) |> Utils.unwrap(_, "Leaf.from_memory_into: key_address is null");
+      let key_address : Nat = get_kv_address(btree, leaf_address, i) |> Utils.unwrap(_, "Leaf.from_memory_into: key_address is null");
       // Debug.print("cmp: " # debug_show (key_address, NULL_ADDRESS));
       // Debug.print("is null = " # debug_show (Nat64.fromNat(key_address) == NULL_ADDRESS));
       // Debug.print("is null = " # debug_show (Nat64.equal(Nat64.fromNat(key_address), NULL_ADDRESS)));
@@ -182,7 +203,9 @@ module Leaf {
       // Debug.print("key_address = " # debug_show key_address);
 
       let key_block = MemoryBlock.get_key_block(btree, key_address);
-      let key_blob = MemoryBlock.get_key_blob(btree, key_address);
+      let key_suffix = MemoryBlock.get_key_blob(btree, key_address);
+      // Prepend prefix to get full key
+      let key_blob = Common.prepend_prefix(prefix_key, key_suffix);
       // Debug.print("key_blob = " # debug_show key_blob);
 
       leaf.2 [i] := ?(key_block);
@@ -212,162 +235,226 @@ module Leaf {
 
   };
 
-  // func calc_heuristic(btree : MemoryBTree) : Float {
-  //     let cache_capacity = Float.fromInt(LruCache.capacity(btree.nodes_cache));
-  //     let cache_size = Float.fromInt(LruCache.size(btree.nodes_cache));
-  //     let branch_count = Float.fromInt(btree.branch_count);
-  //     let leaf_count = Float.fromInt(btree.leaf_count);
-  //     let nodes_count = (branch_count + leaf_count);
-
-  //     let space_left = cache_capacity - cache_size;
-  //     let nodes_not_in_cache = nodes_count - cache_size;
-
-  //     var heuristic : Float = 0;
-
-  //     if (space_left == 0) return 0;
-  //     if (cache_capacity < branch_count) return 0;
-  //     if (nodes_not_in_cache < space_left) {
-  //         heuristic := 2;
-  //     } else {
-  //         heuristic := 10 - (((nodes_not_in_cache - space_left) / space_left) * 5.0) + 2.0;
-  //     };
-
-  //     return 10 - heuristic;
-  // };
-
-  // public func add_to_cache(btree : MemoryBTree, address : Nat) {
-  //     if (LruCache.capacity(btree.nodes_cache) == 0) return;
-
-  //     // update node to first position in cache
-  //     switch (LruCache.get(btree.nodes_cache, nhash, address)) {
-  //         case (? #leaf(_)) return;
-  //         case (? #branch(_)) Debug.trap("Leaf.add_to_cache: returned branch instead of leaf");
-  //         case (_) {};
-  //     };
-
-  //     // loading to the heap is expensive,
-  //     // so we want to limit the number of nodes we load into the cache
-  //     // this is a nice heuristic that does that
-  //     // performs well when cache is full
-  //     let heuristic = calc_heuristic(btree);
-  //     if (Float.fromInt(address % 10) >= heuristic) return;
-
-  //     let leaf : Leaf = if (LruCache.size(btree.nodes_cache) == LruCache.capacity(btree.nodes_cache)) {
-  //         let ?prev_address = LruCache.lastKey(btree.nodes_cache) else Debug.trap("Leaf.add_to_cache: last is null");
-  //         let ? #leaf(node) or ? #branch(node) = LruCache.peek(btree.nodes_cache, nhash, prev_address) else Debug.trap("Leaf.add_to_cache: leaf is null");
-  //         from_memory_into(btree, address, node, true);
-  //         node;
-  //     } else {
-  //         // loads from stable memory and adds to cache
-  //         Leaf.from_memory(btree, address);
-  //     };
-
-  //     LruCache.put(btree.nodes_cache, nhash, address, #leaf(leaf));
-  // };
-
   public func display(btree : MemoryBTree, btree_utils : BTreeUtils<Nat, Nat>, leaf_address : Nat) {};
 
-  public func get_count(btree : MemoryBTree, address : Nat) : Nat {
+  public func get_count(btree : MemoryBTree, leaf_address : Nat) : Nat {
+    // assert Leaf.validate(btree, leaf_address);
 
-    MemoryRegion.loadNat16(btree.leaves, address + COUNT_START) |> Nat16.toNat(_);
+    MemoryRegion.loadNat16(btree.leaves, leaf_address + COUNT_START) |> Nat16.toNat(_);
   };
 
-  public func get_kv_address(btree : MemoryBTree, address : Nat, i : Nat) : ?UniqueId {
-    let kv_address_offset = get_kv_address_offset(address, i);
+  public func get_kv_address(btree : MemoryBTree, leaf_address : Nat, i : Nat) : ?UniqueId {
+    // assert Leaf.validate(btree, leaf_address);
+    let kv_address_offset = get_kv_address_offset(leaf_address, i);
     let opt_id = MemoryRegion.loadNat64(btree.leaves, kv_address_offset);
 
     if (opt_id == NULL_ADDRESS) null else ?(Nat64.toNat(opt_id));
   };
 
-  public func get_key_block(btree : MemoryBTree, address : Nat, i : Nat) : ?MemoryBlock {
-    let ?id = get_kv_address(btree, address, i) else return null;
+  public func get_key_block(btree : MemoryBTree, leaf_address : Nat, i : Nat) : ?MemoryBlock {
+    // assert Leaf.validate(btree, leaf_address);
+    let ?id = get_kv_address(btree, leaf_address, i) else return null;
     ?MemoryBlock.get_key_block(btree, id);
   };
 
-  public func get_val_block(btree : MemoryBTree, address : Nat, i : Nat) : ?MemoryBlock {
-    let ?id = get_kv_address(btree, address, i) else return null;
+  public func get_val_block(btree : MemoryBTree, leaf_address : Nat, i : Nat) : ?MemoryBlock {
+    // assert Leaf.validate(btree, leaf_address);
+    let ?id = get_kv_address(btree, leaf_address, i) else return null;
     ?MemoryBlock.get_val_block(btree, id);
   };
 
-  public func get_key_blob(btree : MemoryBTree, address : Nat, i : Nat) : ?(Blob) {
-    let ?id = get_kv_address(btree, address, i) else return null;
+  // Prefix key compression functions
+  public func get_prefix_key_address(btree : MemoryBTree, leaf_address : Nat) : ?Nat {
+    let address = MemoryRegion.loadNat64(btree.leaves, leaf_address + PREFIX_KEY_ADDRESS_START);
+    if (address == NULL_ADDRESS) null else ?Nat64.toNat(address);
+  };
+
+  public func get_prefix_key(btree : MemoryBTree, leaf_address : Nat) : Blob {
+    if (not btree.is_prefix_compression_enabled) return Constants.EMPTY_BLOB;
+    let ?address = get_prefix_key_address(btree, leaf_address) else return Constants.EMPTY_BLOB;
+    let prefix = MemoryBlock.PrefixKey.get(btree, address);
+    prefix;
+  };
+
+  public func get_prefix_key_size(btree : MemoryBTree, leaf_address : Nat) : Nat {
+    let ?address = get_prefix_key_address(btree, leaf_address) else return 0;
+    MemoryBlock.PrefixKey.get_size(btree, address);
+  };
+
+  public func set_prefix_key_address(btree : MemoryBTree, leaf_address : Nat, opt_address : ?Nat) {
+    let address = switch (opt_address) {
+      case (?addr) Nat64.fromNat(addr);
+      case (null) NULL_ADDRESS;
+    };
+    MemoryRegion.storeNat64(btree.leaves, leaf_address + PREFIX_KEY_ADDRESS_START, address);
+  };
+
+  /// Replace the prefix key with a new one, deallocating the old one if present
+  public func replace_prefix_key(btree : MemoryBTree, leaf_address : Nat, new_prefix : Blob) {
+    let opt_prev_address = get_prefix_key_address(btree, leaf_address);
+
+    switch (opt_prev_address, new_prefix) {
+      case (?prev_address, "") { // new prefix is empty, just deallocate old prefix and clear address
+        MemoryBlock.PrefixKey.deallocate(btree, prev_address);
+        set_prefix_key_address(btree, leaf_address, null);
+      };
+      case (?prev_address, _) { // both old and new prefixes are non-empty, replace in place if possible
+        let new_address = MemoryBlock.PrefixKey.replace(btree, prev_address, new_prefix);
+        if (new_address != prev_address) set_prefix_key_address(btree, leaf_address, ?new_address);
+      };
+      case (null, "") {}; // no existing prefix, new prefix is empty → no-op
+      case (null, _) { // no existing prefix, just store the new one
+        let new_address = MemoryBlock.PrefixKey.store(btree, new_prefix);
+        set_prefix_key_address(btree, leaf_address, ?new_address);
+      };
+    };
+  };
+
+  /// Get the raw key blob without prefix (suffix only)
+  public func get_key_blob_suffix(btree : MemoryBTree, leaf_address : Nat, i : Nat) : ?(Blob) {
+    let ?id = get_kv_address(btree, leaf_address, i) else return null;
     ?MemoryBlock.get_key_blob(btree, id);
   };
 
-  public func set_key_to_null(btree : MemoryBTree, address : Nat, i : Nat) {
+  /// Get the full key blob with prefix prepended
+  /// Takes an optional cached prefix to avoid repeated stable memory reads
+  public func get_key_blob(btree : MemoryBTree, leaf_address : Nat, i : Nat, opt_cached_prefix : ?(Blob)) : ?(Blob) {
+    // assert Leaf.validate(btree, leaf_address);
+    let ?suffix = Leaf.get_key_blob_suffix(btree, leaf_address, i) else return null;
 
-    let id_offset = get_kv_address_offset(address, i);
+    // Use cached prefix if provided, otherwise fetch from memory
+    let prefix_key : Blob = switch (opt_cached_prefix) {
+      case (null) get_prefix_key(btree, leaf_address);
+      case (?cached) cached;
+    };
+
+    let result = Common.prepend_prefix(prefix_key, suffix);
+
+    ?result;
+  };
+
+  public func set_key_to_null(btree : MemoryBTree, leaf_address : Nat, i : Nat) {
+    // assert Leaf.validate(btree, leaf_address);
+
+    let id_offset = get_kv_address_offset(leaf_address, i);
     MemoryRegion.storeNat64(btree.leaves, id_offset, NULL_ADDRESS);
   };
 
-  public func get_val_blob(btree : MemoryBTree, address : Nat, index : Nat) : ?(Blob) {
+  public func get_val_blob(btree : MemoryBTree, leaf_address : Nat, index : Nat) : ?(Blob) {
+    // assert Leaf.validate(btree, leaf_address);
 
-    let ?id = get_kv_address(btree, address, index) else return null;
+    let ?id = get_kv_address(btree, leaf_address, index) else return null;
     ?MemoryBlock.get_val_blob(btree, id);
   };
 
-  public func set_kv_to_null(btree : MemoryBTree, address : Nat, i : Nat) {
+  public func set_kv_to_null(btree : MemoryBTree, leaf_address : Nat, i : Nat) {
+    // assert Leaf.validate(btree, leaf_address);
 
-    let key_offset = get_kv_address_offset(address, i);
+    let key_offset = get_kv_address_offset(leaf_address, i);
     MemoryRegion.storeNat64(btree.leaves, key_offset, NULL_ADDRESS);
   };
 
-  public func get_kv_blobs(btree : MemoryBTree, address : Nat, index : Nat) : ?(Blob, Blob) {
-    let ?id = get_kv_address(btree, address, index) else return null;
-    // Debug.print("get_kv_blobs: id = " # debug_show id);
-    let key_blob = MemoryBlock.get_key_blob(btree, id);
-    let val_blob = MemoryBlock.get_val_blob(btree, id);
+  public func get_kv_blobs(btree : MemoryBTree, leaf_address : Nat, index : Nat, opt_cached_prefix : ?(Blob)) : ?(Blob, Blob) {
+    // assert Leaf.validate(btree, leaf_address);
+    // Look up the block address once and reuse it for both key and value reads.
+    let ?id = get_kv_address(btree, leaf_address, index) else return null;
 
+    let key_suffix = MemoryBlock.get_key_blob(btree, id);
+    let prefix = switch (opt_cached_prefix) {
+      case (null) get_prefix_key(btree, leaf_address);
+      case (?cached) cached;
+    };
+    let key_blob = Common.prepend_prefix(prefix, key_suffix);
+
+    let val_blob = MemoryBlock.get_val_blob(btree, id);
     ?(key_blob, val_blob);
 
   };
 
-  public func get_depth(btree : MemoryBTree, address : Nat) : Nat {
-    let depth = MemoryRegion.loadNat8(btree.leaves, address + DEPTH_START) |> Nat8.toNat(_);
+  public func get_depth(btree : MemoryBTree, leaf_address : Nat) : Nat {
+    let depth = MemoryRegion.loadNat8(btree.leaves, leaf_address + DEPTH_START) |> Nat8.toNat(_);
 
     depth;
   };
 
-  public func get_magic(btree : MemoryBTree, address : Nat) : Blob {
-    MemoryRegion.loadBlob(btree.leaves, address, MAGIC_SIZE);
+  public func get_magic(btree : MemoryBTree, leaf_address : Nat) : Blob {
+    MemoryRegion.loadBlob(btree.leaves, leaf_address, MAGIC_SIZE);
   };
 
-  public func get_parent(btree : MemoryBTree, address : Nat) : ?Nat {
+  public func get_parent(btree : MemoryBTree, leaf_address : Nat) : ?Nat {
+    // assert Leaf.validate(btree, leaf_address);
 
-    let parent = MemoryRegion.loadNat64(btree.leaves, address + PARENT_START);
+    let parent = MemoryRegion.loadNat64(btree.leaves, leaf_address + PARENT_START);
     if (parent == NULL_ADDRESS) return null;
     ?Nat64.toNat(parent);
   };
 
-  public func get_index(btree : MemoryBTree, address : Nat) : Nat {
-    MemoryRegion.loadNat16(btree.leaves, address + INDEX_START) |> Nat16.toNat(_);
+  public func get_index(btree : MemoryBTree, leaf_address : Nat) : Nat {
+    // assert Leaf.validate(btree, leaf_address);
+    MemoryRegion.loadNat16(btree.leaves, leaf_address + INDEX_START) |> Nat16.toNat(_);
   };
 
-  public func get_next(btree : MemoryBTree, address : Nat) : ?Nat {
+  public func get_next(btree : MemoryBTree, leaf_address : Nat) : ?Nat {
+    // assert Leaf.validate(btree, leaf_address);
 
-    let next = MemoryRegion.loadNat64(btree.leaves, address + NEXT_START);
+    let next = MemoryRegion.loadNat64(btree.leaves, leaf_address + NEXT_START);
     if (next == NULL_ADDRESS) return null;
     ?Nat64.toNat(next);
   };
 
-  public func get_prev(btree : MemoryBTree, address : Nat) : ?Nat {
+  public func get_prev(btree : MemoryBTree, leaf_address : Nat) : ?Nat {
+    // assert Leaf.validate(btree, leaf_address);
 
-    let prev = MemoryRegion.loadNat64(btree.leaves, address + PREV_START);
+    let prev = MemoryRegion.loadNat64(btree.leaves, leaf_address + PREV_START);
     if (prev == NULL_ADDRESS) return null;
     ?Nat64.toNat(prev);
   };
 
-  public func binary_search<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, address : Nat, cmp : (K, K) -> Int8, search_key : K, arr_len : Nat) : Int {
+  /// Compare two blobs where the first blob starts from an offset
+  /// Returns: -1 if blob1[offset..] < blob2, 0 if equal, 1 if greater
+  func compare_blob_from_offset(cmp : (Blob, Blob) -> Int8, blob1 : Blob, offset : Nat, blob2 : Blob) : Int8 {
+    let len1 = blob1.size();
+    let len2 = blob2.size();
+
+    // Check bounds
+    if (offset > len1) return if (len2 == 0) 0 else -1;
+
+    let remaining1 = len1 - offset;
+
+    // Compare byte by byte
+    var i = 0;
+    while (i < remaining1 and i < len2) {
+      let byte1 = blob1.get(offset + i);
+      let byte2 = blob2.get(i);
+
+      if (byte1 < byte2) return -1;
+      if (byte1 > byte2) return 1;
+
+      i += 1;
+    };
+
+    // All compared bytes are equal, check lengths
+    if (remaining1 < len2) return -1;
+    if (remaining1 > len2) return 1;
+    return 0;
+  };
+
+  public func binary_search<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, leaf_address : Nat, cmp : (K, K) -> Int8, search_key : K, arr_len : Nat) : Int {
+    // assert Leaf.validate(btree, leaf_address);
     if (arr_len == 0) return -1; // should insert at index Int.abs(i + 1)
     var l = 0;
 
     // arr_len will always be between 4 and 512
     var r = arr_len - 1 : Nat;
 
+    // Get prefix once for efficiency (only needed when prefix compression is enabled)
+    let prefix = get_prefix_key(btree, leaf_address);
+
     while (l < r) {
       let mid = (l + r) / 2;
 
-      let ?key_blob = Leaf.get_key_blob(btree, address, mid) else Debug.trap("1. binary_search_blob_seq: accessed a null value");
+      let ?key_suffix = Leaf.get_key_blob_suffix(btree, leaf_address, mid) else Runtime.trap("1. binary_search: accessed a null value");
+      let key_blob = Common.prepend_prefix(prefix, key_suffix);
       let key = btree_utils.key.blobify.from_blob(key_blob);
 
       let result = cmp(search_key, key);
@@ -390,8 +477,9 @@ module Leaf {
     // [0,  1,  2]
     //  |   |   |
     // -1, -2, -3
-    switch (Leaf.get_key_blob(btree, address, insertion)) {
-      case (?(key_blob)) {
+    switch (Leaf.get_key_blob_suffix(btree, leaf_address, insertion)) {
+      case (?(key_suffix)) {
+        let key_blob = Common.prepend_prefix(prefix, key_suffix);
         let key = btree_utils.key.blobify.from_blob(key_blob);
         let result = cmp(search_key, key);
 
@@ -403,23 +491,49 @@ module Leaf {
         // Debug.print(
         //     "arr = " # debug_show Array.freeze(get_keys(btree, address))
         // );
-        Debug.trap("2. binary_search_blob_seq: accessed a null value");
+        Runtime.trap("2. binary_search: accessed a null value");
       };
     };
   };
 
-  public func binary_search_blob_seq(btree : MemoryBTree, address : Nat, cmp : (Blob, Blob) -> Int8, search_key : Blob, arr_len : Nat) : Int {
+  public func binary_search_blob_seq(btree : MemoryBTree, leaf_address : Nat, cmp : (Blob, Blob) -> Int8, search_key : Blob, arr_len : Nat) : Int {
+    // assert Leaf.validate(btree, leaf_address);
     if (arr_len == 0) return -1; // should insert at index Int.abs(i + 1)
     var l = 0;
 
     // arr_len will always be between 4 and 512
     var r = arr_len - 1 : Nat;
 
+    // When prefix compression is enabled, compare search_key against the shared prefix once.
+    // - search_key < prefix  → it is less than every key in this leaf → return -1
+    // - search_key > prefix  → it is greater than every key in this leaf → return -(arr_len + 1)
+    // - search_key starts with prefix → extract its suffix once and compare suffixes directly,
+    //   avoiding one Blob allocation per comparison in the loop below.
+    let leaf_prefix = get_prefix_key(btree, leaf_address);
+    let search_key_suffix : Blob = if (leaf_prefix.size() == 0) {
+      search_key;
+    } else {
+        // Compare only the bytes we have; a shorter search_key can still be > the prefix start.
+        let cmp_len = Nat.min(leaf_prefix.size(), search_key.size());
+        let search_key_prefix = Utils.blob_slice(search_key, 0, cmp_len);
+
+        let prefix_cmp = cmp(search_key_prefix, leaf_prefix);
+
+        switch (prefix_cmp) {
+          case (-1) return -1;
+          case (1) return -(arr_len + 1);
+          case (_) {
+            Utils.blob_slice(search_key, leaf_prefix.size(), search_key.size() - leaf_prefix.size());
+          };
+        };
+    };
+    
+   
     while (l < r) {
       let mid = (l + r) / 2;
 
-      let ?key_blob = Leaf.get_key_blob(btree, address, mid) else Debug.trap("1. binary_search_blob_seq: accessed a null value");
-      let result = cmp(search_key, key_blob);
+      let ?key_suffix = Leaf.get_key_blob_suffix(btree, leaf_address, mid) else Runtime.trap("1. binary_search_blob_seq: accessed a null value");
+      let result = cmp(search_key_suffix, key_suffix);
 
       if (result == -1) {
         r := mid;
@@ -438,68 +552,71 @@ module Leaf {
     // [0,  1,  2]
     //  |   |   |
     // -1, -2, -3
-    switch (Leaf.get_key_blob(btree, address, insertion)) {
-      case (?(key_blob)) {
-        let result = cmp(search_key, key_blob);
-
+    switch (Leaf.get_key_blob_suffix(btree, leaf_address, insertion)) {
+      case (?(key_suffix)) {
+        let result = cmp(search_key_suffix, key_suffix);
         if (result == 0) insertion else if (result == -1) -(insertion + 1) else -(insertion + 2);
       };
       case (_) {
         Debug.print("insertion = " # debug_show insertion);
         Debug.print("arr_len = " # debug_show arr_len);
-        // Debug.print(
-        //     "arr = " # debug_show Array.freeze(get_keys(btree, address))
-        // );
-        Debug.trap("2. binary_search_blob_seq: accessed a null value");
+        Runtime.trap("2. binary_search_blob_seq: accessed a null value");
       };
     };
   };
 
-  public func update_count(btree : MemoryBTree, address : Nat, new_count : Nat) {
+  public func update_count(btree : MemoryBTree, leaf_address : Nat, new_count : Nat) {
+    // assert Leaf.validate(btree, leaf_address);
 
-    MemoryRegion.storeNat16(btree.leaves, address + COUNT_START, Nat16.fromNat(new_count));
+    MemoryRegion.storeNat16(btree.leaves, leaf_address + COUNT_START, Nat16.fromNat(new_count));
   };
 
-  public func update_depth(btree : MemoryBTree, address : Nat, new_depth : Nat) {
-    MemoryRegion.storeNat8(btree.leaves, address + DEPTH_START, Nat8.fromNat(new_depth));
+  public func update_depth(btree : MemoryBTree, leaf_address : Nat, new_depth : Nat) {
+    // assert Leaf.validate(btree, leaf_address);
+    MemoryRegion.storeNat8(btree.leaves, leaf_address + DEPTH_START, Nat8.fromNat(new_depth));
   };
 
-  public func update_index(btree : MemoryBTree, address : Nat, new_index : Nat) {
+  public func update_index(btree : MemoryBTree, leaf_address : Nat, new_index : Nat) {
+    // assert Leaf.validate(btree, leaf_address);
 
-    MemoryRegion.storeNat16(btree.leaves, address + INDEX_START, Nat16.fromNat(new_index));
+    MemoryRegion.storeNat16(btree.leaves, leaf_address + INDEX_START, Nat16.fromNat(new_index));
   };
 
-  public func update_parent(btree : MemoryBTree, address : Nat, opt_parent : ?Nat) {
+  public func update_parent(btree : MemoryBTree, leaf_address : Nat, opt_parent : ?Nat) {
+    // assert Leaf.validate(btree, leaf_address);
 
     let parent = switch (opt_parent) {
       case (null) NULL_ADDRESS;
       case (?_parent) Nat64.fromNat(_parent);
     };
 
-    MemoryRegion.storeNat64(btree.leaves, address + PARENT_START, parent);
+    MemoryRegion.storeNat64(btree.leaves, leaf_address + PARENT_START, parent);
   };
 
-  public func update_next(btree : MemoryBTree, address : Nat, opt_next : ?Nat) {
+  public func update_next(btree : MemoryBTree, leaf_address : Nat, opt_next : ?Nat) {
+    // assert Leaf.validate(btree, leaf_address);
 
     let next = switch (opt_next) {
       case (null) NULL_ADDRESS;
       case (?_next) Nat64.fromNat(_next);
     };
 
-    MemoryRegion.storeNat64(btree.leaves, address + NEXT_START, next);
+    MemoryRegion.storeNat64(btree.leaves, leaf_address + NEXT_START, next);
   };
 
-  public func update_prev(btree : MemoryBTree, address : Nat, opt_prev : ?Nat) {
+  public func update_prev(btree : MemoryBTree, leaf_address : Nat, opt_prev : ?Nat) {
+    // assert Leaf.validate(btree, leaf_address);
 
     let prev = switch (opt_prev) {
       case (null) NULL_ADDRESS;
       case (?_prev) Nat64.fromNat(_prev);
     };
 
-    MemoryRegion.storeNat64(btree.leaves, address + PREV_START, prev);
+    MemoryRegion.storeNat64(btree.leaves, leaf_address + PREV_START, prev);
   };
 
   public func clear(btree : MemoryBTree, leaf_address : Nat) {
+    // assert Leaf.validate(btree, leaf_address);
     Leaf.update_index(btree, leaf_address, 0);
     Leaf.update_count(btree, leaf_address, 0);
     Leaf.update_parent(btree, leaf_address, null);
@@ -507,7 +624,55 @@ module Leaf {
     Leaf.update_next(btree, leaf_address, null);
   };
 
-  public func insert(btree : MemoryBTree, leaf_address : Nat, index : Nat, new_id : UniqueId) {
+  /// Update the prefix key and re-compress all keys in the leaf.
+  /// If the new prefix is the same as the old prefix, this is a no-op.
+  /// If new_prefix is empty (""), the prefix key is cleared.
+  public func update_prefix_and_recompress(btree : MemoryBTree, leaf_address : Nat, new_prefix : Blob) {
+    let old_prefix : Blob = get_prefix_key(btree, leaf_address);
+
+    // No change needed if prefix is  same
+    if (old_prefix == new_prefix) return;
+
+    let count = get_count(btree, leaf_address);
+
+    // Re-compress each key: prepend old prefix, strip new prefix
+    var i = 0;
+    label recompress while (i < count) {
+      let kv_address = switch (get_kv_address(btree, leaf_address, i)) {
+        case (?addr) addr;
+        case (null) {
+          i += 1;
+          continue recompress;
+        };
+      };
+
+      // Get the stored suffix and reconstruct full key
+      let suffix = MemoryBlock.get_key_blob(btree, kv_address);
+
+      // Strip new prefix to get new suffix
+      let new_suffix = Common.get_new_suffix(old_prefix, new_prefix, suffix);
+
+      // Replace the key blob with the new suffix
+      // Note: This may change the kv_address if size changes - we need to update the leaf pointer
+      switch (MemoryBlock.replace_key_blob(btree, kv_address, new_suffix)) {
+        case (?new_kv_address) {
+          // Address changed, update leaf pointer
+          put(btree, leaf_address, i, new_kv_address);
+        };
+        case (null) {
+          // Address unchanged, no action needed
+        };
+      };
+
+      i += 1;
+    };
+
+    // Update the prefix
+    replace_prefix_key(btree, leaf_address, new_prefix);
+  };
+
+  public func insert(btree : MemoryBTree, leaf_address : Nat, index : Nat, new_entry_kv_address : Address) {
+    // assert Leaf.validate(btree, leaf_address);
     let count = Leaf.get_count(btree, leaf_address);
 
     assert index <= count and count < btree.node_capacity;
@@ -517,13 +682,14 @@ module Leaf {
 
     assert (end - start : Nat) / ADDRESS_SIZE == (count - index : Nat);
 
-    MemoryFns.shift(btree.leaves.region, start, end, ADDRESS_SIZE);
-    MemoryRegion.storeNat64(btree.leaves, start, Nat64.fromNat(new_id));
+    MemoryFns.shift_by(btree.leaves.region, start, end, ADDRESS_SIZE);
+    MemoryRegion.storeNat64(btree.leaves, start, Nat64.fromNat(new_entry_kv_address));
 
     Leaf.update_count(btree, leaf_address, count + 1);
   };
 
-  public func insert_with_count(btree : MemoryBTree, leaf_address : Nat, index : Nat, new_id : UniqueId, count : Nat) {
+  public func insert_with_count(btree : MemoryBTree, leaf_address : Nat, index : Nat, new_entry_kv_address : Address, count : Nat) {
+    // assert Leaf.validate(btree, leaf_address);
     assert index <= count and count < btree.node_capacity;
 
     let start = get_kv_address_offset(leaf_address, index);
@@ -531,80 +697,306 @@ module Leaf {
 
     assert (end - start : Nat) / ADDRESS_SIZE == (count - index : Nat);
 
-    MemoryFns.shift(btree.leaves.region, start, end, ADDRESS_SIZE);
-    MemoryRegion.storeNat64(btree.leaves, start, Nat64.fromNat(new_id));
+    MemoryFns.shift_by(btree.leaves.region, start, end, ADDRESS_SIZE);
+    MemoryRegion.storeNat64(btree.leaves, start, Nat64.fromNat(new_entry_kv_address));
 
     Leaf.update_count(btree, leaf_address, count + 1);
   };
 
-  public func put(btree : MemoryBTree, leaf_address : Nat, index : Nat, new_id : UniqueId) {
-
+  public func put(btree : MemoryBTree, leaf_address : Nat, index : Nat, new_entry_kv_address : Address) {
+    // assert Leaf.validate(btree, leaf_address);
     let id_offset = get_kv_address_offset(leaf_address, index);
-    MemoryRegion.storeNat64(btree.leaves, id_offset, Nat64.fromNat(new_id));
+    MemoryRegion.storeNat64(btree.leaves, id_offset, Nat64.fromNat(new_entry_kv_address));
   };
 
-  public func split(btree : MemoryBTree, leaf_address : Nat, elem_index : Nat, new_id : UniqueId) : Nat {
+  func get_kv_address_at_split_virtual_index(btree: MemoryBTree, leaf_address: Nat, elem_index: Nat, new_entry_kv_address: Address, virtual_index : Nat) : ?Nat {
+    if (virtual_index == elem_index) {
+      ?new_entry_kv_address;
+    } else {
+      let actual_index = if (virtual_index > elem_index) virtual_index - 1 else virtual_index;
+      get_kv_address(btree, leaf_address, actual_index);
+    };
+  };
+
+  // Returns the full (un-prefixed) key at a virtual index, accounting for the new element.
+  // Keys stored in MemoryBlocks are suffixes relative to old_prefix; prepend it to recover
+  // the full key used for separator / prefix-bound comparisons.
+  func get_key_suffix_at_split_virtual_index(btree: MemoryBTree, leaf_address: Nat, elem_index: Nat, new_entry_kv_address: Address, virtual_index : Nat) : Blob {
+    let ?kv_address = get_kv_address_at_split_virtual_index(btree, leaf_address, elem_index, new_entry_kv_address, virtual_index) 
+      else Runtime.trap("get_key_suffix_at_split_virtual_index: null kv_address at virtual index " # debug_show (virtual_index));
+    MemoryBlock.get_key_blob(btree, kv_address);
+  };
+
+  /// Finds the split position that maximises total prefix-compression savings across both child leaves
+  public func get_optimal_split_position_for_prefix_compression(
+    btree : MemoryBTree,
+    leaf_address : Nat,
+    elem_index : Nat,
+    new_entry_kv_address : Address,
+    old_prefix : Blob,
+    opt_left_sep : ?Blob,
+    opt_right_sep : ?Blob,
+  ) : ?Nat {
+    let node_capacity = btree.node_capacity;
+    let merge_threshold_count = btree.merge_threshold_count;
+    let total_after_insert = node_capacity + 1;
+
+    let min_split = merge_threshold_count + 1;
+    let max_split = total_after_insert - merge_threshold_count;
+
+    if (min_split > max_split or (opt_left_sep == null and opt_right_sep == null)) {
+      return null;
+    };
+
+    // splits in a prefix compressed leaf produce leaves with a longer or equal prefix
+    // but never shorter than the previous one, so we can strip the old prefix and compare them 
+    // directly against the keys suffixes to get the new prefix lengths without needing to reconstruct full keys or separators.
+    let opt_left_sep_suffix = switch (opt_left_sep) {
+      case (?ls) ?Common.strip_prefix(old_prefix, ls);
+      case (null) null;
+    };
+
+    let opt_right_sep_suffix = switch (opt_right_sep) {
+      case (?rs) ?Common.strip_prefix(old_prefix, rs);
+      case (null) null;
+    };
+
+    var best_pos = min_split;
+    var best_savings : Nat = 0;
+
+    var s = min_split;
+    while (s <= max_split) {
+      let separator_key = get_key_suffix_at_split_virtual_index(btree, leaf_address, elem_index, new_entry_kv_address, s);
+
+      // How many bytes of prefix can each child leaf strip from its keys?
+      var left_prefix_len : Nat = switch (opt_left_sep_suffix) {
+        case (null) 0;
+        case (?ls) Common.get_prefix_length(ls, separator_key);
+      };
+
+      var right_prefix_len : Nat = switch (opt_right_sep_suffix) {
+        case (null) 0;
+        case (?rs) Common.get_prefix_length(separator_key, rs);
+      };
+
+      // only consider prefix compression if it meets a minimum threshold of bytes saved, 
+      // otherwise the overhead of storing the prefix key may outweigh the benefits
+      if (left_prefix_len < PREFIX_COMPRESSION_THRESHOLD) {
+        left_prefix_len := 0;
+      };
+
+      if (right_prefix_len < PREFIX_COMPRESSION_THRESHOLD) {
+        right_prefix_len := 0;
+      };
+
+      // Total bytes saved across both child leaves. Ties favour the first (smaller) split position,
+      // which keeps the split more balanced.
+      let savings : Nat = (s * left_prefix_len) + ((total_after_insert - s) * right_prefix_len);
+
+      if (savings > best_savings) {
+        best_savings := savings;
+        best_pos := s;
+      };
+
+      s += 1;
+    };
+
+    // If no split position produced any threshold-qualifying savings, the prefix
+    // optimisation cannot help — fall back to the separator-length heuristic so we
+    // still get a well-balanced split rather than the degenerate min_split position.
+    if (best_savings == 0) {
+      return null;
+    };
+
+    ?best_pos;
+  };
+
+  // Copy a sequence of addresses from one leaf to another
+  // Intervals are inclusive of start_index and exclusive of end_index - i.e. [start_index, end_index)
+  // dest_start_index is the index in the destination leaf where the first copied address will be written
+  func copy_kv_addresses_to_leaf(btree: MemoryBTree, source_leaf_address : Nat, start_index : Nat, end_index : Nat, dest_leaf_address : Nat, dest_start_index : Nat) {
+    let start = get_kv_address_offset(source_leaf_address, start_index);
+    let end = get_kv_address_offset(source_leaf_address, end_index);
+
+    let new_start = get_kv_address_offset(dest_leaf_address, dest_start_index);
+    let blob = MemoryRegion.loadBlob(btree.leaves, start, end - start);
+    MemoryRegion.storeBlob(btree.leaves, new_start, blob);
+  };
+
+  // Phase 1 of two-pass recompression: for each KV address in [start_index, end_index) on
+  // source_leaf_address, compute the new key suffix, then deallocate the old KV block –
+  // freeing all old memory before any new blocks are allocated.
+  //
+  // WHY BATCH-DEALLOCATE FIRST?
+  // If we interleaved dealloc+alloc per entry (i.e. resize one block at a time), the
+  // allocator would hand out a new block before it has seen the next old block freed.
+  // This means it cannot reuse the memory just released, so each new block lands in a
+  // fresh gap and the freed slots sit stranded between occupied ranges – fragmentation.
+  //
+  // By freeing every old block here (Phase 1) before allocating any new block (Phase 2),
+  // we return all the soon-to-be-reused memory to the free pool at once.  The allocator
+  // then fills those gaps in order when Phase 2 runs, keeping the data region dense.
+  //
+  // Returns an array of (new_suffix, ref_count, val_ptr, val_size) for each index in order.
+  func deallocate_kv_range_for_recompression(
+    btree : MemoryBTree,
+    source_leaf_address : Nat,
+    start_index : Nat,
+    end_index : Nat,
+    old_prefix : Blob,
+    new_prefix : Blob,
+  ) : [(Blob, Nat8, Nat64, Nat32)] {
+    let count = end_index - start_index : Nat;
+    Array.tabulate<(Blob, Nat8, Nat64, Nat32)>(count, func(j) {
+      let i = start_index + j;
+      let ?kv_address = get_kv_address(btree, source_leaf_address, i) else Runtime.trap("deallocate_kv_range_for_recompression: null kv_address at index " # debug_show i);
+      let old_suffix = MemoryBlock.get_key_blob(btree, kv_address);
+      let new_suffix = Common.get_new_suffix(old_prefix, new_prefix, old_suffix);
+      let (ref_count, val_ptr, val_size) = MemoryBlock.deallocate_key(btree, kv_address);
+      (new_suffix, ref_count, val_ptr, val_size);
+    });
+  };
+
+  // Phase 2 of two-pass recompression: allocates new KV blocks from the saved info produced
+  // by deallocate_kv_range_for_recompression and writes the new addresses into dest_leaf_address
+  // starting at dest_start_index.  Because all old blocks were already freed in Phase 1,
+  // the allocator can satisfy these requests from the reclaimed pool rather than appending
+  // to the end of the region.
+  func reallocate_kv_range_from_saved(
+    btree : MemoryBTree,
+    saved : [(Blob, Nat8, Nat64, Nat32)],
+    dest_leaf_address : Nat,
+    dest_start_index : Nat,
+  ) {
+    var dest_i = dest_start_index;
+    for ((new_suffix, ref_count, val_ptr, val_size) in saved.vals()) {
+      let new_kv_address = MemoryBlock.allocate_key(btree, new_suffix, ref_count, val_ptr, val_size);
+      put(btree, dest_leaf_address, dest_i, new_kv_address);
+      dest_i += 1;
+    };
+  };
+
+  func recompress_key_suffix_at(btree: MemoryBTree, leaf_address : Nat, i : Nat, old_prefix : Blob, new_prefix : Blob) {
+    let ?kv_addr = get_kv_address(btree, leaf_address, i) else Runtime.trap("recompress_key_suffix_at: null kv_address at index " # debug_show (i));
+    let old_suffix = MemoryBlock.get_key_blob(btree, kv_addr);
+    let new_suffix = Common.get_new_suffix(old_prefix, new_prefix, old_suffix);
+    switch (MemoryBlock.replace_key_blob(btree, kv_addr, new_suffix)) {
+      case (?new_kv_addr) { put(btree, leaf_address, i, new_kv_addr); };
+      case (null) {};
+    };
+  };
+
+  func batch_copy_and_recompress_keys(
+    btree: MemoryBTree, 
+    source_leaf_address : Nat, 
+    start_index : Nat, 
+    end_index : Nat, 
+    dest_leaf_address : Nat, 
+    dest_start_index : Nat, 
+    old_prefix : Blob, 
+    new_prefix : Blob
+  ) {
+    let saved = deallocate_kv_range_for_recompression(btree, source_leaf_address, start_index, end_index, old_prefix, new_prefix);
+    reallocate_kv_range_from_saved(btree, saved, dest_leaf_address, dest_start_index);
+  };
+
+  /// Split a leaf node, inserting new_entry_kv_address at elem_index.
+  public func split(
+    btree : MemoryBTree,
+    leaf_address : Nat,
+    elem_index : Nat,
+    new_entry_kv_address : Address,
+    old_prefix : Blob,
+    leaf_boundary_keys : (?Blob, ?Blob),
+  ) : Nat {
+    // assert Leaf.validate(btree, leaf_address);
     let arr_len = btree.node_capacity;
-    let median = (arr_len / 2) + 1;
+    let (opt_left_sep, opt_right_sep) = leaf_boundary_keys;
 
-    let is_elem_added_to_right = elem_index >= median;
+    // Determine split point (separator_index = first index of right node after split)
+    var virtual_split_point = (arr_len / 2) + 1;
 
-    var i = 0;
-    let right_cnt = arr_len + 1 - median : Nat;
+    if (btree.is_prefix_compression_enabled) {
+      switch (get_optimal_split_position_for_prefix_compression(btree, leaf_address, elem_index, new_entry_kv_address, old_prefix, opt_left_sep, opt_right_sep)) {
+        case (?pos) virtual_split_point := pos;
+        case (null) {};
+      };
+    };
 
+    // Compute the final prefix for each half from the parent bounds and the split-point key.
+    // When no bounds are given (compression disabled, no parent, or boundary leaf),
+    // both halves get an empty prefix — no per-key rewriting is needed.
+
+    let virtual_split_key_suffix = get_key_suffix_at_split_virtual_index(btree, leaf_address, elem_index, new_entry_kv_address, virtual_split_point);
+    let virtual_split_key = Common.prepend_prefix(old_prefix, virtual_split_key_suffix);
+
+    let left_new_prefix : Blob = switch (opt_left_sep) {
+      case (?left_sep) Common.get_common_prefix(left_sep, virtual_split_key);
+      case (null) Constants.EMPTY_BLOB;
+    };
+
+    let right_new_prefix :Blob = switch (opt_right_sep) {
+      case (?right_sep) Common.get_common_prefix(virtual_split_key, right_sep);
+      case (null) Constants.EMPTY_BLOB;
+    };
+
+    assert left_new_prefix.size() >= old_prefix.size(); // prefix length should never shrink after split, only stay the same or grow
+    let must_recompress_left = left_new_prefix.size() >= old_prefix.size() + PREFIX_COMPRESSION_THRESHOLD;
+
+    assert right_new_prefix.size() >= old_prefix.size();
+    var must_recompress_right = right_new_prefix.size() >= old_prefix.size() + PREFIX_COMPRESSION_THRESHOLD;
+
+    let is_elem_added_to_right = elem_index >= virtual_split_point;
+
+    let left_cnt = virtual_split_point;
+    let right_cnt = arr_len + 1 - virtual_split_point : Nat;
+
+    // create and set up the right leaf
     let right_leaf_address = Leaf.new(btree);
     let depth = Leaf.get_depth(btree, leaf_address);
+    replace_prefix_key(btree, right_leaf_address, old_prefix);
     Leaf.update_depth(btree, right_leaf_address, depth);
 
-    var offset = if (is_elem_added_to_right) 0 else 1;
+    // copy all the right leaf addresses from the left leaf
+    // since the new element is added to the left leaf, we can copy all 
+    // the sequence of addresses in one go without needing to split it
+    let leaf_split_point = if (is_elem_added_to_right) (virtual_split_point) else (virtual_split_point - 1);
+    copy_kv_addresses_to_leaf(btree, leaf_address, leaf_split_point, arr_len, right_leaf_address, 0);
 
-    var elems_removed_from_left = 0;
+    let elems_moved_to_right = arr_len - leaf_split_point;
 
-    if (not is_elem_added_to_right) {
-      let start = get_kv_address_offset(leaf_address, i + median - offset);
-      let end = get_kv_address_offset(leaf_address, arr_len);
+    Leaf.update_count(btree, leaf_address, arr_len - elems_moved_to_right);
+    Leaf.update_count(btree, right_leaf_address, elems_moved_to_right);
 
-      let new_start = get_kv_address_offset(right_leaf_address, 0);
-      var blob_slice = MemoryRegion.loadBlob(btree.leaves, start, end - start);
-      MemoryRegion.storeBlob(btree.leaves, new_start, blob_slice);
-
-      elems_removed_from_left += right_cnt;
+    if (is_elem_added_to_right) {
+      Leaf.insert(btree, right_leaf_address, elem_index - virtual_split_point, new_entry_kv_address);
     } else {
-      // | left | elem | right |
-      // left
-      var size = elem_index - (i + median - offset) : Nat;
-      var start = get_kv_address_offset(leaf_address, i + median - offset);
-      var end = get_kv_address_offset(leaf_address, elem_index);
-
-      var new_start = get_kv_address_offset(right_leaf_address, 0);
-      var blob_slice = MemoryRegion.loadBlob(btree.leaves, start, end - start);
-      MemoryRegion.storeBlob(btree.leaves, new_start, blob_slice);
-
-      // elem
-      new_start := get_kv_address_offset(right_leaf_address, size);
-      MemoryRegion.storeNat64(btree.leaves, new_start, Nat64.fromNat(new_id));
-      size += 1;
-
-      // right
-      start := get_kv_address_offset(leaf_address, elem_index);
-      end := get_kv_address_offset(leaf_address, arr_len);
-
-      new_start := get_kv_address_offset(right_leaf_address, size);
-      blob_slice := MemoryRegion.loadBlob(btree.leaves, start, end - start);
-      MemoryRegion.storeBlob(btree.leaves, new_start, blob_slice);
-
-      size += (arr_len - elem_index : Nat);
-      elems_removed_from_left += size;
+      Leaf.insert(btree, leaf_address, elem_index, new_entry_kv_address);
     };
 
-    Leaf.update_count(btree, leaf_address, arr_len - elems_removed_from_left);
+    assert Leaf.get_count(btree, leaf_address) == left_cnt;
+    assert Leaf.get_count(btree, right_leaf_address) == right_cnt;
+    
+    if (must_recompress_left) {
+      // Deallocate all the left leaf's kv blocks to prevent fragementation before allocating any new blocks for either side.
+      let saved_left = deallocate_kv_range_for_recompression(btree, leaf_address, 0, left_cnt, old_prefix, left_new_prefix);
 
-    if (not is_elem_added_to_right) {
-      Leaf.insert(btree, leaf_address, elem_index, new_id);
+      if (must_recompress_right) {
+        // same with the right leaf if it also needs recompression
+        let saved_right = deallocate_kv_range_for_recompression(btree, right_leaf_address, 0, right_cnt, old_prefix, right_new_prefix);
+        reallocate_kv_range_from_saved(btree, saved_right, right_leaf_address, 0);
+        replace_prefix_key(btree, right_leaf_address, right_new_prefix);
+      };
+
+      reallocate_kv_range_from_saved(btree, saved_left, leaf_address, 0);
+      replace_prefix_key(btree, leaf_address, left_new_prefix);
+
+    } else if (must_recompress_right) {
+      let saved_right = deallocate_kv_range_for_recompression(btree, right_leaf_address, 0, right_cnt, old_prefix, right_new_prefix);
+      reallocate_kv_range_from_saved(btree, saved_right, right_leaf_address, 0);
+      replace_prefix_key(btree, right_leaf_address, right_new_prefix);
     };
 
-    Leaf.update_count(btree, leaf_address, median);
-    Leaf.update_count(btree, right_leaf_address, right_cnt);
 
     let left_index = Leaf.get_index(btree, leaf_address);
     Leaf.update_index(btree, right_leaf_address, left_index + 1);
@@ -630,125 +1022,113 @@ module Leaf {
   };
 
   public func shift(btree : MemoryBTree, leaf_address : Nat, start : Nat, end : Nat, offset : Int) {
+    // assert Leaf.validate(btree, leaf_address);
     if (offset == 0) return;
 
     let _start = get_kv_address_offset(leaf_address, start);
     let _end = get_kv_address_offset(leaf_address, end);
 
-    MemoryFns.shift(btree.leaves.region, _start, _end, offset * ADDRESS_SIZE);
+    MemoryFns.shift_by(btree.leaves.region, _start, _end, offset * ADDRESS_SIZE);
 
   };
 
   public func remove(btree : MemoryBTree, leaf_address : Nat, index : Nat) {
+    // assert Leaf.validate(btree, leaf_address);
     let count = Leaf.get_count(btree, leaf_address);
 
     Leaf.shift(btree, leaf_address, index + 1, count, -1); // updates the cache
     Leaf.update_count(btree, leaf_address, count - 1); // updates the cache as well
   };
 
-  public func redistribute(btree : MemoryBTree, leaf : Nat, neighbour : Nat) : Bool {
-    let leaf_count = Leaf.get_count(btree, leaf);
-    let neighbour_count = Leaf.get_count(btree, neighbour);
-
-    let sum_count = leaf_count + neighbour_count;
-    let min_count_for_both_nodes = btree.node_capacity;
-
-    if (sum_count < min_count_for_both_nodes) return false; // not enough entries to distribute
-
-    // Debug.print("redistribute: leaf_count = " # debug_show leaf_count);
-    // Debug.print("redistribute: neighbour_count = " # debug_show neighbour_count);
-
-    let data_to_move = (sum_count / 2) - leaf_count : Nat;
-
-    // Debug.print("data_to_move = " # debug_show data_to_move);
-
-    let leaf_index = Leaf.get_index(btree, leaf);
-    let neighbour_index = Leaf.get_index(btree, neighbour);
-
-    // distribute data between adjacent nodes
-    if (neighbour_index < leaf_index) {
-      // neighbour is before leaf
-      // Debug.print("neighbour is before leaf");
-
-      Leaf.shift(btree, leaf, 0, leaf_count, data_to_move);
-
-      let start = get_kv_address_offset(neighbour, neighbour_count - data_to_move);
-      let end = get_kv_address_offset(neighbour, neighbour_count);
-
-      let new_start = get_kv_address_offset(leaf, 0);
-
-      var blob_slice = MemoryRegion.loadBlob(btree.leaves, start, end - start);
-      MemoryRegion.storeBlob(btree.leaves, new_start, blob_slice);
-    } else {
-      // adj_node is after leaf_node
-      // Debug.print("neighbour is after leaf_node");
-
-      let start = get_kv_address_offset(neighbour, 0);
-      let end = get_kv_address_offset(neighbour, data_to_move);
-
-      let new_start = get_kv_address_offset(leaf, leaf_count);
-
-      var blob_slice = MemoryRegion.loadBlob(btree.leaves, start, end - start);
-      MemoryRegion.storeBlob(btree.leaves, new_start, blob_slice);
-
-      Leaf.shift(btree, neighbour, data_to_move, neighbour_count, -data_to_move);
-
-    };
-
-    Leaf.update_count(btree, leaf, leaf_count + data_to_move);
-    Leaf.update_count(btree, neighbour, neighbour_count - data_to_move);
-
-    // Debug.print("end redistribution");
-    true;
+  public func deallocate_prefix(btree : MemoryBTree, leaf : Nat) {
+    // assert Leaf.validate(btree, leaf);
+     switch(get_prefix_key_address(btree, leaf)){
+      case (?prefix_address){
+        MemoryBlock.PrefixKey.deallocate(btree, prefix_address);
+        set_prefix_key_address(btree, leaf, null);
+      };
+      case (null) {};
+     };
   };
 
   // only deallocates the memory allocated in the metadata region
   // the values stored in the blob region are not deallocated
   // as they could have been moved to a different leaf node
   public func deallocate(btree : MemoryBTree, leaf : Nat) {
+    // assert Leaf.validate(btree, leaf);
+
+    deallocate_prefix(btree, leaf);
+
     let memory_size = Leaf.get_memory_size(btree.node_capacity);
+
+    // deallocate the memory region
     MemoryRegion.deallocate(btree.leaves, leaf, memory_size);
   };
 
-  public func merge(btree : MemoryBTree, leaf : Nat, neighbour : Nat) {
-    let leaf_index = Leaf.get_index(btree, leaf);
-    let neighbour_index = Leaf.get_index(btree, neighbour);
+  public func unlink(btree : MemoryBTree, leaf : Nat) {
+    // assert Leaf.validate(btree, leaf);
+    let prev_opt = Leaf.get_prev(btree, leaf);
+    let next_opt = Leaf.get_next(btree, leaf);
 
-    var left = leaf;
-    var right = neighbour;
-
-    if (leaf_index > neighbour_index) {
-      left := neighbour;
-      right := leaf;
-    };
-
-    let left_count = Leaf.get_count(btree, left);
-    let right_count = Leaf.get_count(btree, right);
-
-    let start = get_kv_address_offset(right, 0);
-    let end = get_kv_address_offset(right, right_count);
-
-    let new_start = get_kv_address_offset(left, left_count);
-    let blob_slice = MemoryRegion.loadBlob(btree.leaves, start, end - start);
-    MemoryRegion.storeBlob(btree.leaves, new_start, blob_slice);
-
-    Leaf.update_count(btree, left, left_count + right_count);
-
-    // update leaf pointers
-    // a <=> b <=> c
-    // delete b
-    // a <=> c
-
-    let a = left;
-    let _b = right;
-    let opt_c = Leaf.get_next(btree, right);
-
-    Leaf.update_next(btree, a, opt_c);
-    switch (opt_c) {
-      case (?c) Leaf.update_prev(btree, c, ?a);
+    switch (prev_opt) {
+      case (?prev) Leaf.update_next(btree, prev, next_opt);
       case (_) {};
     };
 
+    switch (next_opt) {
+      case (?next) Leaf.update_prev(btree, next, prev_opt);
+      case (_) {};
+    };
+  };
+
+  // Merges right into left (caller must ensure left has a lower index than right).
+  // When prefix compression is enabled, keys are re-encoded to the new common prefix
+  // in a single pass.  Otherwise a plain bulk-copy is used.
+  public func merge(btree : MemoryBTree, left : Nat, right : Nat) {
+    let left_count  = Leaf.get_count(btree, left);
+    let right_count = Leaf.get_count(btree, right);
+
+    if (btree.is_prefix_compression_enabled) {
+      let left_prefix  : Blob = Leaf.get_prefix_key(btree, left);
+      let right_prefix : Blob = Leaf.get_prefix_key(btree, right);
+      let new_prefix   : Blob = Common.get_common_prefix(left_prefix, right_prefix);
+
+      let needs_left_recompress  = left_prefix  != new_prefix;
+      let needs_right_recompress = right_prefix != new_prefix;
+
+      // Deallocate all KV blocks that will be recompressed, before any new allocations.
+      let saved_left = if (needs_left_recompress) {
+        ?deallocate_kv_range_for_recompression(btree, left, 0, left_count, left_prefix, new_prefix);
+      } else { null };
+
+      let saved_right = if (needs_right_recompress) {
+        ?deallocate_kv_range_for_recompression(btree, right, 0, right_count, right_prefix, new_prefix);
+      } else { null };
+
+      // Reallocate new KV blocks with the new key suffixes.
+      switch (saved_left) {
+        case (?saved) reallocate_kv_range_from_saved(btree, saved, left, 0);
+        case (null)   {};
+      };
+
+      // Append right keys to left.
+      switch (saved_right) {
+        case (?saved) reallocate_kv_range_from_saved(btree, saved, left, left_count);
+        case (null)   {
+          // No recompression needed for right: bulk pointer copy.
+          copy_kv_addresses_to_leaf(btree, right, 0, right_count, left, left_count);
+        };
+      };
+
+      // Update prefix on merged leaf.
+      replace_prefix_key(btree, left, new_prefix);
+    } else {
+      copy_kv_addresses_to_leaf(btree, right, 0, right_count, left, left_count);
+    };
+
+    Leaf.update_count(btree, left, left_count + right_count);
+    Leaf.unlink(btree, right);
+    Leaf.update_count(btree, right, 0);
   };
 
 };

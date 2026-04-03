@@ -225,18 +225,18 @@ The branch region contains a 64 byte header followed by a sequence of branch nod
 
 - Branch Node
 
-| Field          | Offset         | Size                   | Type  | Default Value | Description                                  |
-| -------------- | -------------- | ---------------------- | ----- | ------------- | -------------------------------------------- |
-| MAGIC          | 0              | 3                      | Blob  | "BND"         | Magic number                                 |
-| DEPTH          | 3              | 1                      | Nat8  | -             | Inverted depth of the node in the tree       |
-| LAYOUT VERSION | 4              | 1                      | Nat8  | -             | Layout version                               |
-| INDEX          | 5              | 2                      | Nat16 | -             | Node's position in parent node               |
-| COUNT          | 7              | 2                      | Nat16 | -             | Number of elements in the node               |
-| SUBTREE COUNT  | 9              | 8                      | Nat64 | -             | Number of elements in the node's subtree     |
-| PARENT         | 17             | 8                      | Nat64 | -             | Parent address                               |
-| RESERVED       | 25             | 47                     | -     | -             | Extra space for future use                   |
-| KEYS           | 64             | 8 \* NODE_CAPACITY - 1 | Nat64 | -             | Unique ids for each key stored in the branch |
-| Children       | 64 + size(Ids) | 8 \* NODE_CAPACITY     | Nat64 | -             | Addresses of children nodes                  |
+| Field              | Offset         | Size                   | Type  | Default Value | Description                                                       |
+| ------------------ | -------------- | ---------------------- | ----- | ------------- | ----------------------------------------------------------------- |
+| MAGIC              | 0              | 3                      | Blob  | "BND"         | Magic number                                                      |
+| DEPTH              | 3              | 1                      | Nat8  | -             | Inverted depth of the node in the tree                            |
+| INDEX              | 4              | 2                      | Nat16 | -             | Node's position in parent node                                    |
+| COUNT              | 6              | 2                      | Nat16 | -             | Number of elements in the node                                    |
+| SUBTREE COUNT      | 8              | 8                      | Nat64 | -             | Number of elements in the node's subtree                          |
+| PARENT             | 16             | 8                      | Nat64 | -             | Parent address                                                    |
+| PREFIX_KEY_ADDRESS | 24             | 8                      | Nat64 | -             | Address of prefix key for key compression (null = no compression) |
+| RESERVED           | 32             | 32                     | -     | -             | Extra space for future use                                        |
+| KEYS               | 64             | 8 \* NODE_CAPACITY - 1 | Nat64 | -             | Unique ids for each key stored in the branch                      |
+| Children           | 64 + size(Ids) | 8 \* NODE_CAPACITY     | Nat64 | -             | Addresses of children nodes                                       |
 
 #### Leaf Region
 
@@ -256,18 +256,18 @@ This region has a 64 byte fixed header followed by a sequence of leaf nodes in t
 
   A leaf node is a fixed sized memory blocks that holds pointers to key-value blocks and store information about the node's position in the tree
 
-  | Field          | Offset | Size               | Type  | Default Value | Description                                                               |
-  | -------------- | ------ | ------------------ | ----- | ------------- | ------------------------------------------------------------------------- |
-  | MAGIC          | 0      | 3                  | Blob  | "LND"         | Magic number                                                              |
-  | DEPTH          | 3      | 1                  | Nat8  | 1             | Inverted depth of the node in the tree                                    |
-  | LAYOUT VERSION | 4      | 1                  | Nat8  | -             | Layout version                                                            |
-  | INDEX          | 5      | 2                  | Nat16 | -             | Node's position in parent node                                            |
-  | COUNT          | 7      | 2                  | Nat16 | -             | Number of elements in the node                                            |
-  | PARENT         | 9      | 8                  | Nat64 | -             | Parent address                                                            |
-  | PREV           | 17     | 8                  | Nat64 | -             | Previous leaf address                                                     |
-  | NEXT           | 25     | 8                  | Nat64 | -             | Next leaf address                                                         |
-  | RESERVED       | 33     | 31                 | -     | -             | Extra space from header (size 64) for future use                          |
-  | KV POINTERS    | 64     | 8 \* NODE_CAPACITY | Nat64 | -             | Unique addresses pointing to the key-value pair stored in the data region |
+  | Field              | Offset | Size               | Type  | Default Value | Description                                                               |
+  | ------------------ | ------ | ------------------ | ----- | ------------- | ------------------------------------------------------------------------- |
+  | MAGIC              | 0      | 3                  | Blob  | "LND"         | Magic number                                                              |
+  | DEPTH              | 3      | 1                  | Nat8  | 1             | Inverted depth of the node in the tree                                    |
+  | INDEX              | 4      | 2                  | Nat16 | -             | Node's position in parent node                                            |
+  | COUNT              | 6      | 2                  | Nat16 | -             | Number of elements in the node                                            |
+  | PARENT             | 8      | 8                  | Nat64 | -             | Parent address                                                            |
+  | PREV               | 16     | 8                  | Nat64 | -             | Previous leaf address                                                     |
+  | NEXT               | 24     | 8                  | Nat64 | -             | Next leaf address                                                         |
+  | PREFIX_KEY_ADDRESS | 32     | 8                  | Nat64 | -             | Address of prefix key for key compression (null = no compression)         |
+  | RESERVED           | 40     | 24                 | -     | -             | Extra space from header (size 64) for future use                          |
+  | KV POINTERS        | 64     | 8 \* NODE_CAPACITY | Nat64 | -             | Unique addresses pointing to the key-value pair stored in the data region |
 
 #### Data Region (Keys)
 
@@ -275,31 +275,32 @@ This region contains a 64 byte fixed header with information about the tree like
 
 - Header Section
 
-  | Field              | Offset | Size | Type  | Default Value | Description                                           |
-  | ------------------ | ------ | ---- | ----- | ------------- | ----------------------------------------------------- |
-  | MAGIC              | 0      | 3    | Blob  | `"BTR"`       | Magic number                                          |
-  | LAYOUT VERSION     | 3      | 1    | Nat8  | `0`           | Layout version                                        |
-  | BRANCHES REGION ID | 4      | 4    | Nat32 | -             | Id of the branches region                             |
-  | LEAVES REGION ID   | 8      | 4    | Nat32 | -             | Id of the leaves region                               |
-  | NODE CAPACITY      | 12     | 2    | Nat16 | -             | Maximum number of elements per node                   |
-  | ROOT               | 14     | 8    | Nat64 | -             | Address of the root node                              |
-  | COUNT              | 22     | 8    | Nat64 | -             | Number of elements in the B+Tree                      |
-  | DEPTH              | 30     | 1    | Nat8  | -             | Number of levels from the root node to the leaf nodes |
-  | IS_ROOT_A_LEAF     | 31     | 1    | Nat8  | -             | Flag to indicate if the root is a leaf node           |
-  | VALUES REGION ID   | 32     | 4    | Nat32 | -             | Id of the values region                               |
-  | RESERVED           | 36     | 28   | -     | -             | Extra space for future use                            |
+  | Field                 | Offset | Size | Type  | Default Value | Description                                           |
+  | --------------------- | ------ | ---- | ----- | ------------- | ----------------------------------------------------- |
+  | MAGIC                 | 0      | 3    | Blob  | `"BTR"`       | Magic number                                          |
+  | LAYOUT VERSION        | 3      | 1    | Nat8  | `0`           | Layout version                                        |
+  | BRANCHES REGION ID    | 4      | 4    | Nat32 | -             | Id of the branches region                             |
+  | LEAVES REGION ID      | 8      | 4    | Nat32 | -             | Id of the leaves region                               |
+  | NODE CAPACITY         | 12     | 2    | Nat16 | -             | Maximum number of elements per node                   |
+  | ROOT                  | 14     | 8    | Nat64 | -             | Address of the root node                              |
+  | COUNT                 | 22     | 8    | Nat64 | -             | Number of elements in the B+Tree                      |
+  | DEPTH                 | 30     | 1    | Nat8  | -             | Number of levels from the root node to the leaf nodes |
+  | IS_ROOT_A_LEAF        | 31     | 1    | Nat8  | -             | Flag to indicate if the root is a leaf node           |
+  | VALUES REGION ID      | 32     | 4    | Nat32 | -             | Id of the values region                               |
+  | Merge Threshold Count | 37     | 3    | Nat24 | -             | Minimum number of elements in a node before merging   |
+  | RESERVED              | 40     | 24   | -     | -             | Extra space for future use                            |
 
 - Key Block
 
   The key block stores a reference counter for the entry, the address pointer to the value block, the serialized key and their size. 
 
-  | Field           | Offset | Size (In bytes) | Type  | Default Value | Description          |
-  | --------------- | ------ | --------------- | ----- | ------------- | -------------------- |
-  | REFERENCE_COUNT | 0      | 1               | Nat8  | -             | Reference count      |
-  | KEY_SIZE        | 1      | 2               | Nat16 | -             | Size of the key      |
-  | VAL_POINTER     | 3      | 8               | Nat64 | -             | Pointer to the value in the values region|
-  | VALUE_SIZE      | 11     | 4               | Nat32 | -             | Size of the value    |
-  | KEY_BLOB        | 15     | -               | Blob  | -             | Serialized key       |
+  | Field           | Offset | Size (In bytes) | Type  | Default Value | Description                               |
+  | --------------- | ------ | --------------- | ----- | ------------- | ----------------------------------------- |
+  | REFERENCE_COUNT | 0      | 1               | Nat8  | -             | Reference count                           |
+  | KEY_SIZE        | 1      | 2               | Nat16 | -             | Size of the key                           |
+  | VAL_POINTER     | 3      | 8               | Nat64 | -             | Pointer to the value in the values region |
+  | VALUE_SIZE      | 11     | 4               | Nat32 | -             | Size of the value                         |
+  | KEY_BLOB        | 15     | -               | Blob  | -             | Serialized key                            |
 
 #### Values Region
 
@@ -307,12 +308,12 @@ This region contains a 64 byte fixed header followed by a sequence of serialized
 
 - Header Section
 
-  | Field              | Offset | Size | Type  | Default Value | Description                    |
-  | ------------------ | ------ | ---- | ----- | ------------- | ------------------------------ |
-  | MAGIC              | 0      | 3    | Blob  | `"VLS"`       | Magic number                   |
-  | LAYOUT VERSION     | 3      | 1    | Nat8  | `0`           | Layout version                 |
-  | DATA REGION ID     | 4      | 4    | Nat32 | -             | Id of the data region          |
-  | RESERVED           | 8      | 56   | -     | -             | Extra space for future use     |
+  | Field          | Offset | Size | Type  | Default Value | Description                |
+  | -------------- | ------ | ---- | ----- | ------------- | -------------------------- |
+  | MAGIC          | 0      | 3    | Blob  | `"VLS"`       | Magic number               |
+  | LAYOUT VERSION | 3      | 1    | Nat8  | `0`           | Layout version             |
+  | DATA REGION ID | 4      | 4    | Nat32 | -             | Id of the data region      |
+  | RESERVED       | 8      | 56   | -     | -             | Extra space for future use |
 
 - Value Block
 

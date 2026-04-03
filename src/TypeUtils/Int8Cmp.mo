@@ -1,5 +1,5 @@
 import Prim "mo:prim";
-import FloatModule "mo:base@0.16.0/Float";
+import FloatModule "mo:core@2.4/Float";
 
 /// ## `Int8` Comparators
 /// Comparators that return an `Int8` type instead of an `Order` variant

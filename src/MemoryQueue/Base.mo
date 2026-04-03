@@ -1,11 +1,12 @@
-import Array "mo:base@0.16.0/Array";
-import Debug "mo:base@0.16.0/Debug";
-import Iter "mo:base@0.16.0/Iter";
-import Nat8 "mo:base@0.16.0/Nat8";
-import Nat32 "mo:base@0.16.0/Nat32";
-import Nat64 "mo:base@0.16.0/Nat64";
+import Array "mo:core@2.4/Array";
+import Debug "mo:core@2.4/Debug";
+import Runtime "mo:core@2.4/Runtime";
+import Iter "mo:core@2.4/Iter";
+import Nat8 "mo:core@2.4/Nat8";
+import Nat32 "mo:core@2.4/Nat32";
+import Nat64 "mo:core@2.4/Nat64";
 
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
+import MemoryRegion "mo:memory-region@1.5/MemoryRegion";
 
 import Blobify "../TypeUtils/Blobify";
 import TypeUtils "../TypeUtils";
@@ -205,7 +206,7 @@ module MemoryQueue {
     Array.tabulate(
       mem_queue.count,
       func(i : Nat) : A {
-        let ?value = vals_iter.next() else Debug.trap("MemoryQueue.toArray: index out of bounds");
+        let ?value = vals_iter.next() else Runtime.trap("MemoryQueue.toArray: index out of bounds");
         value;
       },
     );

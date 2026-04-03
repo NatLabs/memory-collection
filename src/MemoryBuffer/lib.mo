@@ -27,11 +27,11 @@
 ///   assert buffer.removeLast() == ?9;
 /// ```
 
-import Iter "mo:base@0.16.0/Iter";
-import Order "mo:base@0.16.0/Order";
-import Nat "mo:base@0.16.0/Nat";
+import Iter "mo:core@2.4/Iter";
+import Order "mo:core@2.4/Order";
+import Nat "mo:core@2.4/Nat";
 
-import RevIter "mo:itertools@0.2.2/RevIter";
+import RevIter "mo:itertools@0.2/RevIter";
 
 import BaseMemoryBuffer "Base";
 import StableMemoryBuffer "Stable";
@@ -203,7 +203,7 @@ module {
   public func init<A>(internal : StableMemoryBuffer<A>, buffer_utils : MemoryBufferUtils<A>, size : Nat, val : A) : MemoryBuffer<A> {
     let mbuffer = MemoryBuffer(internal, buffer_utils);
 
-    for (_ in Iter.range(0, size - 1)) {
+    for (_ in Nat.rangeInclusive(0, size - 1)) {
       mbuffer.add(val);
     };
 

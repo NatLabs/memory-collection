@@ -1,8 +1,9 @@
-import Iter "mo:base@0.16.0/Iter";
-import Debug "mo:base@0.16.0/Debug";
-import Nat "mo:base@0.16.0/Nat";
-import Buffer "mo:base@0.16.0/Buffer";
-import Nat64 "mo:base@0.16.0/Nat64";
+import Iter "mo:core@2.4/Iter";
+import Debug "mo:core@2.4/Debug";
+import Runtime "mo:core@2.4/Runtime";
+import Nat "mo:core@2.4/Nat";
+import Buffer "mo:base@0.16/Buffer";
+import Nat64 "mo:core@2.4/Nat64";
 
 import Bench "mo:bench";
 import Fuzz "mo:fuzz";
@@ -46,7 +47,7 @@ module {
 
     let entries = Buffer.Buffer<(Nat, Nat)>(limit);
 
-    for (i in Iter.range(0, limit - 1)) {
+    for (i in Nat.rangeInclusive(0, limit - 1)) {
       let key = fuzz.nat.randomRange(1, limit ** 3);
       let val = fuzz.nat.randomRange(1, limit ** 3);
 
@@ -64,7 +65,7 @@ module {
     bench.runner(
       func(col, row) = switch (row, col) {
         case ("B+Tree", "getFromIndex()") {
-          for (i in Iter.range(0, limit - 1)) {
+          for (i in Nat.rangeInclusive(0, limit - 1)) {
             ignore BpTree.getFromIndex(bptree, i);
           };
         };
@@ -95,7 +96,7 @@ module {
         };
 
         case ("MemoryBTree", "getFromIndex()") {
-          for (i in Iter.range(0, limit - 1)) {
+          for (i in Nat.rangeInclusive(0, limit - 1)) {
             ignore MemoryBTree.getFromIndex(mem_btree, btree_utils, i);
           };
         };
@@ -126,7 +127,7 @@ module {
         };
 
         case (_) {
-          Debug.trap("Should not reach with row = " # debug_show row # " and col = " # debug_show col);
+          Runtime.trap("Should not reach with row = " # debug_show row # " and col = " # debug_show col);
         };
       }
     );

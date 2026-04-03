@@ -1,10 +1,12 @@
-import Int "mo:base@0.16.0/Int";
-import Region "mo:base@0.16.0/Region";
-import Nat64 "mo:base@0.16.0/Nat64";
+import Int "mo:core@2.4/Int";
+import Region "mo:core@2.4/Region";
+import Nat64 "mo:core@2.4/Nat64";
+
+import MemoryRegion "mo:memory-region@1.5/MemoryRegion";
 
 module {
 
-  public func shift(region : Region, start : Nat, end : Nat, offset : Int) {
+  public func shift_by(region : Region, start : Nat, end : Nat, offset : Int) {
     let size = (end - start : Nat);
     if (size == 0) return;
 

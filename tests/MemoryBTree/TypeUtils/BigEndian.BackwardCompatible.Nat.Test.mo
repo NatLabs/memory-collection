@@ -1,18 +1,18 @@
 // @testmode wasi
 import Prim "mo:prim";
 
-import Array "mo:base@0.16.0/Array";
-import Nat8 "mo:base@0.16.0/Nat8";
-import Blob "mo:base@0.16.0/Blob";
-import Debug "mo:base@0.16.0/Debug";
-import Nat "mo:base@0.16.0/Nat";
-import Nat64 "mo:base@0.16.0/Nat64";
-import Iter "mo:base@0.16.0/Iter";
-import Buffer "mo:base@0.16.0/Buffer";
+import Array "mo:core@2.4/Array";
+import Nat8 "mo:core@2.4/Nat8";
+import Blob "mo:core@2.4/Blob";
+import Debug "mo:core@2.4/Debug";
+import Nat "mo:core@2.4/Nat";
+import Nat64 "mo:core@2.4/Nat64";
+import Iter "mo:core@2.4/Iter";
+import Buffer "mo:base@0.16/Buffer";
 import { test; suite } "mo:test";
 
 import Fuzz "mo:fuzz";
-import Itertools "mo:itertools@0.2.2/Iter";
+import Itertools "mo:itertools@0.2/Iter";
 
 import MemoryBTree "../../../src/MemoryBTree/Base";
 import TypeUtils "../../../src/TypeUtils";
@@ -38,7 +38,7 @@ suite(
       "Ensure legacy and current serializers are sorted correctly",
       func() {
 
-        for (i in Iter.range(0, 10)) {
+        for (i in Nat.rangeInclusive(0, 10)) {
           let key = fuzz.nat.randomRange(0, (2 ** 64) - 1);
           let val = fuzz.nat.randomRange(0, (2 ** 64) - 1);
 

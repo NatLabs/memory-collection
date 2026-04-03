@@ -12,8 +12,13 @@
 .vessel/
 .mops/
 .wasm/
-.bench/
+# .bench/
 
 # frontend code
 node_modules/
 dist/
+
+
+__pycache__/
+.notes/
+.logs/

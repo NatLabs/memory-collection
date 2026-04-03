@@ -1,11 +1,13 @@
-import Iter "mo:base@0.16.0/Iter";
-import Debug "mo:base@0.16.0/Debug";
-import Buffer "mo:base@0.16.0/Buffer";
-import Nat64 "mo:base@0.16.0/Nat64";
+import Iter "mo:core@2.4/Iter";
+import Nat "mo:core@2.4/Nat";
+import Debug "mo:core@2.4/Debug";
+import Runtime "mo:core@2.4/Runtime";
+import Buffer "mo:base@0.16/Buffer";
+import Nat64 "mo:core@2.4/Nat64";
 
 import Bench "mo:bench";
 import Fuzz "mo:fuzz";
-import Itertools "mo:itertools@0.2.2/Iter";
+import Itertools "mo:itertools@0.2/Iter";
 
 import MemoryQueue "../../src/MemoryQueue";
 import TypeUtils "../../src/TypeUtils";
@@ -34,7 +36,7 @@ module {
     let sstore = MemoryQueue.newStableStore();
     let mem_queue = MemoryQueue.MemoryQueue<Nat>(sstore, TypeUtils.Nat);
 
-    for (i in Iter.range(0, limit - 1)) {
+    for (i in Nat.rangeInclusive(0, limit - 1)) {
       let n = fuzz.nat.randomRange(0, limit ** 2);
       let n2 = fuzz.nat.randomRange(0, limit ** 2);
       buffer.add(n);
@@ -69,7 +71,7 @@ module {
         case ("MemoryQueue", "random add()/pop()") {
           var i = 0;
 
-          for (_ in Iter.range(0, limit - 1)) {
+          for (_ in Nat.rangeInclusive(0, limit - 1)) {
             let choice = if (mem_queue.isEmpty()) false else fuzz.nat.randomRange(0, 10) <= 5;
 
             if (choice) {
@@ -83,7 +85,7 @@ module {
         };
 
         case (_) {
-          Debug.trap("Should be unreachable:\n row = \"" # debug_show row # "\" and col = \"" # debug_show col # "\"");
+          Runtime.trap("Should be unreachable:\n row = \"" # debug_show row # "\" and col = \"" # debug_show col # "\"");
         };
       }
     );

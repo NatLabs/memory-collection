@@ -1,17 +1,17 @@
 // @testmode wasi
-import Buffer "mo:base@0.16.0/Buffer";
-import Debug "mo:base@0.16.0/Debug";
-import Iter "mo:base@0.16.0/Iter";
-import Prelude "mo:base@0.16.0/Prelude";
-import Nat "mo:base@0.16.0/Nat";
-import Array "mo:base@0.16.0/Array";
-import Nat64 "mo:base@0.16.0/Nat64";
+import Buffer "mo:base@0.16/Buffer";
+import Debug "mo:core@2.4/Debug";
+import Iter "mo:core@2.4/Iter";
+import Prelude "mo:core@2.4/Runtime";
+import Nat "mo:core@2.4/Nat";
+import Array "mo:core@2.4/Array";
+import Nat64 "mo:core@2.4/Nat64";
 
 import { test; suite } "mo:test";
 import Fuzz "mo:fuzz";
 import { MaxBpTree; Cmp } "mo:augmented-btrees";
-import MemoryRegion "mo:memory-region@1.3.2/MemoryRegion";
-import Itertools "mo:itertools@0.2.2/Iter";
+import MemoryRegion "mo:memory-region@1.5/MemoryRegion";
+import Itertools "mo:itertools@0.2/Iter";
 import MaxBpTreeMethods "mo:augmented-btrees/MaxBpTree/Methods";
 
 import MemoryBuffer "../../src/MemoryBuffer/Base";
@@ -25,7 +25,7 @@ let limit = 10_000;
 let order = Buffer.Buffer<Nat>(limit);
 let values = Buffer.Buffer<Nat>(limit);
 
-for (i in Iter.range(0, limit - 1)) {
+for (i in Nat.rangeInclusive(0, limit - 1)) {
   order.add(i);
 };
 
@@ -60,7 +60,7 @@ suite(
     test(
       "add() to Buffer",
       func() {
-        for (i in Iter.range(0, limit - 1)) {
+        for (i in Nat.rangeInclusive(0, limit - 1)) {
           MemoryBuffer.add(mbuffer, TypeUtils.Nat, i);
           values.add(i);
 
@@ -154,7 +154,7 @@ suite(
       "removeLast() from Buffer",
       func() {
 
-        for (i in Iter.range(0, limit - 1)) {
+        for (i in Nat.rangeInclusive(0, limit - 1)) {
           let expected = limit - i - 1;
 
           let removed = MemoryBuffer.removeLast(mbuffer, TypeUtils.Nat);
@@ -172,7 +172,7 @@ suite(
       func() {
         assert MemoryBuffer.size(mbuffer) == 0;
 
-        for (i in Iter.range(0, limit - 1)) {
+        for (i in Nat.rangeInclusive(0, limit - 1)) {
           MemoryBuffer.add(mbuffer, TypeUtils.Nat, i);
 
           let expected = i;
@@ -247,7 +247,7 @@ suite(
       func() {
         MemoryBuffer.shuffle(mbuffer);
 
-        for (i in Iter.range(0, limit - 1)) {
+        for (i in Nat.rangeInclusive(0, limit - 1)) {
           let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
         };
       },
@@ -259,7 +259,7 @@ suite(
         MemoryBuffer.sortUnstable<Nat>(mbuffer, TypeUtils.Nat, MemoryCmp.Nat);
 
         var prev = MemoryBuffer.get(mbuffer, TypeUtils.Nat, 0);
-        for (i in Iter.range(1, limit - 1)) {
+        for (i in Nat.rangeInclusive(1, limit - 1)) {
           let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
           assert prev <= n;
           prev := n;
@@ -278,9 +278,9 @@ suite(
     test(
       "addFromIter",
       func() {
-        let iter = Iter.range(0, limit - 1);
+        let iter = Nat.rangeInclusive(0, limit - 1);
         MemoryBuffer.addFromIter(mbuffer, TypeUtils.Nat, iter);
-        for (i in Iter.range(0, limit - 1)) {
+        for (i in Nat.rangeInclusive(0, limit - 1)) {
           let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
           assert n == i;
         };
@@ -302,7 +302,7 @@ suite(
       "items()",
       func() {
         let items = MemoryBuffer.items(mbuffer, TypeUtils.Nat);
-        for (i in Iter.range(0, limit - 1)) {
+        for (i in Nat.rangeInclusive(0, limit - 1)) {
           let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
           assert ?(i, n) == items.next();
         };
@@ -314,7 +314,7 @@ suite(
       func() {
         let mbuffer = MemoryBuffer.tabulate(TypeUtils.Nat, limit, func(i : Nat) : Nat = i);
         assert MemoryBuffer.size(mbuffer) == limit;
-        for (i in Iter.range(0, limit - 1)) {
+        for (i in Nat.rangeInclusive(0, limit - 1)) {
           let n = MemoryBuffer.get(mbuffer, TypeUtils.Nat, i);
           assert n == i;
         };
