@@ -1,0 +1,186 @@
+{
+  "version": 1,
+  "moc": "0.10.2",
+  "replica": "dfx",
+  "replicaVersion": "0.15.2",
+  "gc": "incremental",
+  "forceGc": true,
+  "results": [
+    [
+      "add():Buffer",
+      {
+        "instructions": 3971742,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 9008,
+        "rts_collector_instructions": 6549,
+        "rts_mutator_instructions": -13188,
+        "rts_heap_size": 9008
+      }
+    ],
+    [
+      "add():MemoryBuffer",
+      {
+        "instructions": 33209548,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 608968,
+        "rts_collector_instructions": 6565,
+        "rts_mutator_instructions": -9219,
+        "rts_heap_size": 608968
+      }
+    ],
+    [
+      "get():Buffer",
+      {
+        "instructions": 2502310,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 9008,
+        "rts_collector_instructions": 6541,
+        "rts_mutator_instructions": -9219,
+        "rts_heap_size": 9008
+      }
+    ],
+    [
+      "get():MemoryBuffer",
+      {
+        "instructions": 24159646,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 368956,
+        "rts_collector_instructions": 6549,
+        "rts_mutator_instructions": -9219,
+        "rts_heap_size": 368956
+      }
+    ],
+    [
+      "put() (new == prev):Buffer",
+      {
+        "instructions": 2883200,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 9008,
+        "rts_collector_instructions": 6541,
+        "rts_mutator_instructions": -9219,
+        "rts_heap_size": 9008
+      }
+    ],
+    [
+      "put() (new == prev):MemoryBuffer",
+      {
+        "instructions": 29516002,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 608908,
+        "rts_collector_instructions": 6549,
+        "rts_mutator_instructions": -9219,
+        "rts_heap_size": 608908
+      }
+    ],
+    [
+      "put() (new > prev):Buffer",
+      {
+        "instructions": 3574022,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 9012,
+        "rts_collector_instructions": 6541,
+        "rts_mutator_instructions": -9219,
+        "rts_heap_size": 9012
+      }
+    ],
+    [
+      "put() (new > prev):MemoryBuffer",
+      {
+        "instructions": 72453915,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 1225248,
+        "rts_collector_instructions": 558727,
+        "rts_mutator_instructions": -9219,
+        "rts_heap_size": 1225248
+      }
+    ],
+    [
+      "put() (new < prev):Buffer",
+      {
+        "instructions": 3224829,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 9012,
+        "rts_collector_instructions": 6541,
+        "rts_mutator_instructions": -9219,
+        "rts_heap_size": 9012
+      }
+    ],
+    [
+      "put() (new < prev):MemoryBuffer",
+      {
+        "instructions": 234861744,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 3340096,
+        "rts_collector_instructions": 6995240,
+        "rts_mutator_instructions": -9219,
+        "rts_heap_size": 3340096
+      }
+    ],
+    [
+      "remove():Buffer",
+      {
+        "instructions": 3691880416,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 49188,
+        "rts_collector_instructions": -197171,
+        "rts_mutator_instructions": -9219,
+        "rts_heap_size": 49188
+      }
+    ],
+    [
+      "remove():MemoryBuffer",
+      {
+        "instructions": 1567276643,
+        "rts_memory_size": 603979776,
+        "rts_total_allocation": 605025292,
+        "rts_collector_instructions": 72780175,
+        "rts_mutator_instructions": -8559,
+        "rts_heap_size": 4112428
+      }
+    ],
+    [
+      "insert():Buffer",
+      {
+        "instructions": 3283583290,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 154900,
+        "rts_collector_instructions": 254496,
+        "rts_mutator_instructions": -9219,
+        "rts_heap_size": 154900
+      }
+    ],
+    [
+      "insert():MemoryBuffer",
+      {
+        "instructions": 1397292299,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 603175820,
+        "rts_collector_instructions": 65063488,
+        "rts_mutator_instructions": -8559,
+        "rts_heap_size": 2040736
+      }
+    ],
+    [
+      "removeLast():Buffer",
+      {
+        "instructions": 5682643,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 57700,
+        "rts_collector_instructions": -240664,
+        "rts_mutator_instructions": -9219,
+        "rts_heap_size": 57700
+      }
+    ],
+    [
+      "removeLast():MemoryBuffer",
+      {
+        "instructions": 402754348,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 6582352,
+        "rts_collector_instructions": 603474,
+        "rts_mutator_instructions": -9219,
+        "rts_heap_size": 6582352
+      }
+    ]
+  ]
+}
