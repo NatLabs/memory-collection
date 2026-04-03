@@ -433,7 +433,7 @@ module Methods {
     RevIter.map(
       new_kv_block_address_iterator(btree, start_leaf, start_index, end_leaf, end_index),
       func(kv_block_address : Address) : Blob {
-        MemoryBlock.get_key_blob(btree, kv_block_address);
+        MemoryBlock.KV.get_key_blob(btree, kv_block_address);
       },
     );
   };
@@ -448,7 +448,7 @@ module Methods {
     RevIter.map(
       Methods.new_kv_block_address_iterator(btree, start_leaf, start_index, end_leaf, end_index),
       func(kv_block_address : Address) : Blob {
-        MemoryBlock.get_val_blob(btree, kv_block_address);
+        MemoryBlock.KV.get_val_blob(btree, kv_block_address);
       },
     )
   };

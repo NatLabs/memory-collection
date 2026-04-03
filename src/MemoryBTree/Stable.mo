@@ -255,36 +255,43 @@ module StableMemoryBTree {
         MemoryBTree.allocatedPages(state);
     };
 
+    /// @deprecated The lookup functionality is deprecated and will be removed in a future release.
     public func getId<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>, key : K) : ?Nat {
         let state = Migrations.getCurrentVersion(btree);
         MemoryBTree.getId(state, btree_utils, key);
     };
 
+    /// @deprecated The lookup functionality is deprecated and will be removed in a future release.
     public func nextId<K, V>(btree : StableMemoryBTree) : Nat {
         let state = Migrations.getCurrentVersion(btree);
         MemoryBTree.nextId(state);
     };
 
+    /// @deprecated The lookup functionality is deprecated and will be removed in a future release. Use `get()` instead.
     public func lookup<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>, id : Nat) : ?(K, V) {
         let state = Migrations.getCurrentVersion(btree);
         MemoryBTree.lookup(state, btree_utils, id);
     };
 
+    /// @deprecated The lookup functionality is deprecated and will be removed in a future release. Use `get()` instead.
     public func lookupKey<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>, id : Nat) : ?K {
         let state = Migrations.getCurrentVersion(btree);
         MemoryBTree.lookupKey(state, btree_utils, id);
     };
 
+    /// @deprecated The lookup functionality is deprecated and will be removed in a future release.
     public func lookupVal<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>, id : Nat) : ?V {
         let state = Migrations.getCurrentVersion(btree);
         MemoryBTree.lookupVal(state, btree_utils, id);
     };
 
+    /// @deprecated The reference counting feature is deprecated and will be removed in a future release.
     public func reference<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>, id : Nat) {
         let state = Migrations.getCurrentVersion(btree);
         MemoryBTree.reference(state, btree_utils, id);
     };
 
+    /// @deprecated The reference counting feature is deprecated and will be removed in a future release.
     public func getRefCount<K, V>(btree : StableMemoryBTree, btree_utils : BTreeUtils<K, V>, id : Nat) : ?Nat {
         let state = Migrations.getCurrentVersion(btree);
         MemoryBTree.getRefCount(state, btree_utils, id);

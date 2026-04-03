@@ -521,7 +521,7 @@ module {
         if (key_exists) {
             // existing key
             let ?existing_kv_address = Leaf.get_kv_address(btree, leaf_address, elem_index) else Runtime.trap("insert: accessed a null value");
-            let prev_val_blob = MemoryBlock.replace_val(btree, existing_kv_address, val_blob);
+            let prev_val_blob = MemoryBlock.KV.replace_val(btree, existing_kv_address, val_blob);
 
             Methods.update_leaf_to_root(btree, leaf_address, decrement_subtree_size);
 
@@ -536,7 +536,7 @@ module {
             key_blob;
         };
 
-        let elem_kv_address = MemoryBlock.store(btree, compressed_key, val_blob);
+        let elem_kv_address = MemoryBlock.KV.store(btree, compressed_key, val_blob);
 
         if (count < btree.node_capacity) {
 
@@ -631,6 +631,7 @@ module {
         null;
     };
 
+    /// @deprecated The reference counting feature is deprecated and will be removed in a future release.
     /// Increase the reference count of the entry with the given id if it exists.
     /// The reference count is used to track the number of entities depending on the entry.
     /// If the reference count is 0, the entry is deleted.
@@ -639,78 +640,86 @@ module {
     /// Prevents you from prematurely deleting an entry that is still being used.
     /// If you don't need this feature, you can use the library without calling this function.
     public func reference<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, id : UniqueId) {
-        if (not MemoryBlock.id_exists(btree, id)) return;
-        MemoryBlock.increment_ref_count(btree, id);
+        if (not MemoryBlock.KV.id_exists(btree, id)) return;
+        MemoryBlock.KV.increment_ref_count(btree, id);
     };
 
+    /// @deprecated The reference counting feature is deprecated and will be removed in a future release.
     /// Get the reference count of the entry with the given id.
     public func getRefCount<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, id : UniqueId) : ?Nat {
-        if (not MemoryBlock.id_exists(btree, id)) return null;
-        ?MemoryBlock.get_ref_count(btree, id);
+        if (not MemoryBlock.KV.id_exists(btree, id)) return null;
+        ?MemoryBlock.KV.get_ref_count(btree, id);
     };
 
+    /// @deprecated The lookup functionality is deprecated and will be removed in a future release. Use `get()` instead.
     public func lookup<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, id : UniqueId) : ?(K, V) {
         if (btree.is_prefix_compression_enabled) {
             Runtime.trap("lookup() is not supported when prefix compression is enabled. Use get() instead.");
         };
-        if (not MemoryBlock.id_exists(btree, id)) return null;
+        if (not MemoryBlock.KV.id_exists(btree, id)) return null;
 
-        let key_blob = MemoryBlock.get_key_blob(btree, id);
-        let val_blob = MemoryBlock.get_val_blob(btree, id);
+        let key_blob = MemoryBlock.KV.get_key_blob(btree, id);
+        let val_blob = MemoryBlock.KV.get_val_blob(btree, id);
         let kv = Methods.deserialize_kv_blobs<K, V>(btree_utils, key_blob, val_blob);
         ?kv;
     };
 
+    /// @deprecated The lookup functionality is deprecated and will be removed in a future release. Use `get()` instead.
     public func lookupKey<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, id : UniqueId) : ?K {
         if (btree.is_prefix_compression_enabled) {
             Runtime.trap("lookupKey() is not supported when prefix compression is enabled. Use get() instead.");
         };
-        if (not MemoryBlock.id_exists(btree, id)) return null;
+        if (not MemoryBlock.KV.id_exists(btree, id)) return null;
 
-        let key_blob = MemoryBlock.get_key_blob(btree, id);
+        let key_blob = MemoryBlock.KV.get_key_blob(btree, id);
         let key = btree_utils.key.blobify.from_blob(key_blob);
         ?key;
     };
 
+    /// @deprecated The lookup functionality is deprecated and will be removed in a future release.
     public func lookupVal<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, id : UniqueId) : ?V {
         // lookupVal doesn't need the key, so it works with prefix compression
-        if (not MemoryBlock.id_exists(btree, id)) return null;
+        if (not MemoryBlock.KV.id_exists(btree, id)) return null;
 
-        let val_blob = MemoryBlock.get_val_blob(btree, id);
+        let val_blob = MemoryBlock.KV.get_val_blob(btree, id);
         let val = btree_utils.value.blobify.from_blob(val_blob);
         ?val;
     };
 
+    /// @deprecated The lookup functionality is deprecated and will be removed in a future release.
     public func _lookup_mem_block<K, V>(btree : MemoryBTree, id : UniqueId) : ?(MemoryBlock, MemoryBlock) {
         if (btree.is_prefix_compression_enabled) {
             Runtime.trap("_lookup_mem_block() is not supported when prefix compression is enabled.");
         };
-        if (not MemoryBlock.id_exists(btree, id)) return null;
+        if (not MemoryBlock.KV.id_exists(btree, id)) return null;
 
-        let key_block = MemoryBlock.get_key_block(btree, id);
-        let val_block = MemoryBlock.get_val_block(btree, id);
+        let key_block = MemoryBlock.KV.get_key_block(btree, id);
+        let val_block = MemoryBlock.KV.get_val_block(btree, id);
 
         ?(key_block, val_block);
     };
 
+    /// @deprecated The lookup functionality is deprecated and will be removed in a future release.
     public func _lookup_key_blob<K, V>(btree : MemoryBTree, id : UniqueId) : ?Blob {
         if (btree.is_prefix_compression_enabled) {
             Runtime.trap("_lookup_key_blob() is not supported when prefix compression is enabled. The stored key is only a suffix.");
         };
-        if (not MemoryBlock.id_exists(btree, id)) return null;
+        if (not MemoryBlock.KV.id_exists(btree, id)) return null;
 
-        let key_blob = MemoryBlock.get_key_blob(btree, id);
+        let key_blob = MemoryBlock.KV.get_key_blob(btree, id);
         ?key_blob;
     };
 
+    /// @deprecated The lookup functionality is deprecated and will be removed in a future release.
     public func _lookup_val_blob<K, V>(btree : MemoryBTree, id : UniqueId) : ?Blob {
         // _lookup_val_blob doesn't need the key, so it works with prefix compression
-        if (not MemoryBlock.id_exists(btree, id)) return null;
+        if (not MemoryBlock.KV.id_exists(btree, id)) return null;
 
-        let val_blob = MemoryBlock.get_val_blob(btree, id);
+        let val_blob = MemoryBlock.KV.get_val_blob(btree, id);
         ?val_blob;
     };
 
+    /// @deprecated The lookup functionality is deprecated and will be removed in a future release.
     public func getId<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>, key : K) : ?UniqueId {
         let key_blob = btree_utils.key.blobify.to_blob(key);
 
@@ -731,8 +740,9 @@ module {
         opt_key_address;
     };
 
+    /// @deprecated The lookup functionality is deprecated and will be removed in a future release.
     public func nextId<K, V>(btree : MemoryBTree) : UniqueId {
-        MemoryBlock.next_id(btree);
+        MemoryBlock.KV.next_id(btree);
     };
 
     public func entries<K, V>(btree : MemoryBTree, btree_utils : BTreeUtils<K, V>) : RevIter<(K, V)> {
@@ -894,14 +904,14 @@ module {
 
         let ?prev_kv_address = Leaf.get_kv_address(btree, leaf_address, elem_index) else Runtime.trap("remove: prev_kv_address is null");
 
-        let prev_val_blob = MemoryBlock.get_val_blob(btree, prev_kv_address);
+        let prev_val_blob = MemoryBlock.KV.get_val_blob(btree, prev_kv_address);
         let prev_val = btree_utils.value.blobify.from_blob(prev_val_blob);
 
         // If the entry is being referenced by other entities,
         // we decrement the reference count and only delete the entry if the reference count is 0.
-        if (MemoryBlock.decrement_ref_count(btree, prev_kv_address) >= 1) return ?prev_val;
+        if (MemoryBlock.KV.decrement_ref_count(btree, prev_kv_address) >= 1) return ?prev_val;
 
-        MemoryBlock.remove(btree, prev_kv_address); // deallocate key and value blocks
+        MemoryBlock.KV.remove(btree, prev_kv_address); // deallocate key and value blocks
         Leaf.remove(btree, leaf_address, elem_index); // remove the deleted key-value pair from the leaf
         update_count(btree, btree.count - 1);
 

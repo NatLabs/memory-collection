@@ -220,25 +220,32 @@ module {
 
         /// Functions for Unique Id References to values in the BTree
 
+        /// @deprecated The lookup functionality is deprecated and will be removed in a future release.
         /// Get the id associated with a key
         public func getId(key : K) : ?Nat = BaseMemoryBTree.getId(state, btree_utils, key);
 
+        /// @deprecated The lookup functionality is deprecated and will be removed in a future release.
         /// Get the next available id that will be assigned to a new value
         public func nextId() : Nat = BaseMemoryBTree.nextId(state);
 
+        /// @deprecated The lookup functionality is deprecated and will be removed in a future release. Use `get()` instead.
         /// Get the entry associated with the given id
         public func lookup(id : Nat) : ?(K, V) = BaseMemoryBTree.lookup(state, btree_utils, id);
 
+        /// @deprecated The lookup functionality is deprecated and will be removed in a future release. Use `get()` instead.
         /// Get the key associated with the given id
         public func lookupKey(id : Nat) : ?K = BaseMemoryBTree.lookupKey(state, btree_utils, id);
 
+        /// @deprecated The lookup functionality is deprecated and will be removed in a future release.
         /// Get the value associated with the given id
         public func lookupVal(id : Nat) : ?V = BaseMemoryBTree.lookupVal(state, btree_utils, id);
 
+        /// @deprecated The reference counting feature is deprecated and will be removed in a future release.
         /// Reference a value by its id and increment the reference count
         /// Values will not be removed from the BTree until the reference count is back to zero
         public func reference(id : Nat) = BaseMemoryBTree.reference(state, btree_utils, id);
 
+        /// @deprecated The reference counting feature is deprecated and will be removed in a future release.
         /// Get the reference count associated with the given id
         public func getRefCount(id : Nat) : ?Nat = BaseMemoryBTree.getRefCount(state, btree_utils, id);
 

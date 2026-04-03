@@ -96,8 +96,6 @@ module MemoryBlock {
   ///      | prefix size     |  2           | prefix size                             |
   ///      | prefix blob     |  prefix size | serialized prefix                       |
   ///
-  /// ! ToDo: fix the bug in MaxBpTree with stale Max value updates and 
-  /// ! revert back to the data region (btree.data) instead of the branch region here (btree.branches)
   public module PrefixKey {
 
     public let SIZE_START = 0;
@@ -154,13 +152,15 @@ module MemoryBlock {
   //
   //      | Field           | Size (bytes) | Description                             |
   //      |-----------------|--------------|-----------------------------------------|
-  //      | reference count |  1           | reference count                         |
+  //      | reference count |  1           | @deprecated - reference count           |
   // ┌--- | value address   |  8           | address of value blob in current region |
   // |    | value size      |  4           | size of value blob                      |
   // |    | key size        |  2           | size of key blob                        |
   // |    | key blob        |  key size    | serialized key                          |
   // |
   // └--> value blob of 'value size' stored at this address
+
+  public module KV {
 
   let BLOCK_ENTRY_SIZE = 15;
 
@@ -344,5 +344,7 @@ module MemoryBlock {
     MemoryRegion.deallocate(btree.values, val_address, val_size);
     MemoryRegion.deallocate(btree.data, block_address, total);
   };
+
+  }; // end module KV
 
 };

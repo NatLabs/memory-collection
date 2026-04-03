@@ -14,16 +14,6 @@ The MemoryBTree's internal structure is very much like a tree.
 The branch nodes store pointers to other branch nodes or to leaf nodes.
 The leaf nodes store pointers to key-value blocks where the serialized keys are stored in the data region and values are stored separately in the values region.
 
-#### Referencing Key-Value Pairs
-
-Since pointers are stored in the leaf nodes instead of the actual values, we can reference the key-value pairs in other data-structures by using these pointers.
-A use case for this could be as indexes in databases or even just in another data-structure to avoid duplicating the referenced entry.
-Each pointer is a single `Nat` value so we expose them as unique ids that can be retrieved for each key and used later to lookup their values (i.e. `getId()`, `lookup()`).
-In addition, there is also a `reference()` function that allows you to increment the number of references an entry has.
-An entry can be referenced up to 255 times.
-Once an entry is referenced, each call to `remove()` will decrement the reference count by one and the entry will only be deleted when the reference count is zero.
-This is an optional feature so if `reference()` is not called, all entries would be deleted immediately when `remove()` is called.
-
 ### Usage Examples
 
 ```motoko
@@ -267,15 +257,15 @@ This region contains a 64 byte fixed header with information about the tree like
 
 - Key Block
 
-  The key block stores a reference counter for the entry, the address pointer to the value block, the serialized key and their size. 
+  The key block stores the address pointer to the value block, the serialized key and their size. The `REFERENCE_COUNT` field is deprecated and will be removed in a future release — it is retained in the layout for backward compatibility only.
 
-  | Field           | Offset | Size (In bytes) | Type  | Default Value | Description                               |
-  | --------------- | ------ | --------------- | ----- | ------------- | ----------------------------------------- |
-  | REFERENCE_COUNT | 0      | 1               | Nat8  | -             | Reference count                           |
-  | KEY_SIZE        | 1      | 2               | Nat16 | -             | Size of the key                           |
-  | VAL_POINTER     | 3      | 8               | Nat64 | -             | Pointer to the value in the values region |
-  | VALUE_SIZE      | 11     | 4               | Nat32 | -             | Size of the value                         |
-  | KEY_BLOB        | 15     | -               | Blob  | -             | Serialized key                            |
+  | Field                         | Offset | Size (In bytes) | Type  | Default Value | Description                               |
+  | ----------------------------- | ------ | --------------- | ----- | ------------- | ----------------------------------------- |
+  | REFERENCE_COUNT `@deprecated` | 0      | 1               | Nat8  | -             | Reference count                           |
+  | KEY_SIZE                      | 1      | 2               | Nat16 | -             | Size of the key                           |
+  | VAL_POINTER                   | 3      | 8               | Nat64 | -             | Pointer to the value in the values region |
+  | VALUE_SIZE                    | 11     | 4               | Nat32 | -             | Size of the value                         |
+  | KEY_BLOB                      | 15     | -               | Blob  | -             | Serialized key                            |
 
 #### Values Region
 

@@ -6,7 +6,7 @@ import Nat64 "mo:core@2.4/Nat64";
 import Region "mo:core@2.4/Region";
 import Buffer "mo:base@0.16/Buffer";
 import Text "mo:core@2.4/Text";
-import RBTree "mo:core@2.4/RBTree";
+import RBTree "mo:base@0.16/RBTree";
 
 import BTree "mo:stableheapbtreemap/BTree";
 import Bench "mo:bench";

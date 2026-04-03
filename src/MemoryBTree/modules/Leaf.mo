@@ -202,16 +202,16 @@ module Leaf {
 
       // Debug.print("key_address = " # debug_show key_address);
 
-      let key_block = MemoryBlock.get_key_block(btree, key_address);
-      let key_suffix = MemoryBlock.get_key_blob(btree, key_address);
+      let key_block = MemoryBlock.KV.get_key_block(btree, key_address);
+      let key_suffix = MemoryBlock.KV.get_key_blob(btree, key_address);
       // Prepend prefix to get full key
       let key_blob = Common.prepend_prefix(prefix_key, key_suffix);
       // Debug.print("key_blob = " # debug_show key_blob);
 
       leaf.2 [i] := ?(key_block);
 
-      let val_block = MemoryBlock.get_val_block(btree, key_address);
-      let val_blob = MemoryBlock.get_val_blob(btree, key_address);
+      let val_block = MemoryBlock.KV.get_val_block(btree, key_address);
+      let val_blob = MemoryBlock.KV.get_val_blob(btree, key_address);
       // Debug.print("val_blob = " # debug_show val_blob);
       leaf.3 [i] := ?(val_block);
       leaf.4 [i] := ?(key_blob, val_blob);
@@ -254,13 +254,13 @@ module Leaf {
   public func get_key_block(btree : MemoryBTree, leaf_address : Nat, i : Nat) : ?MemoryBlock {
     // assert Leaf.validate(btree, leaf_address);
     let ?id = get_kv_address(btree, leaf_address, i) else return null;
-    ?MemoryBlock.get_key_block(btree, id);
+    ?MemoryBlock.KV.get_key_block(btree, id);
   };
 
   public func get_val_block(btree : MemoryBTree, leaf_address : Nat, i : Nat) : ?MemoryBlock {
     // assert Leaf.validate(btree, leaf_address);
     let ?id = get_kv_address(btree, leaf_address, i) else return null;
-    ?MemoryBlock.get_val_block(btree, id);
+    ?MemoryBlock.KV.get_val_block(btree, id);
   };
 
   // Prefix key compression functions
@@ -313,7 +313,7 @@ module Leaf {
   /// Get the raw key blob without prefix (suffix only)
   public func get_key_blob_suffix(btree : MemoryBTree, leaf_address : Nat, i : Nat) : ?(Blob) {
     let ?id = get_kv_address(btree, leaf_address, i) else return null;
-    ?MemoryBlock.get_key_blob(btree, id);
+    ?MemoryBlock.KV.get_key_blob(btree, id);
   };
 
   /// Get the full key blob with prefix prepended
@@ -344,7 +344,7 @@ module Leaf {
     // assert Leaf.validate(btree, leaf_address);
 
     let ?id = get_kv_address(btree, leaf_address, index) else return null;
-    ?MemoryBlock.get_val_blob(btree, id);
+    ?MemoryBlock.KV.get_val_blob(btree, id);
   };
 
   public func set_kv_to_null(btree : MemoryBTree, leaf_address : Nat, i : Nat) {
@@ -359,14 +359,14 @@ module Leaf {
     // Look up the block address once and reuse it for both key and value reads.
     let ?id = get_kv_address(btree, leaf_address, index) else return null;
 
-    let key_suffix = MemoryBlock.get_key_blob(btree, id);
+    let key_suffix = MemoryBlock.KV.get_key_blob(btree, id);
     let prefix = switch (opt_cached_prefix) {
       case (null) get_prefix_key(btree, leaf_address);
       case (?cached) cached;
     };
     let key_blob = Common.prepend_prefix(prefix, key_suffix);
 
-    let val_blob = MemoryBlock.get_val_blob(btree, id);
+    let val_blob = MemoryBlock.KV.get_val_blob(btree, id);
     ?(key_blob, val_blob);
 
   };
@@ -647,14 +647,14 @@ module Leaf {
       };
 
       // Get the stored suffix and reconstruct full key
-      let suffix = MemoryBlock.get_key_blob(btree, kv_address);
+      let suffix = MemoryBlock.KV.get_key_blob(btree, kv_address);
 
       // Strip new prefix to get new suffix
       let new_suffix = Common.get_new_suffix(old_prefix, new_prefix, suffix);
 
       // Replace the key blob with the new suffix
       // Note: This may change the kv_address if size changes - we need to update the leaf pointer
-      switch (MemoryBlock.replace_key_blob(btree, kv_address, new_suffix)) {
+      switch (MemoryBlock.KV.replace_key_blob(btree, kv_address, new_suffix)) {
         case (?new_kv_address) {
           // Address changed, update leaf pointer
           put(btree, leaf_address, i, new_kv_address);
@@ -724,7 +724,7 @@ module Leaf {
   func get_key_suffix_at_split_virtual_index(btree: MemoryBTree, leaf_address: Nat, elem_index: Nat, new_entry_kv_address: Address, virtual_index : Nat) : Blob {
     let ?kv_address = get_kv_address_at_split_virtual_index(btree, leaf_address, elem_index, new_entry_kv_address, virtual_index) 
       else Runtime.trap("get_key_suffix_at_split_virtual_index: null kv_address at virtual index " # debug_show (virtual_index));
-    MemoryBlock.get_key_blob(btree, kv_address);
+    MemoryBlock.KV.get_key_blob(btree, kv_address);
   };
 
   /// Finds the split position that maximises total prefix-compression savings across both child leaves
@@ -850,9 +850,9 @@ module Leaf {
     Array.tabulate<(Blob, Nat8, Nat64, Nat32)>(count, func(j) {
       let i = start_index + j;
       let ?kv_address = get_kv_address(btree, source_leaf_address, i) else Runtime.trap("deallocate_kv_range_for_recompression: null kv_address at index " # debug_show i);
-      let old_suffix = MemoryBlock.get_key_blob(btree, kv_address);
+      let old_suffix = MemoryBlock.KV.get_key_blob(btree, kv_address);
       let new_suffix = Common.get_new_suffix(old_prefix, new_prefix, old_suffix);
-      let (ref_count, val_ptr, val_size) = MemoryBlock.deallocate_key(btree, kv_address);
+      let (ref_count, val_ptr, val_size) = MemoryBlock.KV.deallocate_key(btree, kv_address);
       (new_suffix, ref_count, val_ptr, val_size);
     });
   };
@@ -870,7 +870,7 @@ module Leaf {
   ) {
     var dest_i = dest_start_index;
     for ((new_suffix, ref_count, val_ptr, val_size) in saved.vals()) {
-      let new_kv_address = MemoryBlock.allocate_key(btree, new_suffix, ref_count, val_ptr, val_size);
+      let new_kv_address = MemoryBlock.KV.allocate_key(btree, new_suffix, ref_count, val_ptr, val_size);
       put(btree, dest_leaf_address, dest_i, new_kv_address);
       dest_i += 1;
     };
@@ -878,9 +878,9 @@ module Leaf {
 
   func recompress_key_suffix_at(btree: MemoryBTree, leaf_address : Nat, i : Nat, old_prefix : Blob, new_prefix : Blob) {
     let ?kv_addr = get_kv_address(btree, leaf_address, i) else Runtime.trap("recompress_key_suffix_at: null kv_address at index " # debug_show (i));
-    let old_suffix = MemoryBlock.get_key_blob(btree, kv_addr);
+    let old_suffix = MemoryBlock.KV.get_key_blob(btree, kv_addr);
     let new_suffix = Common.get_new_suffix(old_prefix, new_prefix, old_suffix);
-    switch (MemoryBlock.replace_key_blob(btree, kv_addr, new_suffix)) {
+    switch (MemoryBlock.KV.replace_key_blob(btree, kv_addr, new_suffix)) {
       case (?new_kv_addr) { put(btree, leaf_address, i, new_kv_addr); };
       case (null) {};
     };
