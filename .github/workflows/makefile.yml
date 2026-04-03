@@ -27,5 +27,17 @@ jobs:
       # - name: Detect warnings
       #   run: make check
 
-      - name: Run Tests
-        run: mops test
+      - name: Run Tests (MemoryBuffer)
+        run: mops test MemoryBuffer
+
+      - name: Run Tests (MemoryQueue)
+        run: mops test MemoryQueue
+
+      - name: Run Tests (MemoryBTree)
+        run: mops test MemoryBTree
+
+      - name: Run Tests (NodeCapacity)
+        run: mops test nodecapacity 
+
+      - name: Run Tests (PrefixCompression)
+        run: mops test PrefixCompression
