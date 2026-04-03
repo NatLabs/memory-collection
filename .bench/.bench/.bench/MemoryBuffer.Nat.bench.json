@@ -1,0 +1,595 @@
+{
+  "version": 1,
+  "moc": "0.14.9",
+  "replica": "dfx",
+  "replicaVersion": "0.28.0-beta.1",
+  "gc": "incremental",
+  "forceGc": true,
+  "results": [
+    [
+      "add():Buffer",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 4041900,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 10068,
+        "rts_collector_instructions": 6265,
+        "rts_mutator_instructions": -13063,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 10068,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "add():MemoryBuffer (with Blobify)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 39665733,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 1090100,
+        "rts_collector_instructions": 6271,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 1090100,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "add():MemoryBuffer (encode to candid)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 40468339,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 610092,
+        "rts_collector_instructions": 6265,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 610092,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "get():Buffer",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 2152480,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 10068,
+        "rts_collector_instructions": 6265,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 10068,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "get():MemoryBuffer (with Blobify)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 35800910,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 1010068,
+        "rts_collector_instructions": 6259,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 1010068,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "get():MemoryBuffer (encode to candid)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 24843657,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 370144,
+        "rts_collector_instructions": 6253,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 370144,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "put() (new == prev):Buffer",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 3333236,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 10068,
+        "rts_collector_instructions": 6259,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 10068,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "put() (new == prev):MemoryBuffer (with Blobify)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 26467168,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 1090072,
+        "rts_collector_instructions": 6253,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 1090072,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "put() (new == prev):MemoryBuffer (encode to candid)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 30470854,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 652652,
+        "rts_collector_instructions": 209531,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 652652,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "put() (new > prev):Buffer",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 3940553,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 10072,
+        "rts_collector_instructions": 621204,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 10072,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "put() (new > prev):MemoryBuffer (with Blobify)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 30545480,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 1247176,
+        "rts_collector_instructions": 6259,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 1247176,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "put() (new > prev):MemoryBuffer (encode to candid)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 192334383,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 2870804,
+        "rts_collector_instructions": 1421139,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 2870804,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "put() (new < prev):Buffer",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 3604604,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 10072,
+        "rts_collector_instructions": -608686,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 10072,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "put() (new < prev):MemoryBuffer (with Blobify)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 26469483,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 1090072,
+        "rts_collector_instructions": 6259,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 1090072,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "put() (new < prev):MemoryBuffer (encode to candid)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 143095915,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 1778704,
+        "rts_collector_instructions": 2065174,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 1778704,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "add() reallocation:Buffer",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 7568430,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 160092,
+        "rts_collector_instructions": 273337,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 160092,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "add() reallocation:MemoryBuffer (with Blobify)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 39669230,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 1090116,
+        "rts_collector_instructions": 6259,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 1090116,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "add() reallocation:MemoryBuffer (encode to candid)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 158885648,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 3309592,
+        "rts_collector_instructions": -211827,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 3309592,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "removeLast():Buffer",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 4037161,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 10068,
+        "rts_collector_instructions": 6265,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 10068,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "removeLast():MemoryBuffer (with Blobify)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 71400893,
+        "rts_memory_size": 33554432,
+        "rts_total_allocation": 1970056,
+        "rts_collector_instructions": -247322,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": -28541004,
+        "rts_reclaimed": 30511060
+      }
+    ],
+    [
+      "removeLast():MemoryBuffer (encode to candid)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 115589581,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 1341436,
+        "rts_collector_instructions": 178883,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 1341436,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "reverse():Buffer",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 2774863,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 10012,
+        "rts_collector_instructions": 6270,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 10012,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "reverse():MemoryBuffer (with Blobify)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 9384631,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 250068,
+        "rts_collector_instructions": 6276,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 250068,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "reverse():MemoryBuffer (encode to candid)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 9379703,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 250068,
+        "rts_collector_instructions": 6264,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 250068,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "remove():Buffer",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 3284849312,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 100244,
+        "rts_collector_instructions": -474197,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 100244,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "remove():MemoryBuffer (with Blobify)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 543280258,
+        "rts_memory_size": 167772160,
+        "rts_total_allocation": 200767576,
+        "rts_collector_instructions": 586017,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 2609080,
+        "rts_reclaimed": 198158496
+      }
+    ],
+    [
+      "remove():MemoryBuffer (encode to candid)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 552470853,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 200167700,
+        "rts_collector_instructions": -3322677,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 1861968,
+        "rts_reclaimed": 198305732
+      }
+    ],
+    [
+      "insert():Buffer",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 2853200261,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 155960,
+        "rts_collector_instructions": 265819,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 155960,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "insert():MemoryBuffer (with Blobify)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 464933475,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 202980876,
+        "rts_collector_instructions": 608173,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 4678368,
+        "rts_reclaimed": 198302508
+      }
+    ],
+    [
+      "insert():MemoryBuffer (encode to candid)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 485060898,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 202738612,
+        "rts_collector_instructions": 556821,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 4388592,
+        "rts_reclaimed": 198350020
+      }
+    ],
+    [
+      "shuffle():Buffer",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 5893,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 10012,
+        "rts_collector_instructions": 6259,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 10012,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "shuffle():MemoryBuffer (with Blobify)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 211259206,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 7888484,
+        "rts_collector_instructions": 6270,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 7888484,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "shuffle():MemoryBuffer (encode to candid)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 211255493,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 7888484,
+        "rts_collector_instructions": 6264,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 7888484,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "sortUnstable() #GenCmp:Buffer",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 98531874,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 2523744,
+        "rts_collector_instructions": -1541777,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": -30378756,
+        "rts_reclaimed": 32902500
+      }
+    ],
+    [
+      "sortUnstable() #GenCmp:MemoryBuffer (with Blobify)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 1665266455,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 57233680,
+        "rts_collector_instructions": 3049212,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 26481600,
+        "rts_reclaimed": 30752080
+      }
+    ],
+    [
+      "sortUnstable() #GenCmp:MemoryBuffer (encode to candid)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 1959348691,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 41806932,
+        "rts_collector_instructions": -2804529,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": -22499592,
+        "rts_reclaimed": 64306524
+      }
+    ],
+    [
+      "sortUnstable() #BlobCmp:Buffer",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 6104,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 10012,
+        "rts_collector_instructions": 6259,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 10012,
+        "rts_reclaimed": 0
+      }
+    ],
+    [
+      "sortUnstable() #BlobCmp:MemoryBuffer (with Blobify)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 666580495,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 14467936,
+        "rts_collector_instructions": -45921,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": -18434564,
+        "rts_reclaimed": 32902500
+      }
+    ],
+    [
+      "sortUnstable() #BlobCmp:MemoryBuffer (encode to candid)",
+      {
+        "rts_stable_memory_size": 0,
+        "stable_memory_size": 0,
+        "instructions": 13654,
+        "rts_memory_size": 0,
+        "rts_total_allocation": 10012,
+        "rts_collector_instructions": 6259,
+        "rts_mutator_instructions": -10592,
+        "rts_logical_stable_memory_size": 0,
+        "rts_heap_size": 10012,
+        "rts_reclaimed": 0
+      }
+    ]
+  ]
+}

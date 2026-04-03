@@ -1,24 +1,24 @@
 # Benchmark Results
 
 
-2026-04-03 23:16:33.973674981 UTC: [Canister lc6ij-px777-77777-aaadq-cai] 
+2026-04-03 23:22:33.215246986 UTC: [Canister lc6ij-px777-77777-aaadq-cai] 
 📊 Data Generation Stats:
-2026-04-03 23:16:33.973674981 UTC: [Canister lc6ij-px777-77777-aaadq-cai]    • Total keys generated: 10000
-2026-04-03 23:16:33.973674981 UTC: [Canister lc6ij-px777-77777-aaadq-cai]    • Unique prefixes: 107
-2026-04-03 23:16:33.973674981 UTC: [Canister lc6ij-px777-77777-aaadq-cai]    • Average prefix size: 28 chars
-2026-04-03 23:16:33.973674981 UTC: [Canister lc6ij-px777-77777-aaadq-cai]    • Average key size: 64 chars
-2026-04-03 23:16:33.973674981 UTC: [Canister lc6ij-px777-77777-aaadq-cai]    • Prefix reuse rate: 99%
-2026-04-03 23:16:33.973674981 UTC: [Canister lc6ij-px777-77777-aaadq-cai]    • Prefix truncate rate: 20%
-2026-04-03 23:16:33.973674981 UTC: [Canister lc6ij-px777-77777-aaadq-cai] 
-2026-04-03 23:16:39.046433271 UTC: [Canister lf7o5-cp777-77777-aaada-cai] 
+2026-04-03 23:22:33.215246986 UTC: [Canister lc6ij-px777-77777-aaadq-cai]    • Total keys generated: 10000
+2026-04-03 23:22:33.215246986 UTC: [Canister lc6ij-px777-77777-aaadq-cai]    • Unique prefixes: 107
+2026-04-03 23:22:33.215246986 UTC: [Canister lc6ij-px777-77777-aaadq-cai]    • Average prefix size: 28 chars
+2026-04-03 23:22:33.215246986 UTC: [Canister lc6ij-px777-77777-aaadq-cai]    • Average key size: 64 chars
+2026-04-03 23:22:33.215246986 UTC: [Canister lc6ij-px777-77777-aaadq-cai]    • Prefix reuse rate: 99%
+2026-04-03 23:22:33.215246986 UTC: [Canister lc6ij-px777-77777-aaadq-cai]    • Prefix truncate rate: 20%
+2026-04-03 23:22:33.215246986 UTC: [Canister lc6ij-px777-77777-aaadq-cai] 
+2026-04-03 23:22:37.990871332 UTC: [Canister lf7o5-cp777-77777-aaada-cai] 
 📊 Data Generation Stats:
-2026-04-03 23:16:39.046433271 UTC: [Canister lf7o5-cp777-77777-aaada-cai]    • Total keys generated: 10000
-2026-04-03 23:16:39.046433271 UTC: [Canister lf7o5-cp777-77777-aaada-cai]    • Unique prefixes: 107
-2026-04-03 23:16:39.046433271 UTC: [Canister lf7o5-cp777-77777-aaada-cai]    • Average prefix size: 28 chars
-2026-04-03 23:16:39.046433271 UTC: [Canister lf7o5-cp777-77777-aaada-cai]    • Average key size: 64 chars
-2026-04-03 23:16:39.046433271 UTC: [Canister lf7o5-cp777-77777-aaada-cai]    • Prefix reuse rate: 99%
-2026-04-03 23:16:39.046433271 UTC: [Canister lf7o5-cp777-77777-aaada-cai]    • Prefix truncate rate: 20%
-2026-04-03 23:16:39.046433271 UTC: [Canister lf7o5-cp777-77777-aaada-cai] 
+2026-04-03 23:22:37.990871332 UTC: [Canister lf7o5-cp777-77777-aaada-cai]    • Total keys generated: 10000
+2026-04-03 23:22:37.990871332 UTC: [Canister lf7o5-cp777-77777-aaada-cai]    • Unique prefixes: 107
+2026-04-03 23:22:37.990871332 UTC: [Canister lf7o5-cp777-77777-aaada-cai]    • Average prefix size: 28 chars
+2026-04-03 23:22:37.990871332 UTC: [Canister lf7o5-cp777-77777-aaada-cai]    • Average key size: 64 chars
+2026-04-03 23:22:37.990871332 UTC: [Canister lf7o5-cp777-77777-aaada-cai]    • Prefix reuse rate: 99%
+2026-04-03 23:22:37.990871332 UTC: [Canister lf7o5-cp777-77777-aaada-cai]    • Prefix truncate rate: 20%
+2026-04-03 23:22:37.990871332 UTC: [Canister lf7o5-cp777-77777-aaada-cai] 
 
 <details>
 
