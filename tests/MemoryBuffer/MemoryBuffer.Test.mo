@@ -256,7 +256,7 @@ suite(
     test(
       "sortUnstable",
       func() {
-        MemoryBuffer.sortUnstable<Nat>(mbuffer, TypeUtils.Nat, MemoryCmp.Nat);
+        MemoryBuffer.sortUnstable<Nat>(mbuffer, TypeUtils.Nat, MemoryCmp.Default);
 
         var prev = MemoryBuffer.get(mbuffer, TypeUtils.Nat, 0);
         for (i in Nat.rangeInclusive(1, limit - 1)) {

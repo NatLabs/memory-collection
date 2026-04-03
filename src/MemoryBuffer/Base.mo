@@ -710,11 +710,6 @@ module MemoryBuffer {
             let pivot_elem : Blob = _get_blob(mbuffer, pivot);
             cmp(elem, pivot_elem);
           };
-          case (#GenCmp(cmp)) {
-            let elem : A = get(mbuffer, buffer_utils, index);
-            let pivot_elem : A = get(mbuffer, buffer_utils, pivot);
-            cmp(elem, pivot_elem);
-          };
         };
 
         if (ord == -1) {

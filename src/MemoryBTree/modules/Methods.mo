@@ -50,7 +50,6 @@ module Methods {
           let count = Branch.get_count(btree, curr_address);
 
           let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Branch.binary_search<K, V>(btree, btree_utils, curr_address, cmp, key, count - 1);
             case (#BlobCmp(cmp)) {
 
               let key_blob = switch (opt_key_blob) {
@@ -97,7 +96,6 @@ module Methods {
           let count = Branch.get_count(btree, curr_address);
 
           let int_index = switch (btree_utils.key.cmp) {
-            case (#GenCmp(cmp)) Branch.binary_search<K, V>(btree, btree_utils, curr_address, cmp, key, count - 1);
             case (#BlobCmp(cmp)) {
 
               let key_blob = switch (opt_key_blob) {
@@ -218,14 +216,6 @@ module Methods {
           case (false) {
 
             switch (btree_utils.key.cmp) {
-              case (#GenCmp(cmp)) {
-                let ds_key = btree_utils.key.blobify.from_blob(key);
-                let ds_search_key = btree_utils.key.blobify.from_blob(search_key);
-
-                if (cmp(ds_key, ds_search_key) >= 0) {
-                  return get_node(child, key);
-                };
-              };
               case (#BlobCmp(cmp)) {
                 if (cmp(key, search_key) >= 0) {
                   return get_node(child, key);
@@ -240,13 +230,6 @@ module Methods {
             rank -= Leaf.get_count(btree, child);
 
             switch (btree_utils.key.cmp) {
-              case (#GenCmp(cmp)) {
-                let ds_key = btree_utils.key.blobify.from_blob(key);
-                let ds_search_key = btree_utils.key.blobify.from_blob(search_key);
-                if (cmp(ds_key, ds_search_key) >= 0) {
-                  return child;
-                };
-              };
               case (#BlobCmp(cmp)) {
                 if (cmp(key, search_key) >= 0) {
                   return child;
@@ -811,7 +794,6 @@ module Methods {
                 let prev_key = btree_utils.key.blobify.from_blob(prev_key_blob);
                 let key = btree_utils.key.blobify.from_blob(key_blob);
                 let cmp_result = switch (btree_utils.key.cmp) {
-                  case (#GenCmp(cmp)) cmp(prev_key, key);
                   case (#BlobCmp(cmp)) cmp(prev_key_blob, key_blob);
                 };
                 if (cmp_result >= 0) {

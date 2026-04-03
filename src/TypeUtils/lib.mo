@@ -119,16 +119,6 @@ module {
 
     public module Legacy {
 
-        public let Nat : TypeUtils<Nat> = {
-            blobify = Blobify.Legacy.Nat;
-            cmp = MemoryCmp.Legacy.Nat;
-        };
-
-        public let Int : TypeUtils<Int> = {
-            blobify = Blobify.Int;
-            cmp = MemoryCmp.Legacy.Int;
-        };
-
         public module BigEndian {
             public let Nat : TypeUtils<Nat> = {
                 blobify = Blobify.Legacy.BigEndian.Nat;

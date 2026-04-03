@@ -22,7 +22,7 @@ import Leaf "../../../src/MemoryBTree/modules/Leaf";
 import Methods "../../../src/MemoryBTree/modules/Methods";
 
 let legacy_btree = MemoryBTree.new(?32);
-let legacy_btree_utils = MemoryBTree.createUtils(TypeUtils.Legacy.BigEndian.Nat, TypeUtils.Legacy.Nat);
+let legacy_btree_utils = MemoryBTree.createUtils(TypeUtils.Legacy.BigEndian.Nat, TypeUtils.Legacy.BigEndian.Nat);
 
 let btree = MemoryBTree.new(?32);
 let btree_utils = MemoryBTree.createUtils(TypeUtils.Nat, TypeUtils.Nat);

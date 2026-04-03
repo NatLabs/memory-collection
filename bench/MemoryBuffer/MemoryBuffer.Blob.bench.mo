@@ -39,7 +39,6 @@ module {
       "remove()",
       "insert()",
       "shuffle()",
-      "sortUnstable() #GenCmp",
       "shuffle()",
       "sortUnstable() #BlobCmp",
     ]);
@@ -121,9 +120,7 @@ module {
         case ("Buffer", "reverse()") {
           Buffer.reverse(buffer);
         };
-        case ("Buffer", "sortUnstable() #GenCmp") {
-          buffer.sort(Blob.compare);
-        };
+
         case ("Buffer", "sortUnstable() #BlobCmp") {};
         case ("Buffer", "shuffle()") {
           // fuzz.buffer.shuffle(buffer);
@@ -185,9 +182,7 @@ module {
         case ("MemoryBuffer", "reverse()") {
           MemoryBuffer.reverse(mbuffer);
         };
-        case ("MemoryBuffer", "sortUnstable() #GenCmp") {
-          MemoryBuffer.sortUnstable(mbuffer, TypeUtils.Blob, #GenCmp(Cmp.Blob));
-        };
+
         case ("MemoryBuffer", "shuffle()") {
           MemoryBuffer.shuffle(mbuffer);
         };

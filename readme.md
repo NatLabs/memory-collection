@@ -46,11 +46,10 @@ To help with this we have provided a set of modules that can be imported and use
   }
 ```
 
-- [MemoryCmp](./src/TypeUtils/MemoryCmp.mo): A module that provides functions for comparing two elements of the same type and retrieving their order. The comparison function can either be a `#BlobCmp` which compares the serialized version of the types, or it could be a `#GenCmp` which compares the types in their given data type, which often involves deserializing the stored `Blob` before comparing it.
+- [MemoryCmp](./src/TypeUtils/MemoryCmp.mo): A module that provides functions for comparing two elements of the same type and retrieving their order. The comparison function is a `#BlobCmp` which compares the serialized `Blob` representations of the types directly.
 
 ```motoko
   public type MemoryCmp<T> = {
-    #GenCmp: (T, T) -> Int8;
     #BlobCmp: (Blob, Blob) -> Int8;
   }
 ```

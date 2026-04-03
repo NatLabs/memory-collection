@@ -1,54 +1,19 @@
 /// ## MemoryCmp
 ///
-/// A module that defines a variant with two different comparison functions.
+/// A module that defines a comparison function variant for use with stable memory collections.
 
 import Prim "mo:prim";
 
-import Blob "mo:core@2.4/Blob";
-
-import Int8Cmp "Int8Cmp";
 module {
+  /// A comparison function over serialized `Blob` values.
   public type MemoryCmp<A> = {
-    #GenCmp : (A, A) -> Int8;
     #BlobCmp : (Blob, Blob) -> Int8;
   };
 
-  public let Default = #BlobCmp(Int8Cmp.Blob);
-
-  public let Nat = #GenCmp(Int8Cmp.Nat);
-
-  public let Nat8 = #GenCmp(Int8Cmp.Nat8);
-  public let Nat16 = #GenCmp(Int8Cmp.Nat16);
-  public let Nat32 = #GenCmp(Int8Cmp.Nat32);
-  public let Nat64 = #GenCmp(Int8Cmp.Nat64);
-
-  public let Int = #GenCmp(Int8Cmp.Int);
-
-  public let Int8 = #GenCmp(Int8Cmp.Int8);
-  public let Int16 = #GenCmp(Int8Cmp.Int16);
-  public let Int32 = #GenCmp(Int8Cmp.Int32);
-  public let Int64 = #GenCmp(Int8Cmp.Int64);
-
-  public let Float = #GenCmp(Int8Cmp.Float);
-
-  public let Blob = #BlobCmp(Prim.blobCompare);
-
-  public let Bool = #GenCmp(Int8Cmp.Bool);
-
-  public let Char = #GenCmp(Int8Cmp.Char);
-
-  public let Text = #GenCmp(Int8Cmp.Text);
-
-  public let Principal = #GenCmp(Int8Cmp.Principal);
-
-  public let Time = Int;
+  public let Default = #BlobCmp(Prim.blobCompare);
 
   public module Legacy {
-
-    public let Nat = #GenCmp(Int8Cmp.Nat);
-    public let Int = #GenCmp(Int8Cmp.Int);
-
-    public module BigEndian {
+     public module BigEndian {
       public let Nat = #BlobCmp(
         func(a : Blob, b : Blob) : Int8 {
           if (a.size() > b.size()) return 1;

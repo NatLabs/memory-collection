@@ -183,8 +183,7 @@ Benchmarking the performance with 10k `Nat` entries
 
 - **put()** (new == prev) - updating elements in the buffer where number of bytes of the new element is equal to the number of bytes of the previous element
 - **put() (new > prev)** - updating elements in the buffer where number of bytes of the new element is greater than the number of bytes of the previous element
-- **sortUnstable() - #GenCmp** - quicksort - sorting elements by deserializing them to their original type before comparing them
-- **sortUnstable() - #BlobCmp** - sorting elements in their serialized form. Requires that the elements can be orderable in their serialized form.
+- **sortUnstable()** - sorting elements in their serialized form. Requires that the elements can be orderable in their serialized form.
 
 **Instructions**
 
@@ -202,9 +201,8 @@ Benchmarking the performance with 10k `Nat` entries
 | reverse()               |     3_120_910 |                  13_794_169 |                      13_788_413 |
 | remove()                | 3_682_590_903 |                 383_682_557 |                     380_509_119 |
 | insert()                | 3_264_760_420 |                 642_877_048 |                     357_788_879 |
-| sortUnstable() #GenCmp  |   101_270_997 |               2_404_559_478 |                   2_151_767_821 |
 | shuffle()               |         ----- |                 219_269_838 |                     219_265_425 |
-| sortUnstable() #BlobCmp |         ----- |                 988_375_542 |                          ------ |
+| sortUnstable()          |         ----- |                 988_375_542 |                          ------ |
 
 **Heap**
 
@@ -220,10 +218,9 @@ Benchmarking the performance with 10k `Nat` entries
 | reverse()               |     8_904 |                     248_960 |                         248_960 |
 | remove()                |    99_136 |                   3_502_272 |                       3_017_012 |
 | insert()                |   154_852 |                 -11_315_348 |                      10_800_952 |
-| sortUnstable() #GenCmp  | 2_520_996 |                   3_402_300 |                     -24_828_540 |
 | shuffle()               |     ----- |                   7_887_376 |                       7_887_376 |
-| sortUnstable() #BlobCmp |     ----- |                  14_785_428 |                           ----- |
-
+| sortUnstable()          |     ----- |                  14_785_428 |                           ----- |
+ 
 > Generate benchmarks by running `mops bench` in the project directory.
 
 #### Notes and Observations
